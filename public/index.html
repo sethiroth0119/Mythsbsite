@@ -68,7 +68,10 @@ const { useState, useRef, useEffect } = React;
 // Where the PLAY NOW / LOGIN buttons send players. Set this to wherever your
 // game's deploy lives. Append `?mode=signup` or `?mode=signin` so the auth
 // gate inside the game opens in the right state.
-const GAME_URL = "./Files/Humanity Contain-gambit.html";
+// 🚀 PRODUCTION GAME URLs — both sites are on Cloudflare Pages sharing the
+// same Supabase backend, so sign-in on the marketing site carries through
+// to the game. `?mode=` tells the in-game auth gate which card to open first.
+const GAME_URL  = "https://playmythicspellbook.com/";
 const PLAY_URL  = `${GAME_URL}?mode=signup`;
 const LOGIN_URL = `${GAME_URL}?mode=signin`;
 
