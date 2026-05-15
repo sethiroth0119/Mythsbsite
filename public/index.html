@@ -89,6 +89,15 @@ const cards = [
   { id: 5, name: "Tar Pit", type: "Spell · Slow", faction: "Mage", rarity: "Common", cost: 1, hp: null, atk: null, def: null, mag: null, res: null, spd: null, frame: "silver", frameColor: "#1e3a8a", glowColor: "rgba(60, 60, 80, 0.7)", flavor: "Anomalous tar. Site-19 containment failure. Run.", effect: "Spell — Slows the target enemy for 3 turns. Slow shortens their attack range, drops accuracy by 15%, and reduces movement by 1. No damage; pure tempo denial.", element: "Shadow + Earth", power: 55, kalon: false, image: "./assets/artwork/Tar Pit.png" },
 ];
 
+// Two cards hand-picked to front the "A Community Built for the Future"
+// section — the creator at the desk and the survivor who rose from the ruins.
+// They embody the section's message (the kid who starts with a game; the
+// future they grow into) rather than the meta-flagship Mythics.
+const COMMUNITY_CARDS = [
+  { id: 'c-jay', name: "Jay", type: "Survivor · Creator", faction: "Rogue", rarity: "Rare", cost: 3, hp: 26, atk: 12, def: 9, mag: 16, res: 12, spd: 2, frame: "blue", frameColor: "#1e3a8a", glowColor: "rgba(96, 165, 250, 0.7)", flavor: "Started with a game. Built a whole world from it.", effect: "Creator — At the start of your turn, draw 1 extra card if you have fewer cards in hand than your opponent. Every ally that survives a match with Jay on the field gains permanent +1 to a random stat.", element: "Shadow + Storm", power: 78, kalon: false, image: "./assets/artwork/Jay.webp" },
+  { id: 'c-grey', name: "Grey Dragon, Dragonic Knight", type: "Mythic Hero · Dragonkin", faction: "Dragonkin", rarity: "Mythic", cost: 7, hp: 54, atk: 26, def: 22, mag: 14, res: 18, spd: 2, frame: "gold", frameColor: "#a16207", glowColor: "rgba(212, 175, 55, 0.7)", flavor: "Ambition gave him wings. The ruins gave him a reason.", effect: "Ascended — Flying (moves over walls and traps). +3 ATK while below half HP. Once per match, unfurls his wings: gains +2 movement and his next attack hits the entire enemy front line.", element: "Shadow + Fire", power: 93, kalon: true, image: "./assets/artwork/Grey Dragon Dragonic Knight.png" },
+];
+
 const SUPPLY_CRATES = [
   { name: "Apprentice Codex", tier: "Starter", price: " 200 / $4.99", cards: 8, rarity: { common: 6, uncommon: 1, rare: 1 }, color: "from-stone-700 to-stone-900", accent: "border-orange-600", description: "Eight-card primer pack. Common-tier units, spells, and traps to build your first deck.", factions: ["Random"], threat: "STARTER" },
   { name: "Survivor's Cache", tier: "Standard", price: " 500 / $14.99", cards: 8, rarity: { common: 5, uncommon: 2, rare: 1 }, color: "from-orange-800 to-red-900", accent: "border-orange-400", description: "Balanced rarity weights. Hero drops enabled — chance for a brand-new deck core.", factions: ["All 39"], threat: "STANDARD", featured: true },
@@ -3298,7 +3307,7 @@ function App() {
           <div id="items"><HeldItems /></div>
           <div id="coliseum"><Coliseum /></div>
           <div id="career"><BuildACareer /></div>
-          <div id="community"><CommunityFuture cardA={cards[0]} cardB={cards[1]} onCardClick={setSelectedCard} /></div>
+          <div id="community"><CommunityFuture cardA={COMMUNITY_CARDS[0]} cardB={COMMUNITY_CARDS[1]} onCardClick={setSelectedCard} /></div>
           <div id="packs"><StarterPacks /></div>
           <div id="gallery"><Gallery onCardClick={setSelectedCard} onAddToDeck={handleAddToDeck} /></div>
           <JoinResistance />
