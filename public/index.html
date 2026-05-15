@@ -737,10 +737,13 @@ const Navbar = ({ onNavigate, deckCount, survivors, loyalFaction, isSignedIn, di
 // ===== HERO =====
 const Hero = ({ featuredCard, onCardClick, onScrollTo }) => (
   <section className="relative min-h-screen flex items-center justify-center pt-32 px-6 overflow-hidden">
-    {/*  Cosmic MP4 loop as the hero background. We use <video> rather than
-        a GIF/CSS background because the MP4 is ~16× smaller (7.9MB vs 125MB)
-        AND animates more smoothly. Muted + autoplay + playsInline are required
-        for modern browsers to auto-start the video without user interaction. */}
+    {/*  Cosmic goddess GIF as the hero background. object-cover + full
+        width/height guarantees the art ALWAYS fills the entire hero
+        section edge-to-edge — it scales up and center-crops rather than
+        letterboxing, so there are never black bars on any aspect ratio.
+        objectPosition centered keeps Abraxas framed as the focal point.
+        The .mp4 is kept as a layered fallback <video> behind the GIF so
+        if the GIF is missing the section still animates. */}
     <video
       autoPlay
       muted
@@ -752,6 +755,14 @@ const Hero = ({ featuredCard, onCardClick, onScrollTo }) => (
     >
       <source src="./assets/background/Backgrounds/hero-cosmic.mp4" type="video/mp4" />
     </video>
+    <img
+      src="./assets/background/Backgrounds/hero-cosmic.gif"
+      alt=""
+      aria-hidden="true"
+      className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+      style={{ zIndex: 0, objectPosition: 'center center' }}
+      onError={(e) => { e.currentTarget.style.display = 'none'; }}
+    />
 
     {/* Readability overlay — strongest dim on the left (where text sits),
         lighter on the right (where the spotlight card floats). Vignette + a
