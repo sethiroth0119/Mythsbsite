@@ -1565,70 +1565,49 @@ const About = () => (
 // (PNG dropped at assets/artwork/subclasses/<name>.png) plus a short
 // pitch and the three signature moves the subclass adds to the learnset.
 const Subclasses = () => {
-  // Six representative subclass paths — one per starter hero. Each portrait
-  // came in as a "survivor" reimagining of a classic fantasy archetype, so
-  // the copy leans into the post-apocalyptic grindhouse tone the rest of
-  // the site uses. Spaces in source filenames are URL-encoded.
+  // Four signature subclass paths, each backed by full-bleed portrait art
+  // dropped at public/assets/artwork/subclasses/<Name>.png. The cards lean
+  // into the gothic-fantasy grindhouse tone the rest of the site uses.
   const paths = [
-    {
-      name: 'Stormbringer',
-      hero: 'Aria',
-      tag: 'Long Range · Pure Damage · Closer',
-      art: 'assets/artwork/heor%20Survivor%201.png',
-      pitch: 'Lightning channeled down a barrel of pure intent. You hit them across the lane before they know you\'re in it. They don\'t get a second turn.',
-      moves: ['Lightning (Lv 16)', 'Fireball (Lv 20)', 'Arcane Blast (Lv 24)'],
-      accent: 'from-yellow-700 to-orange-900',
-      glow: 'yellow-400',
-    },
-    {
-      name: 'Berserker',
-      hero: 'Thane',
-      tag: 'Rage · Cleave · Finisher',
-      art: 'assets/artwork/hero%20survior%202.png',
-      pitch: 'No technique. No mercy. Every swing of the spiked club is the last one your enemy ever sees — and you\'ve already lined up the next.',
-      moves: ['Cleave (Lv 16)', 'Smash (Lv 20)', 'Rallying Cry (Lv 24)'],
-      accent: 'from-red-700 to-orange-900',
-      glow: 'red-400',
-    },
-    {
-      name: 'Diviner',
-      hero: 'Lyra',
-      tag: 'Foresight · Hone · Control',
-      art: 'assets/artwork/heor%20Survivor%203.png',
-      pitch: 'You don\'t cast spells — you see the spell already cast. The grimoire reads YOU, not the other way around. Breathe through the turn nobody else survives.',
-      moves: ['Focus (Lv 16)', 'Sharpen (Lv 20)', 'Inner Reverie (Lv 24)'],
-      accent: 'from-purple-700 to-violet-900',
-      glow: 'purple-400',
-    },
     {
       name: 'Shadowdancer',
       hero: 'Vex',
       tag: 'Speed · Bleed · Finisher',
-      art: 'assets/artwork/heor%20Survivor%204.png',
-      pitch: 'Twin blades. Hood up. They never saw your face — only the wound that kept bleeding while you slipped three tiles away.',
+      art: 'assets/artwork/subclasses/Shadowdancer.png',
+      pitch: 'Twin blades carved from the void. Every strike opens a wound that keeps bleeding — and you\'re already three tiles away before the body falls.',
       moves: ['Quick Jab (Lv 16)', 'Rending Slash (Lv 20)', 'Trip Strike (Lv 24)'],
-      accent: 'from-stone-700 to-slate-900',
-      glow: 'stone-400',
+      accent: 'from-purple-700 to-violet-900',
+      glow: 'purple-400',
     },
     {
       name: 'Bastion',
       hero: 'Cedric',
       tag: 'Wall · Stun · Aura',
-      art: 'assets/artwork/hero%20survior%205.png',
-      pitch: 'The line breaks where you don\'t stand. Riot shield on one side, mace on the other, and a voice that turns rookies into veterans mid-swing.',
+      art: 'assets/artwork/subclasses/Bastion.png',
+      pitch: 'The line breaks where you don\'t stand. Shield allies. Bash skulls. Lead the front rank with a voice that turns rookies into veterans mid-swing.',
       moves: ['Divine Shield (Lv 16)', 'Shield Bash (Lv 20)', 'Rallying Cry (Lv 24)'],
       accent: 'from-blue-700 to-cyan-900',
       glow: 'blue-400',
     },
     {
-      name: 'Plaguebearer',
-      hero: 'Zarra',
-      tag: 'Infection · DoT · Slow Grind',
-      art: 'assets/artwork/hero%20survior%207.png',
-      pitch: 'You ARE the contagion. Spread spores. Spread fear. Halve their stats and watch the field rot around you while your prey wears itself out.',
-      moves: ['Spore Cloud (Lv 16)', 'Drain Life (Lv 20)', 'Hive Call (Lv 24)'],
-      accent: 'from-emerald-800 to-lime-900',
-      glow: 'emerald-400',
+      name: 'Diviner',
+      hero: 'Lyra',
+      tag: 'Foresight · Hone · Control',
+      art: 'assets/artwork/subclasses/Diviner.png',
+      pitch: 'You don\'t cast spells — you see the spell already cast. Focus the magic, sharpen the ally about to swing, breathe through the turn nobody else survives.',
+      moves: ['Focus (Lv 16)', 'Sharpen (Lv 20)', 'Inner Reverie (Lv 24)'],
+      accent: 'from-sky-700 to-indigo-900',
+      glow: 'sky-400',
+    },
+    {
+      name: 'Stormbringer',
+      hero: 'Aria',
+      tag: 'Long Range · Pure Damage · Closer',
+      art: 'assets/artwork/subclasses/Stormbringer.png',
+      pitch: 'Lightning, fire, arcane fury — funneled down a barrel of pure intent. You hit them before they know you\'re in the lane. They don\'t get a second turn.',
+      moves: ['Lightning (Lv 16)', 'Fireball (Lv 20)', 'Arcane Blast (Lv 24)'],
+      accent: 'from-yellow-700 to-orange-900',
+      glow: 'yellow-400',
     },
   ];
   return (
@@ -1649,7 +1628,7 @@ const Subclasses = () => {
           </p>
         </div>
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
           {paths.map((p, i) => (
             <div key={p.name} className="group relative bg-black/70 border border-orange-600/30 hover:border-orange-400/70 rounded-lg overflow-hidden transition shadow-xl">
               <DuctTape rotation={i % 2 === 0 ? -3 : 3} className="-top-2 -left-2" />
