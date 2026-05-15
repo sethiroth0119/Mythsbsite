@@ -91,7 +91,7 @@ const cards = [
 
 const SUPPLY_CRATES = [
   { name: "Apprentice Codex", tier: "Starter", price: " 200 / $4.99", cards: 8, rarity: { common: 6, uncommon: 1, rare: 1 }, color: "from-stone-700 to-stone-900", accent: "border-orange-600", description: "Eight-card primer pack. Common-tier units, spells, and traps to build your first deck.", factions: ["Random"], threat: "STARTER" },
-  { name: "Wielder's Cache", tier: "Standard", price: " 500 / $14.99", cards: 8, rarity: { common: 5, uncommon: 2, rare: 1 }, color: "from-orange-800 to-red-900", accent: "border-orange-400", description: "Balanced rarity weights. Hero drops enabled — chance for a brand-new deck core.", factions: ["All 39"], threat: "STANDARD", featured: true },
+  { name: "Survivor's Cache", tier: "Standard", price: " 500 / $14.99", cards: 8, rarity: { common: 5, uncommon: 2, rare: 1 }, color: "from-orange-800 to-red-900", accent: "border-orange-400", description: "Balanced rarity weights. Hero drops enabled — chance for a brand-new deck core.", factions: ["All 39"], threat: "STANDARD", featured: true },
   { name: "Mythic Spellbook", tier: "Premium", price: " 2000 / $49.99", cards: 12, rarity: { common: 4, uncommon: 4, rare: 3, mythic: 1 }, color: "from-red-900 to-black", accent: "border-red-500", description: "Twelve cards. One Mythic guaranteed (Bahamut, Zarra, Divine Rain, Abraxas, more). Held items + Kalon-capable heroes in the pool.", factions: ["All 39"], threat: "PREMIUM" },
 ];
 
@@ -646,7 +646,7 @@ const Navbar = ({ onNavigate, deckCount, survivors, loyalFaction, isSignedIn, di
             FACTION: <span className="font-bold">{loyalFaction.toUpperCase()}</span>
           </span>
         )}
-        <span>WIELDERS ONLINE: <span className="text-orange-300 font-bold">{survivors.toLocaleString()}</span></span>
+        <span>SURVIVORS ONLINE: <span className="text-orange-300 font-bold">{survivors.toLocaleString()}</span></span>
       </div>
     </div>
 
@@ -1303,7 +1303,7 @@ const JoinResistance = () => {
             {/* Counter */}
             <div className="inline-flex items-center gap-6 mb-10 px-8 py-4 bg-black/60 border border-orange-500/40 rounded">
               <div className="text-left">
-                <div className="text-stone-400 text-[10px] tracking-widest uppercase">Active Wielders</div>
+                <div className="text-stone-400 text-[10px] tracking-widest uppercase">Active Survivors</div>
                 <div className="text-orange-300 text-3xl font-bold font-mono" style={{ animation: 'flicker 4s infinite' }}>
                   20,841
                 </div>
@@ -1975,7 +1975,7 @@ const BuildACareer = () => {
 // into the player's account. Prices follow the in-game cost (in  Cinders).
 const WEBSITE_PACK_CATALOG = [
   { id: 'starter',   name: 'Apprentice Codex',  icon: '', cost: 200,  sovCost: 20,  cards: 8,  rarity: 'Common-weighted',  desc: 'Eight-card primer pack. Common-tier units, spells, and traps.', accent: '#ff9e64' },
-  { id: 'standard',  name: "Wielder's Cache",   icon: '', cost: 500,  sovCost: 50,  cards: 8,  rarity: 'Balanced',         desc: 'Hero drops enabled. Chance for a brand-new deck core.',          accent: '#ffb070', featured: true },
+  { id: 'standard',  name: "Survivor's Cache",   icon: '', cost: 500,  sovCost: 50,  cards: 8,  rarity: 'Balanced',         desc: 'Hero drops enabled. Chance for a brand-new deck core.',          accent: '#ffb070', featured: true },
   { id: 'premium',   name: 'Mythic Spellbook',  icon: '', cost: 2000, sovCost: 200, cards: 12, rarity: '1× Mythic guaranteed', desc: 'Twelve cards. One Mythic guaranteed. Held items + Kalon heroes.', accent: '#e87a7a' },
 ];
 
@@ -1984,7 +1984,7 @@ const WEBSITE_PACK_CATALOG = [
 // `handleBuyAza` flow with Stripe Checkout / Apple Pay / etc. before going live.
 const AZA_COIN_PACKAGES = [
   { id: 'aza_small',  name: 'Pocket Pouch',      usd: 4.99,   aza: 100,  bonus: 0,  accent: '#88c8e0' },
-  { id: 'aza_medium', name: 'Wielder\'s Purse',  usd: 19.99,  aza: 525,  bonus: 5,  accent: '#a0a8ff', featured: true },
+  { id: 'aza_medium', name: 'Survivor\'s Purse',  usd: 19.99,  aza: 525,  bonus: 5,  accent: '#a0a8ff', featured: true },
   { id: 'aza_large',  name: 'Royal Cache',       usd: 49.99,  aza: 1650, bonus: 10, accent: '#b888ff' },
   { id: 'aza_huge',   name: 'Sovereign Vault',   usd: 149.99, aza: 5500, bonus: 20, accent: '#ffd166' },
 ];
@@ -2187,7 +2187,7 @@ const PlayerHub = ({ client, session, profile, refreshProfile, onSignedOut }) =>
   const heroes    = (profile && profile.heroes) || {};
   const heroCount = Object.keys(heroes).length;
   const topHero   = Object.entries(heroes).reduce((best, [id, h]) => (((h && h.level) || 0) > ((best.h && best.h.level) || 0) ? { id, h } : best), { id: null, h: null });
-  const displayName = profile && profile.display_name ? profile.display_name : (session && session.user && session.user.email ? session.user.email.split('@')[0] : 'Wielder');
+  const displayName = profile && profile.display_name ? profile.display_name : (session && session.user && session.user.email ? session.user.email.split('@')[0] : 'Survivor');
 
   // ===== Favorite Hero — most wins from profile.heroes =====
   // Matches the in-game logic. Falls back to highest-level if no one has wins yet.
@@ -2746,7 +2746,7 @@ const HELD_ITEMS_FEATURED = [
     glow: 'rgba(140, 150, 170, 0.5)',
     image: './assets/items/Handgun.png',
     stats: { ATK: '+4', Range: '+1' },
-    effect: 'Modern firearm. Adds +1 attack range to the wielder and bites for an extra +4 ATK on every strike.',
+    effect: 'Modern firearm. Adds +1 attack range to the survivor and bites for an extra +4 ATK on every strike.',
     flavor: 'Standard-issue. Reliable when nothing else is. The grip remembers everyone who ever needed it.',
   },
   {
