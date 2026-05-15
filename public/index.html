@@ -694,6 +694,7 @@ const Navbar = ({ onNavigate, deckCount, survivors, loyalFaction, isSignedIn, di
           <button onClick={() => onNavigate('about')}     className="whitespace-nowrap hover:text-orange-400 transition tracking-wide uppercase font-medium">About</button>
           <button onClick={() => onNavigate('factions')}  className="whitespace-nowrap hover:text-orange-400 transition tracking-wide uppercase font-medium">Factions</button>
           <button onClick={() => onNavigate('different')} className="whitespace-nowrap hover:text-orange-400 transition tracking-wide uppercase font-medium">What's New</button>
+          <button onClick={() => onNavigate('subclass')}  className="whitespace-nowrap hover:text-orange-400 transition tracking-wide uppercase font-medium">Subclass</button>
           <button onClick={() => onNavigate('champions')} className="whitespace-nowrap hover:text-orange-400 transition tracking-wide uppercase font-medium">Survivors</button>
           <button onClick={() => onNavigate('coliseum')}  className="whitespace-nowrap hover:text-orange-400 transition tracking-wide uppercase font-medium">Coliseum</button>
           <button onClick={() => onNavigate('packs')}     className="whitespace-nowrap hover:text-orange-400 transition tracking-wide uppercase font-medium">Packs</button>
@@ -1551,19 +1552,149 @@ const About = () => (
           <DuctTape rotation={-2} className="-top-2 -left-2" />
           <div className="text-orange-300 text-3xl mb-3"></div>
           <h3 className="text-yellow-100 font-serif font-bold text-xl mb-3">PERSISTENT HEROES</h3>
-          <p className="text-sm leading-relaxed">Your hero levels 1→50 over time. Each level unlocks a new move slot or talent. Subclasses at Lv 3 split their kit three ways. Your Lyra is not your friend's Lyra.</p>
+          <p className="text-sm leading-relaxed">Your hero levels 1→50 over time. Each level unlocks a new move slot or talent. Subclasses at Lv 16 split their kit three ways. Your Lyra is not your friend's Lyra.</p>
         </div>
       </div>
     </div>
   </section>
 );
 
+// ===== SUBCLASSES — your hero forks at Lv 16 =====
+// Showcases four representative subclass archetypes the player can become
+// once their hero hits the veteran threshold. Each card uses a portrait
+// (PNG dropped at assets/artwork/subclasses/<name>.png) plus a short
+// pitch and the three signature moves the subclass adds to the learnset.
+const Subclasses = () => {
+  const paths = [
+    {
+      name: 'Shadowdancer',
+      hero: 'Vex',
+      tag: 'Speed · Bleed · Finisher',
+      art: 'assets/artwork/subclasses/shadowdancer.png',
+      pitch: 'Twin blades carved from the void. Every strike opens a wound that keeps bleeding — and you\'re already three tiles away before the body falls.',
+      moves: ['Quick Jab (Lv 16)', 'Rending Slash (Lv 20)', 'Trip Strike (Lv 24)'],
+      accent: 'from-purple-700 to-violet-900',
+      glow: 'purple-500',
+    },
+    {
+      name: 'Bastion',
+      hero: 'Cedric',
+      tag: 'Wall · Stun · Aura',
+      art: 'assets/artwork/subclasses/bastion.png',
+      pitch: 'The line breaks where you don\'t stand. Shield allies. Bash skulls. Lead the front rank with a voice that turns rookies into veterans mid-swing.',
+      moves: ['Divine Shield (Lv 16)', 'Shield Bash (Lv 20)', 'Rallying Cry (Lv 24)'],
+      accent: 'from-blue-700 to-cyan-900',
+      glow: 'blue-400',
+    },
+    {
+      name: 'Diviner',
+      hero: 'Lyra',
+      tag: 'Foresight · Hone · Control',
+      art: 'assets/artwork/subclasses/diviner.png',
+      pitch: 'You don\'t cast spells — you see the spell already cast. Focus the magic, sharpen the ally about to swing, breathe through the turn nobody else survives.',
+      moves: ['Focus (Lv 16)', 'Sharpen (Lv 20)', 'Inner Reverie (Lv 24)'],
+      accent: 'from-sky-700 to-indigo-900',
+      glow: 'sky-400',
+    },
+    {
+      name: 'Stormbringer',
+      hero: 'Aria',
+      tag: 'Long Range · Pure Damage · Closer',
+      art: 'assets/artwork/subclasses/stormbringer.png',
+      pitch: 'Lightning, fire, arcane fury — funneled down a barrel of pure intent. You hit them before they know you\'re in the lane. They don\'t get a second turn.',
+      moves: ['Lightning (Lv 16)', 'Fireball (Lv 20)', 'Arcane Blast (Lv 24)'],
+      accent: 'from-yellow-700 to-orange-900',
+      glow: 'yellow-400',
+    },
+  ];
+  return (
+    <section className="relative py-24 px-6 overflow-hidden">
+      <BloodSplatter className="top-10 left-10" size={180} opacity={0.2} />
+      <BloodSplatter className="bottom-20 right-10" size={160} opacity={0.18} />
+      <BulletHole className="top-1/4 right-1/3" size={26} />
+      <BulletHole className="bottom-1/3 left-1/4" size={20} />
+      <div className="max-w-7xl mx-auto relative z-10">
+        <div className="text-center mb-12">
+          <div className="text-orange-400/80 text-xs tracking-[0.4em] uppercase mb-3">— The Level 16 Crossroads —</div>
+          <DistressedHeading className="text-4xl md:text-6xl font-serif font-bold text-yellow-100 mb-4">Pick Your Path. Never Look Back.</DistressedHeading>
+          <p className="text-stone-300 max-w-3xl mx-auto text-base md:text-lg leading-relaxed">
+            Every hero in Mythic Spellbook starts the same. At <span className="text-orange-300 font-bold">Level 16</span> the path forks — three radically different subclasses, each adding unique moves at Lv <span className="text-orange-300 font-bold">16</span>, <span className="text-orange-300 font-bold">20</span>, and <span className="text-orange-300 font-bold">24</span>.
+          </p>
+          <p className="text-stone-500 max-w-2xl mx-auto mt-4 text-sm uppercase tracking-widest">
+            No respecs. No do-overs. <span className="text-red-400">Your hero is yours alone.</span>
+          </p>
+        </div>
+
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+          {paths.map((p, i) => (
+            <div key={p.name} className="group relative bg-black/70 border border-orange-600/30 hover:border-orange-400/70 rounded-lg overflow-hidden transition shadow-xl">
+              <DuctTape rotation={i % 2 === 0 ? -3 : 3} className="-top-2 -left-2" />
+              <BulletHole className="top-3 right-3" size={14} />
+              {/* Portrait — full bleed on top of the card */}
+              <div className="relative h-80 overflow-hidden bg-gradient-to-b from-black via-black/80 to-transparent">
+                <img
+                  src={p.art}
+                  alt={p.name}
+                  className="absolute inset-0 w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-700"
+                  onError={(e) => { e.currentTarget.style.opacity = '0.15'; }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
+                <div className="absolute top-3 left-3 z-10">
+                  <div className="text-stone-500 text-[9px] tracking-widest uppercase">{p.hero}'s</div>
+                  <h3 className="text-yellow-100 font-serif font-bold text-3xl leading-none" style={{ textShadow: '2px 2px 0 rgba(0,0,0,0.9)' }}>{p.name}</h3>
+                </div>
+              </div>
+              {/* Pitch + signature moves */}
+              <div className="p-4 relative">
+                <div className={`inline-block text-[10px] tracking-widest uppercase px-2 py-1 rounded mb-3 bg-gradient-to-r ${p.accent} text-yellow-50 border border-orange-400/30`}>{p.tag}</div>
+                <p className="text-stone-300 text-sm leading-relaxed mb-3">{p.pitch}</p>
+                <div className="text-stone-500 text-[10px] tracking-widest uppercase mb-2">Signature Moves</div>
+                <ul className="space-y-1">
+                  {p.moves.map(m => (
+                    <li key={m} className="text-yellow-100/90 text-xs font-mono flex items-center gap-2">
+                      <span className="text-orange-400">▸</span>{m}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Closing CTA / philosophy block */}
+        <div className="relative max-w-4xl mx-auto bg-black/70 border border-orange-600/40 rounded-lg p-6 md:p-8">
+          <DuctTape rotation={-4} className="-top-3 -left-3" />
+          <DuctTape rotation={3} className="-bottom-3 -right-3" />
+          <div className="grid md:grid-cols-3 gap-6 text-stone-300 text-sm leading-relaxed">
+            <div>
+              <div className="text-orange-400 text-[10px] tracking-widest uppercase mb-2">Identity Locked</div>
+              <p>Other card games hand you the whole kit on day one. <span className="text-yellow-100 font-bold">Mythic Spellbook makes you earn it.</span> The pick at Level 16 is the moment your hero becomes <em>yours</em>.</p>
+            </div>
+            <div>
+              <div className="text-orange-400 text-[10px] tracking-widest uppercase mb-2">Six Heroes · 18 Paths</div>
+              <p>Each of the six starter heroes carries three subclasses. That's <span className="text-yellow-100 font-bold">eighteen distinct identities</span> at the table — and your opponent has to read which one you brought.</p>
+            </div>
+            <div>
+              <div className="text-orange-400 text-[10px] tracking-widest uppercase mb-2">Deck-Defining</div>
+              <p>Your subclass overrides element tags, faction tags, passives, and your Kalon transformation. <span className="text-yellow-100 font-bold">Your Lyra Evoker is not your friend's Lyra Abjurer.</span></p>
+            </div>
+          </div>
+          <div className="mt-6 pt-6 border-t border-orange-600/20 text-center">
+            <div className="text-orange-400/70 text-xs tracking-widest uppercase mb-3">The deeper question isn't "which hero?" — it's</div>
+            <div className="text-2xl md:text-3xl font-serif font-bold text-yellow-100 italic">"which version of that hero?"</div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
+
 // ===== WHY WE'RE DIFFERENT =====
 const WhyDifferent = () => {
   const features = [
     { icon: '', title: 'Weather That Matters',     desc: 'Sun, rain, sandstorm, eclipse, blood moon, mist, mind realm, parallel world — 10+ weather cards each with global passives, immunities, and synergy procs. Drop weather to flip the meta in your favor.' },
     { icon: '', title: 'Change the Location Where You Survive At.', desc: 'Locations are FIELD-WIDE effects that reshape the entire battlefield — visually AND mechanically. Power Altar buffs your mages +5 ATK/MAG. Necropolis heals all undead. Mire halves enemy movement. Only one location can be active — playing a new one shatters the old and the field shifts beneath your feet.' },
-    { icon: '', title: 'Hero Progression & Subclasses', desc: 'Heroes level 1→50. Pick a subclass at Lv 3 (e.g. Cedric → Champion / Bastion / Holy Knight) that adds unique moves. Build the same hero three radically different ways.' },
+    { icon: '', title: 'Hero Progression & Subclasses', desc: 'Heroes level 1→50. Pick a subclass at Lv 16 (e.g. Cedric → Champion / Bastion / Holy Knight) that adds unique moves at Lv 16, 20, and 24. Build the same hero three radically different ways.' },
     { icon: '', title: '20 Trap Cards', desc: 'Spike Trap, Bear Trap, Plague Den, Aether Net (catches flyers!), Sleep Powder, Frost Glyph, Bone Crusher — placed face-down adjacent to your hero. Trigger when stepped on.' },
     { icon: '', title: 'Equipment & EV/Nature Training', desc: 'Held items grant stat bonuses, status immunities, on-hit triggers. Pokemon-style EV training and Natures shape long-term hero stats. The grind feels real.' },
     { icon: '', title: 'Live Multiplayer + Coliseum', desc: 'Real-time matchmaking with AI fallback. 12-tier rank ladder (Rookie → Mythic → Apex → Legendary). Open Cups → Regionals → Nationals → Worlds. Faction Wars span each 90-day season.' },
@@ -2865,7 +2996,7 @@ const HeroModal = ({ hero, onClose }) => {
             </div>
           </div>
           <div className="mb-5">
-            <div className="text-stone-500 text-[10px] tracking-widest uppercase mb-2">Subclasses (Pick at Lv 3)</div>
+            <div className="text-stone-500 text-[10px] tracking-widest uppercase mb-2">Subclasses (Pick at Lv 16)</div>
             <div className="grid sm:grid-cols-3 gap-2">
               {hero.subclasses.map(s => (
                 <div key={s.name} className="bg-black/60 border border-stone-700/50 hover:border-orange-500/50 rounded p-3 transition">
@@ -3011,6 +3142,7 @@ function App() {
           <div id="play"><HowToPlay /></div>
           <Spotlight card={cards[1]} reverse={false} onCardClick={setSelectedCard} />
           <div id="different"><WhyDifferent /></div>
+          <div id="subclass"><Subclasses /></div>
           <div id="factions"><Factions /></div>
           <Spotlight card={cards[2]} reverse={true} onCardClick={setSelectedCard} />
           <div id="champions"><Champions onPickHero={setSelectedHero} /></div>
