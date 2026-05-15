@@ -789,7 +789,7 @@ const Hero = ({ featuredCard, onCardClick, onScrollTo }) => (
         <div className="inline-flex items-center gap-2 px-3 py-1 mb-6 border border-orange-500/40 rounded bg-black/40 relative">
           <DuctTape rotation={-3} className="-top-3 -left-2" />
           <span className="w-2 h-2 rounded-full bg-orange-400" style={{ animation: 'pulse-red 1.5s infinite' }} />
-          <span className="text-orange-300 text-xs tracking-[0.3em] uppercase">SPATIAL TCG · 39 FACTIONS · LIVE NOW</span>
+          <span className="text-orange-300 text-xs tracking-[0.3em] uppercase">SPATIAL TACTICS TCG · FREE TO PLAY · LIVE NOW</span>
         </div>
         <DistressedHeading level="h1" className="text-5xl md:text-7xl font-serif font-bold text-yellow-100 mb-6 leading-tight">
           OPEN THE
@@ -799,29 +799,26 @@ const Hero = ({ featuredCard, onCardClick, onScrollTo }) => (
           <span className="block text-stone-500 italic font-normal text-3xl md:text-4xl my-2" style={{ textShadow: 'none', transform: 'skewX(-5deg)' }}>·· the cards move ··</span>
         </DistressedHeading>
 
-        {/*  Goddess lore hook — sets the apocalyptic tone before the
-            mechanical pitch. Border-left bar in violet/orange tints it as
-            in-universe text rather than marketing copy. */}
+        {/*  Goddess lore hook — punchier, tighter. Sets the apocalyptic
+            tone in three hard sentences before the mechanical pitch. */}
         <div className="relative bg-black/55 border-l-4 border-orange-500/70 rounded-r p-4 md:p-5 mb-6 max-w-xl" style={{ boxShadow: '0 0 30px rgba(255,140,40,0.12)' }}>
           <div className="text-orange-300 text-xs tracking-[0.35em] uppercase mb-2 font-bold">The Goddess Has Awakened</div>
           <p className="text-stone-200 text-sm leading-relaxed mb-2">
-            <strong className="text-yellow-100">Abraxas</strong>, the ancient creator of the universe, has risen from her eternal slumber.
-          </p>
-          <p className="text-stone-300 text-sm leading-relaxed italic mb-2">
-            For ages, she slept through the rise of gods, the wars of demon kings, and the collapse of countless civilizations. But something has finally broken the balance.
+            <strong className="text-yellow-100">Abraxas</strong> built the universe. She slept through the rise of gods, the demon-king wars, the collapse of a thousand civilizations.
           </p>
           <p className="text-stone-200 text-sm leading-relaxed">
-            Now, she has awakened <strong className="text-orange-300">not to save creation… but to erase it.</strong>
+            Something finally woke her — and she did not return to save creation. <strong className="text-orange-300">She returned to unmake it.</strong>
+          </p>
+          <p className="text-stone-300 text-sm leading-relaxed italic mt-2">
+            You are a Survivor with a Spellbook that makes the cards move. That is the only edge you get.
           </p>
           <div className="mt-3 pt-3 border-t border-orange-700/30 text-yellow-200 font-serif italic text-base">
             How long will you last?
           </div>
         </div>
 
-        <p className="text-stone-400 text-lg mb-8 leading-relaxed max-w-xl">
-          A grid-based tactical TCG where heroes <strong className="text-orange-300">level up, learn moves, and transform mid-match</strong>.
-          Place units on the board. Cast spells. Drop weather, locations, and traps. Climb the Coliseum
-          across 12 ranks, qualify for Regionals, Nationals, and Worlds. Built different.
+        <p className="text-stone-300 text-lg mb-8 leading-relaxed max-w-xl">
+          It is not stack-and-attack. Your units <strong className="text-orange-300">walk an 8x7 battlefield</strong>, your hero levels <strong className="text-orange-300">1 to 50</strong>, and units detonate their secret Kalon forms mid-match. The deck you grind is the deck you <strong className="text-orange-300">own</strong> — trade it, auction it, or ride it to Worlds.
         </p>
         <div className="flex gap-4 justify-center md:justify-start flex-wrap">
           <a href={PLAY_URL} className="group relative px-8 py-3 bg-gradient-to-r from-orange-600 to-red-700 text-yellow-100 font-bold rounded tracking-wide hover:shadow-xl hover:shadow-orange-500/50 transition transform hover:-translate-y-0.5 border border-orange-400/50">
@@ -1720,14 +1717,14 @@ const Subclasses = () => {
 // ===== WHY WE'RE DIFFERENT =====
 const WhyDifferent = () => {
   const features = [
-    { icon: '', title: 'Weather That Matters',     desc: 'Sun, rain, sandstorm, eclipse, blood moon, mist, mind realm, parallel world — 10+ weather cards each with global passives, immunities, and synergy procs. Drop weather to flip the meta in your favor.' },
-    { icon: '', title: 'Change the Location Where You Survive At.', desc: 'Locations are FIELD-WIDE effects that reshape the entire battlefield — visually AND mechanically. Power Altar buffs your mages +5 ATK/MAG. Necropolis heals all undead. Mire halves enemy movement. Only one location can be active — playing a new one shatters the old and the field shifts beneath your feet.' },
-    { icon: '', title: 'Hero Progression & Subclasses', desc: 'Heroes level 1→50. Pick a subclass at Lv 16 (e.g. Cedric → Champion / Bastion / Holy Knight) that adds unique moves at Lv 16, 20, and 24. Build the same hero three radically different ways.' },
-    { icon: '', title: '20 Trap Cards', desc: 'Spike Trap, Bear Trap, Plague Den, Aether Net (catches flyers!), Sleep Powder, Frost Glyph, Bone Crusher — placed face-down adjacent to your hero. Trigger when stepped on.' },
-    { icon: '', title: 'Equipment & EV/Nature Training', desc: 'Held items grant stat bonuses, status immunities, on-hit triggers. Pokemon-style EV training and Natures shape long-term hero stats. The grind feels real.' },
-    { icon: '', title: 'Live Multiplayer + Coliseum', desc: 'Real-time matchmaking with AI fallback. 12-tier rank ladder (Rookie → Mythic → Apex → Legendary). Open Cups → Regionals → Nationals → Worlds. Faction Wars span each 90-day season.' },
-    { icon: '', title: 'Status Effects That Actually Change Combat', desc: '15+ statuses including Infected (halves all stats), Sleep (35% wake chance/turn), Confusion (33% self-hit), Rage (must attack nearest), Follow My Lead (must move toward source). Counterable, stackable, devastating.' },
-    { icon: '', title: 'Custom Forge Library', desc: 'Every card is data — units, heroes, moves, items, locations, weather, traps. No collection, no deck, or play style will be the same as every aspect of the Mythic Spellbook truly create your name as an Survivor.' },
+    { icon: '', title: 'Spatial Combat',          desc: 'Units move one to four tiles a turn on an 8x7 grid. Range, flanking, walls, traps, flying — positioning IS the game. No two boards ever play the same. This is the line every other card game cannot cross.' },
+    { icon: '', title: 'Kalon Transformations',    desc: 'Three charges per match. Trigger a unit\'s secret form mid-battle — bigger stats, new moves, sometimes a brand-new faction tag. The signature swing nobody sees coming, and the reason a losing board flips in one turn.' },
+    { icon: '', title: 'Persistent Heroes & Subclasses', desc: 'Your hero levels 1 to 50 across your whole account. At Level 16 the path forks into three subclasses (Cedric becomes Champion, Bastion, or Holy Knight) that add unique moves at 16, 20, and 24. Your Lyra is not your friend\'s Lyra.' },
+    { icon: '', title: 'Weather That Rewrites the Rules', desc: 'Sun, rain, sandstorm, eclipse, blood moon, mist, mind realm, parallel world. Ten-plus weather cards with global passives and immunities. Drop the right sky and the meta flips in your favor before a single attack lands.' },
+    { icon: '', title: 'Locations Reshape the Field', desc: 'Field-wide effects that change the battlefield visually AND mechanically. Power Altar buffs your mages. Necropolis heals all undead. Mire halves enemy movement. Only one stays active — play a new one and the old field shatters underfoot.' },
+    { icon: '', title: 'Status Effects That Decide Games', desc: 'Thirty-plus statuses. Toxic that ramps every turn. Doom that counts down to a guaranteed kill. Soul Anchor that revives. Infected that halves every stat. Mirror dodge, Bedrock survival, Killer Instinct stacks. Counterable, stackable, devastating.' },
+    { icon: '', title: 'Live Coliseum & 12-Tier Ladder', desc: 'Real matchmaking with AI fallback so you never wait for a game. Climb Rookie to Mythic to Apex to Legendary. Open Cups feed Regionals, Nationals, and Worlds. Faction Wars run every 90-day season. Bring emotes — talk trash like MTGA.' },
+    { icon: '', title: 'Everything Is Data — The Forge', desc: 'Every card, hero, move, item, location, weather, and event is forge-able. The pool grows with the community. Auction your rares, trade your spares, cash earned Cinders out to real USD. No two collections will ever match — make your name as a Survivor.' },
   ];
   return (
     <section className="relative py-24 px-6">
