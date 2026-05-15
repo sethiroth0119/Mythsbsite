@@ -754,17 +754,10 @@ const Hero = ({ featuredCard, onCardClick, onScrollTo }) => (
       className="absolute inset-0 w-full h-full object-cover pointer-events-none"
       style={{
         zIndex: 0,
-        /* Guarantee full-screen coverage with ZERO black borders on any
-           aspect ratio. object-cover already crops-to-fill, but a small
-           scale(1.08) gives a safety overscan so even sub-pixel rounding
-           / extreme ultrawide / very tall windows can never reveal an
-           edge gap. Section is overflow-hidden so the overscan is clipped
-           cleanly. minWidth/minHeight 100% belt-and-suspenders. */
-        minWidth: '100%',
-        minHeight: '100%',
+        /* Clean full-HD 16:9 source — object-cover alone fills the hero
+           section edge-to-edge. No scale/overscan zoom (user didn't want
+           it), no upscale softening. */
         objectPosition: 'center center',
-        transform: 'scale(1.08)',
-        transformOrigin: 'center center',
         /* Light brightness/saturation lift so the cosmic colors pop
            through the readability overlay. */
         filter: 'brightness(1.15) saturate(1.12) contrast(1.03)',
