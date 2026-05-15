@@ -752,19 +752,27 @@ const Hero = ({ featuredCard, onCardClick, onScrollTo }) => (
       playsInline
       preload="auto"
       className="absolute inset-0 w-full h-full object-cover pointer-events-none"
-      style={{ zIndex: 0, objectPosition: 'center center' }}
+      style={{
+        zIndex: 0,
+        objectPosition: 'center center',
+        /* Punch the cosmic colors up — the compressed source plays a bit
+           dark, so brighten + saturate + a touch of contrast so the
+           goddess / nebulae read vividly, like the original animation. */
+        filter: 'brightness(1.45) saturate(1.25) contrast(1.05)',
+      }}
     >
       <source src="./assets/background/Backgrounds/hero-cosmic.mp4" type="video/mp4" />
     </video>
 
-    {/* Readability overlay — strongest dim on the left (where text sits),
-        lighter on the right (where the spotlight card floats). Vignette + a
-        subtle vertical fade keep the splatter / hazard elements readable too. */}
+    {/* Readability overlay — MUCH lighter than before so the brightened
+        cosmic loop stays clearly visible. Just a soft left-side gradient
+        for text legibility (0.55 → 0.15 → transparent) and a faint
+        vignette. No more heavy blackout that was hiding the art. */}
     <div className="absolute inset-0 pointer-events-none" style={{
       zIndex: 1,
       background:
-        'linear-gradient(90deg, rgba(5,3,12,0.85) 0%, rgba(5,3,12,0.7) 35%, rgba(5,3,12,0.3) 65%, rgba(5,3,12,0.55) 100%),' +
-        'radial-gradient(ellipse at center, transparent 30%, rgba(5,3,12,0.6) 100%)',
+        'linear-gradient(90deg, rgba(5,3,12,0.62) 0%, rgba(5,3,12,0.38) 32%, rgba(5,3,12,0.08) 60%, rgba(5,3,12,0.05) 100%),' +
+        'radial-gradient(ellipse at center, transparent 55%, rgba(5,3,12,0.32) 100%)',
     }} />
     {/* Bottom fade so the hazard stripe + next section transition cleanly. */}
     <div className="absolute bottom-0 left-0 right-0 h-32 pointer-events-none" style={{
