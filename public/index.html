@@ -796,9 +796,31 @@ const Hero = ({ featuredCard, onCardClick, onScrollTo }) => (
         </div>
         <DistressedHeading level="h1" className="text-5xl md:text-7xl font-serif font-bold text-yellow-100 mb-6 leading-tight">
           OPEN THE
-          <span className="block bg-gradient-to-r from-orange-400 via-red-500 to-orange-600 bg-clip-text text-transparent" style={{ filter: 'drop-shadow(2px 2px 0 rgba(0,0,0,0.9))' }}>
-            MYTHIC SPELLBOOK.
-          </span>
+          {/* Real distressed wordmark logo replaces the old gradient text.
+              Cropped to a tight 947x495 bounding box so it scales clean.
+              clamp() width keeps it the same bold footprint the 2-line
+              text-7xl heading had, and responsive down to mobile. h1 a11y
+              text is kept as the alt + an sr-only span. */}
+          <img
+            src="./assets/artwork/Mythic%20Spellbook%20Logo.png?v=1"
+            alt="Mythic Spellbook"
+            className="block my-1"
+            style={{
+              width: 'clamp(290px, 44vw, 640px)',
+              height: 'auto',
+              maxWidth: '100%',
+              filter: 'drop-shadow(0 3px 6px rgba(0,0,0,0.95)) drop-shadow(0 0 22px rgba(249,115,22,0.35))',
+            }}
+            onError={(e) => {
+              // Fallback to the old gradient text if the logo isn't deployed yet.
+              const s = document.createElement('span');
+              s.className = 'block bg-gradient-to-r from-orange-400 via-red-500 to-orange-600 bg-clip-text text-transparent';
+              s.style.filter = 'drop-shadow(2px 2px 0 rgba(0,0,0,0.9))';
+              s.textContent = 'MYTHIC SPELLBOOK.';
+              e.currentTarget.replaceWith(s);
+            }}
+          />
+          <span className="sr-only">Mythic Spellbook</span>
           <span className="block text-stone-500 italic font-normal text-3xl md:text-4xl my-2" style={{ textShadow: 'none', transform: 'skewX(-5deg)' }}>·· the cards move ··</span>
         </DistressedHeading>
 
