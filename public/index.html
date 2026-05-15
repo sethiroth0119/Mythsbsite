@@ -755,6 +755,14 @@ const Hero = ({ featuredCard, onCardClick, onScrollTo }) => (
       style={{
         zIndex: 0,
         objectPosition: 'center center',
+        /* The source video has thin black letterbox bars baked into the
+           footage itself — object-cover fits the CONTAINER but can't
+           crop pixels that are part of the video content. Scaling the
+           element up 1.18x (origin center) pushes those baked-in bars
+           past the section edges so only the live frame is visible.
+           transform-origin center keeps the goddess centered. */
+        transform: 'scale(1.18)',
+        transformOrigin: 'center center',
         /* Punch the cosmic colors up — the compressed source plays a bit
            dark, so brighten + saturate + a touch of contrast so the
            goddess / nebulae read vividly, like the original animation. */
