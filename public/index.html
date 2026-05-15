@@ -1574,6 +1574,10 @@ const Subclasses = () => {
       hero: 'Vex',
       tag: 'Speed · Bleed · Finisher',
       art: 'assets/artwork/subclasses/Shadowdancer.png',
+      // Face is at ~8% from top of a tall portrait. Anchor the IMAGE TOP
+      // to the CARD TOP so the face stays in the upper portion of the
+      // frame, well clear of the bottom title gradient.
+      pos: 'center top',
       pitch: 'Twin blades carved from the void. Every strike opens a wound that keeps bleeding — and you\'re already three tiles away before the body falls.',
       moves: ['Quick Jab (Lv 16)', 'Rending Slash (Lv 20)', 'Trip Strike (Lv 24)'],
       accent: 'from-purple-700 to-violet-900',
@@ -1604,6 +1608,10 @@ const Subclasses = () => {
       hero: 'Aria',
       tag: 'Long Range · Pure Damage · Closer',
       art: 'assets/artwork/subclasses/Stormbringer.png',
+      // Squarer aspect ratio than the others — `center 18%` crops the face
+      // into the bottom-title zone. Pin top-aligned so the face holds the
+      // upper portion of the visible card.
+      pos: 'center top',
       pitch: 'Lightning, fire, arcane fury — funneled down a barrel of pure intent. You hit them before they know you\'re in the lane. They don\'t get a second turn.',
       moves: ['Lightning (Lv 16)', 'Fireball (Lv 20)', 'Arcane Blast (Lv 24)'],
       accent: 'from-yellow-700 to-orange-900',
@@ -1644,7 +1652,7 @@ const Subclasses = () => {
                   src={p.art}
                   alt={p.name}
                   className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                  style={{ objectPosition: 'center 18%' }}
+                  style={{ objectPosition: p.pos || 'center 18%' }}
                   onError={(e) => { e.currentTarget.style.opacity = '0.15'; }}
                 />
                 <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black via-black/80 to-transparent" />
