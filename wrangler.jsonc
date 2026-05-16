@@ -2,10 +2,15 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "mythicspellbook",
   "compatibility_date": "2024-09-25",
+  "workers_dev": true,
   "observability": {
     "enabled": true
   },
   "assets": {
     "directory": "./public"
-  }
+  },
+  "routes": [
+    { "pattern": "mythicspellbook.xyz", "custom_domain": true },
+    { "pattern": "www.mythicspellbook.xyz", "custom_domain": true }
+  ]
 }
