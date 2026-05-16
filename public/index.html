@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Mythic Spellbook — A Spatial Tactical TCG</title>
-<meta name="description" content="A grid-based TCG where heroes level up, transform mid-match, and climb the Coliseum. 39 factions. 200+ cards. Free to play.">
+<meta name="description" content="A grid-based TCG where heroes level up, transform mid-match, and climb the Colosseum. 39 factions. 200+ cards. Free to play.">
 
 <script src="https://cdn.tailwindcss.com"></script>
 <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -705,7 +705,7 @@ const Navbar = ({ onNavigate, deckCount, survivors, loyalFaction, isSignedIn, di
           <button onClick={() => onNavigate('different')} className="whitespace-nowrap hover:text-orange-400 transition tracking-wide uppercase font-medium">What's New</button>
           <button onClick={() => onNavigate('subclass')}  className="whitespace-nowrap hover:text-orange-400 transition tracking-wide uppercase font-medium">Subclass</button>
           <button onClick={() => onNavigate('champions')} className="whitespace-nowrap hover:text-orange-400 transition tracking-wide uppercase font-medium">Survivors</button>
-          <button onClick={() => onNavigate('coliseum')}  className="whitespace-nowrap hover:text-orange-400 transition tracking-wide uppercase font-medium">Coliseum</button>
+          <button onClick={() => onNavigate('coliseum')}  className="whitespace-nowrap hover:text-orange-400 transition tracking-wide uppercase font-medium">Colosseum</button>
           <button onClick={() => onNavigate('community')} className="whitespace-nowrap hover:text-orange-400 transition tracking-wide uppercase font-medium">Community</button>
           <button onClick={() => onNavigate('free')}      className="whitespace-nowrap hover:text-orange-400 transition tracking-wide uppercase font-medium text-amber-300">Survive Free</button>
           <button onClick={() => onNavigate('packs')}     className="whitespace-nowrap hover:text-orange-400 transition tracking-wide uppercase font-medium">Packs</button>
@@ -1330,7 +1330,7 @@ const JoinResistance = () => {
             </p>
             <p className="text-stone-400 text-sm max-w-xl mx-auto mb-10">
               Free to play. Cross-device cloud sync. Ranked multiplayer queues with AI fallback if no one's online.
-              Earn Cinders and Arena Points to enter the Coliseum tournament ladder.
+              Earn Cinders and Arena Points to enter the Colosseum tournament ladder.
             </p>
 
             {/* Counter */}
@@ -1759,7 +1759,7 @@ const WhyDifferent = () => {
     { icon: '', title: 'Weather That Rewrites the Rules', desc: 'Sun, rain, sandstorm, eclipse, blood moon, mist, mind realm, parallel world. Ten-plus weather cards with global passives and immunities. Drop the right sky and the meta flips in your favor before a single attack lands.' },
     { icon: '', title: 'Locations Reshape the Field', desc: 'Field-wide effects that change the battlefield visually AND mechanically. Power Altar buffs your mages. Necropolis heals all undead. Mire halves enemy movement. Only one stays active — play a new one and the old field shatters underfoot.' },
     { icon: '', title: 'Status Effects That Decide Games', desc: 'Thirty-plus statuses. Toxic that ramps every turn. Doom that counts down to a guaranteed kill. Soul Anchor that revives. Infected that halves every stat. Mirror dodge, Bedrock survival, Killer Instinct stacks. Counterable, stackable, devastating.' },
-    { icon: '', title: 'Live Coliseum & 12-Tier Ladder', desc: 'Real matchmaking with AI fallback so you never wait for a game. Climb Rookie to Mythic to Apex to Legendary. Open Cups feed Regionals, Nationals, and Worlds. Faction Wars run every 90-day season. Bring emotes — talk trash like MTGA.' },
+    { icon: '', title: 'Live Colosseum & 12-Tier Ladder', desc: 'Real matchmaking with AI fallback so you never wait for a game. Climb Rookie to Mythic to Apex to Legendary. Open Cups feed Regionals, Nationals, and Worlds. Faction Wars run every 90-day season. Bring emotes — talk trash like MTGA.' },
     { icon: '', title: 'Everything Is Data — The Forge', desc: 'Every card, hero, move, item, location, weather, and event is forge-able. The pool grows with the community. Auction your rares, trade your spares, cash earned Cinders out to real USD. No two collections will ever match — make your name as a Survivor.' },
   ];
   return (
@@ -2848,7 +2848,7 @@ const Coliseum = () => {
       <HazardStripe className="absolute top-0 left-0 right-0" />
       <div className="max-w-7xl mx-auto pt-8">
         <div className="text-center mb-16">
-          <div className="text-orange-400/80 text-xs tracking-[0.4em] uppercase mb-3">— The Coliseum —</div>
+          <div className="text-orange-400/80 text-xs tracking-[0.4em] uppercase mb-3">— The Colosseum —</div>
           <DistressedHeading className="text-5xl font-serif font-bold text-yellow-100 mb-4">Climb 12 Tiers. Earn Your Crown.</DistressedHeading>
           <p className="text-stone-400 max-w-2xl mx-auto leading-relaxed">
             Every ranked match adjusts your <strong className="text-orange-300">Rank Rating (RR)</strong>. Climb past 100 RR thresholds to promote.
