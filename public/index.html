@@ -707,6 +707,7 @@ const Navbar = ({ onNavigate, deckCount, survivors, loyalFaction, isSignedIn, di
           <button onClick={() => onNavigate('champions')} className="whitespace-nowrap hover:text-orange-400 transition tracking-wide uppercase font-medium">Survivors</button>
           <button onClick={() => onNavigate('coliseum')}  className="whitespace-nowrap hover:text-orange-400 transition tracking-wide uppercase font-medium">Colosseum</button>
           <button onClick={() => onNavigate('community')} className="whitespace-nowrap hover:text-orange-400 transition tracking-wide uppercase font-medium">Community</button>
+          <button onClick={() => onNavigate('gymdefenders')} className="whitespace-nowrap hover:text-orange-400 transition tracking-wide uppercase font-medium">Gym Defenders</button>
           <button onClick={() => onNavigate('free')}      className="whitespace-nowrap hover:text-orange-400 transition tracking-wide uppercase font-medium text-amber-300">Survive Free</button>
           <button onClick={() => onNavigate('packs')}     className="whitespace-nowrap hover:text-orange-400 transition tracking-wide uppercase font-medium">Packs</button>
           <button onClick={() => onNavigate('gallery')}   className="whitespace-nowrap hover:text-orange-400 transition tracking-wide uppercase font-medium">Cards</button>
@@ -3313,6 +3314,170 @@ const HeroModal = ({ hero, onClose }) => {
   );
 };
 
+// ===== GYM DEFENDERS — Protectors of the Core =====
+const GYM_DEFENDER_ROLES = [
+  { name: 'Vanguard Defender', tag: 'The frontline duelist', accent: '#ef4444',
+    focus: ['High win-rate PvP', 'Meta counter decks', 'Emergency defenses', 'High-pressure battles'],
+    note: 'Usually the strongest direct-combat player in the gym.' },
+  { name: 'Tactical Defender', tag: 'The strategist', accent: '#a78bfa',
+    focus: ['Deck analysis', 'Counter-planning', 'Meta scouting', 'Challenger research'],
+    note: 'Helps the gym adapt to evolving strategies.' },
+  { name: 'Core Guardian', tag: 'Protects gym stability', accent: '#34d399',
+    focus: ['Gym stamina recovery', 'Defensive bonuses', 'Team coordination', 'Maintaining performance'],
+    note: 'Prevents gym collapse during long defense streaks.' },
+  { name: 'Supply Defender', tag: 'Supports the gym economy', accent: '#f59e0b',
+    focus: ['Relic gathering', 'Resource contribution', 'Camp upgrades', 'Gym maintenance'],
+    note: 'Strengthens the gym behind the scenes.' },
+  { name: 'Spectator Champion', tag: 'Represents the gym publicly', accent: '#38bdf8',
+    focus: ['Streaming', 'Community interaction', 'Commentary', 'Spectator engagement'],
+    note: "Builds the gym's popularity and reputation." },
+];
+const GYM_DEFENDER_BENEFITS = ['Cinder payouts', 'Seasonal cosmetics', 'Defender-exclusive skins', 'Animated banners', 'Gym armor sets', 'Titles', 'Reputation points', 'Event rewards', 'Exclusive emotes', 'Rare relic access'];
+const GYM_REP_AFFECTS = ['Match intros', 'Arena visuals', 'Gym prestige', 'Public rankings', 'Spectator hype'];
+const GYM_DEFENDER_SYSTEMS = [
+  { title: 'Defender Synergy', body: 'Each gym should feel like a complete competitive faction — not one strong player. Mix aggressive rush, defensive control, summoner specialists, void strategists, relic builds and counter-meta experts.' },
+  { title: 'Defender Progression', body: 'Defender Rank · Gym Loyalty Level · Seasonal Medals · Core Affinity · Contribution Score · Defense History. Long-term defenders become tied to the gym’s legacy.' },
+  { title: 'Emergency Defense', body: 'If a Gym Leader is unavailable, high-ranking defenders temporarily hold the line — preventing dead gyms, inactive ownership and unfair takeovers.' },
+  { title: 'Recruitment', body: 'Leaders recruit via invitations, guild alliances, ranked scouting, seasonal tryouts and community applications. Top gyms become prestigious and competitive to join.' },
+  { title: 'Gym Loyalty', body: 'Loyalty grows over time — better rewards, exclusive cosmetics, more influence, priority positions and legacy status. Gym-hopping erodes reputation and seasonal benefits.' },
+  { title: 'Hall of Defenders', body: 'Every gym archives its legends: longest-serving members, highest defense streaks, historic rosters and seasonal MVPs — permanent recognition and community history.' },
+];
+const GymDefenders = () => (
+  <section className="relative overflow-hidden">
+    {/* ===== Full-bleed banner: the Gym Defender key art ===== */}
+    <div className="relative min-h-[78vh] flex items-end px-6 py-24 overflow-hidden">
+      <div className="absolute inset-0" style={{
+        backgroundImage: 'url("./assets/artwork/Gym%20defender.png")',
+        backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat',
+      }} />
+      <div className="absolute inset-0" style={{
+        background: 'linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.35) 45%, rgba(8,4,16,0.92) 100%)',
+      }} />
+      <div className="absolute inset-0 pointer-events-none" style={{
+        background: 'radial-gradient(ellipse at center, transparent 35%, rgba(0,0,0,0.6) 100%)',
+      }} />
+      <HazardStripe className="absolute top-0 left-0 right-0" />
+      <BloodSplatter className="top-16 left-1/4" size={180} opacity={0.18} />
+
+      <div className="max-w-5xl mx-auto relative w-full">
+        <div className="inline-flex items-center gap-2 mb-4">
+          <span className="w-8 h-px bg-orange-500/60" />
+          <div className="text-orange-400 text-xs tracking-[0.5em] uppercase font-bold">Weekend Core Wars</div>
+        </div>
+        <DistressedHeading level="h2" className="text-5xl md:text-7xl font-serif font-bold text-yellow-100 leading-none mb-3">
+          GYM DEFENDERS
+          <span className="block bg-gradient-to-r from-green-400 via-emerald-300 to-lime-400 bg-clip-text text-transparent text-3xl md:text-5xl mt-2" style={{ filter: 'drop-shadow(2px 2px 0 rgba(0,0,0,0.9))' }}>
+            Protectors of the Core
+          </span>
+        </DistressedHeading>
+        <p className="text-stone-200 text-lg md:text-xl max-w-3xl mb-3 italic">
+          Elite players chosen by a Gym Leader to defend the Core during Weekend Core Wars and seasonal conflicts.
+        </p>
+        <p className="text-stone-400 text-sm md:text-base max-w-3xl mb-6">
+          A Gym Leader cannot hold a gym alone. To survive, they must build a powerful team of defenders, supporters and strategists capable of protecting the Core from challengers across the world. Defenders are the frontline guardians of a Core Gym — they become part of the gym&rsquo;s identity and reputation.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {['Loyalty', 'Strategy', 'Team Identity', 'Competitive Skill', 'Community Leadership'].map(t => (
+            <span key={t} className="px-3 py-1 bg-black/50 border border-orange-500/40 rounded text-xs uppercase tracking-widest text-orange-200">{t}</span>
+          ))}
+        </div>
+      </div>
+    </div>
+
+    {/* ===== Body ===== */}
+    <div className="relative px-6 pb-28 pt-16" style={{ background: 'linear-gradient(180deg, #08041a 0%, #0c0820 100%)' }}>
+      <div className="max-w-7xl mx-auto">
+
+        {/* What is a Gym Defender */}
+        <div className="max-w-4xl mx-auto mb-20 text-center">
+          <h3 className="text-3xl font-serif font-bold text-yellow-100 mb-4">What Is a Gym Defender?</h3>
+          <p className="text-stone-300 mb-4">A player officially assigned to a Gym by the active Gym Leader. Each Gym may recruit multiple defenders depending on gym level and seasonal upgrades.</p>
+          <div className="flex flex-wrap justify-center gap-2 text-xs uppercase tracking-widest">
+            {['Protect the gym', 'Assist during Core Wars', 'Increase gym power', 'Defend prestige', 'Maintain stability'].map(t => (
+              <span key={t} className="px-3 py-1 bg-stone-900/70 border border-stone-700/60 rounded text-stone-300">{t}</span>
+            ))}
+          </div>
+        </div>
+
+        {/* Defender Roles */}
+        <div className="text-center mb-10">
+          <div className="text-orange-400 text-xs tracking-[0.4em] uppercase font-bold mb-2">Specialized Roles</div>
+          <h3 className="text-4xl font-serif font-bold text-yellow-100">Defender Roles</h3>
+          <p className="text-stone-400 text-sm mt-2 max-w-2xl mx-auto">Gym Leaders assign specialized roles. A full roster covers every angle of a Core defense.</p>
+        </div>
+        <div className="grid md:grid-cols-3 gap-5 mb-24">
+          {GYM_DEFENDER_ROLES.map(r => (
+            <div key={r.name} className="relative bg-stone-900/70 border rounded-lg p-6 backdrop-blur" style={{ borderColor: r.accent + '55' }}>
+              <div className="absolute top-0 left-0 right-0 h-1 rounded-t-lg" style={{ background: r.accent }} />
+              <h4 className="text-xl font-serif font-bold text-yellow-100">{r.name}</h4>
+              <div className="text-xs uppercase tracking-widest mb-4" style={{ color: r.accent }}>{r.tag}</div>
+              <ul className="space-y-1.5 mb-4">
+                {r.focus.map(f => (
+                  <li key={f} className="text-stone-300 text-sm flex items-start gap-2">
+                    <span style={{ color: r.accent }}>▹</span> {f}
+                  </li>
+                ))}
+              </ul>
+              <p className="text-stone-500 text-xs italic border-t border-stone-700/60 pt-3">{r.note}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Benefits + Reputation */}
+        <div className="grid md:grid-cols-2 gap-6 mb-24">
+          <div className="bg-stone-900/70 border border-amber-500/30 rounded-lg p-7">
+            <h3 className="text-2xl font-serif font-bold text-amber-200 mb-3">Defender Benefits</h3>
+            <p className="text-stone-400 text-sm mb-4">Exclusive rewards for loyalty and performance.</p>
+            <div className="flex flex-wrap gap-2 mb-5">
+              {GYM_DEFENDER_BENEFITS.map(b => (
+                <span key={b} className="px-3 py-1 bg-black/40 border border-amber-500/30 rounded text-xs text-amber-100">{b}</span>
+              ))}
+            </div>
+            <p className="text-stone-300 text-sm">Top defenders may rise to become <span className="text-amber-300 font-semibold">future Gym Leaders</span>, ranked champions and seasonal legends.</p>
+          </div>
+          <div className="bg-stone-900/70 border border-orange-500/30 rounded-lg p-7">
+            <h3 className="text-2xl font-serif font-bold text-orange-200 mb-3">Gym Reputation System</h3>
+            <p className="text-stone-400 text-sm mb-4">Every defender contributes to gym reputation. The more active and successful the defenders, the more prestigious the gym — and the harder it is to overthrow.</p>
+            <ul className="space-y-1.5">
+              {GYM_REP_AFFECTS.map(a => (
+                <li key={a} className="text-stone-300 text-sm flex items-start gap-2"><span className="text-orange-400">▹</span> {a}</li>
+              ))}
+            </ul>
+            <p className="text-stone-500 text-xs italic mt-4 border-t border-stone-700/60 pt-3">High-reputation gyms become famous across the world.</p>
+          </div>
+        </div>
+
+        {/* Systems grid */}
+        <div className="text-center mb-10">
+          <h3 className="text-4xl font-serif font-bold text-yellow-100">A Living Competitive Faction</h3>
+          <p className="text-stone-400 text-sm mt-2 max-w-2xl mx-auto">Defenders are tied to the gym for the long haul — synergy, progression, loyalty and legacy.</p>
+        </div>
+        <div className="grid md:grid-cols-3 gap-5 mb-20">
+          {GYM_DEFENDER_SYSTEMS.map(s => (
+            <div key={s.title} className="bg-stone-900/60 border border-stone-700/60 rounded-lg p-6 hover:border-orange-500/40 transition">
+              <h4 className="text-lg font-serif font-bold text-orange-200 mb-2">{s.title}</h4>
+              <p className="text-stone-400 text-sm leading-relaxed">{s.body}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Spectator integration banner */}
+        <div className="max-w-4xl mx-auto text-center border border-green-500/30 rounded-lg p-8 bg-gradient-to-b from-green-950/30 to-black/40">
+          <div className="text-green-400 text-xs tracking-[0.4em] uppercase font-bold mb-2">Spectator Integration</div>
+          <h3 className="text-3xl font-serif font-bold text-yellow-100 mb-3">Defenders Become Icons</h3>
+          <p className="text-stone-300 text-sm max-w-2xl mx-auto mb-4">During Weekend Core Wars, defender profiles appear publicly, spectators follow and support favorite players, and defender stats appear live during matches.</p>
+          <div className="flex flex-wrap justify-center gap-2 text-xs uppercase tracking-widest">
+            {['Streamers', 'Community Celebrities', 'Rival Icons', 'Esports Personalities'].map(t => (
+              <span key={t} className="px-3 py-1 bg-black/50 border border-green-500/40 rounded text-green-200">{t}</span>
+            ))}
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+);
+
 // ===== MAIN APP =====
 function App() {
   const [selectedCard, setSelectedCard] = useState(null);
@@ -3445,6 +3610,7 @@ function App() {
           <div id="coliseum"><Coliseum /></div>
           <div id="career"><BuildACareer /></div>
           <div id="community"><CommunityFuture cardA={COMMUNITY_CARDS[0]} cardB={COMMUNITY_CARDS[1]} onCardClick={setSelectedCard} /></div>
+          <div id="gymdefenders"><GymDefenders /></div>
           <div id="free"><SurviveForFree /></div>
           <div id="packs"><StarterPacks /></div>
           <div id="gallery"><Gallery onCardClick={setSelectedCard} onAddToDeck={handleAddToDeck} /></div>
