@@ -43,7 +43,12 @@
   .boot-shimmer { background: linear-gradient(90deg, #1a1428 0%, #2a1f3d 50%, #1a1428 100%); background-size: 200% 100%; animation: shimmer 1.5s ease-in-out infinite; }
   @keyframes shimmer { 0%,100% { background-position: 0% 0%; } 50% { background-position: 200% 0%; } }
 
-  /* ── War Map Preview — no route animations (static map only) ── */
+  /* ── War Map Preview — lit-route glow animation (gold only) ── */
+  @keyframes tw-mkt-flow  { to { stroke-dashoffset: -22; } }
+  @keyframes tw-mkt-gold  {
+    0%,100% { stroke: #ffcf5a; }
+    50%     { stroke: #ffe880; filter: drop-shadow(0 0 4px rgba(255,210,60,0.95)); }
+  }
   @keyframes tw-mkt-node-pulse {
     0%,100% { opacity: 0.85; }
     50%     { opacity: 1; }
@@ -1462,7 +1467,12 @@ const WarMapPreview = ({ hubMode = false }) => {
                 typeof n.position.x === 'number' && typeof n.position.y === 'number')
             : [];
           if (validNodes.length >= 1) {
-            setTwData({ nodes: validNodes, regions: tw.regions || [] });
+            setTwData({
+              nodes:     validNodes,
+              regions:   tw.regions   || [],
+              // Admin-lit routes published from the game — match the game's gold glow.
+              litRoutes: Array.isArray(tw.litRoutes) ? tw.litRoutes : [],
+            });
           }
         }
       } catch (e) {
@@ -1476,6 +1486,9 @@ const WarMapPreview = ({ hubMode = false }) => {
   // Use real catalog nodes only — no demo fallback.
   // While loading or if the catalog has no nodes, render an empty canvas.
   const nodes = twData?.nodes || [];
+
+  // Admin-lit routes from the catalog — same set the game uses for gold glow.
+  const litRouteSet = new Set(Array.isArray(twData?.litRoutes) ? twData.litRoutes : []);
 
   // Build deduplicated route list
   const nodeById = {};
@@ -1510,7 +1523,7 @@ const WarMapPreview = ({ hubMode = false }) => {
     <section id={hubMode ? undefined : 'warmap'} style={{
       position: 'relative', overflow: 'hidden',
       /* Warmap city background — same as the in-game war map */
-      backgroundImage: "url('./assets/background/Backgrounds/warmap.png')",
+      backgroundImage: "url('./assets/background/Backgrounds/warmap2.png')",
       backgroundSize: 'cover',
       backgroundPosition: 'center center',
       backgroundRepeat: 'no-repeat',
@@ -1760,8 +1773,17 @@ const WarMapPreview = ({ hubMode = false }) => {
               const mx = ((ax + bx) / 2 + 1.5).toFixed(2);
               const my = ((ay + by) / 2 - 1.5).toFixed(2);
               const d  = `M ${ax} ${ay} Q ${mx} ${my} ${bx} ${by}`;
-              // Static dim supply line — no animation so the marketing map
-              // never falsely implies which routes are lit in the real game.
+              const isLit = litRouteSet.has(r.key);
+              if (isLit) return (
+                // Gold glowing route — mirrors the game's admin-lit supply line
+                <g key={r.key}>
+                  <path d={d} fill="none" stroke="rgba(255,207,90,0.12)" strokeWidth="4" />
+                  <path d={d} fill="none" stroke="#ffcf5a" strokeWidth="1.6"
+                    strokeDasharray="7 3" strokeLinecap="round"
+                    style={{ animation:'tw-mkt-flow 1.4s linear infinite,tw-mkt-gold 2s ease-in-out infinite' }} />
+                </g>
+              );
+              // Unlit route — plain dim dashed line
               return (
                 <path key={r.key} d={d} fill="none"
                   stroke="rgba(108,212,255,0.30)" strokeWidth="0.8"
