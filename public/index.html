@@ -1447,9 +1447,10 @@ const WhyEconomy = () => (
 // straight to the game. Falls back to a built-in demo map while loading
 // or when no catalog has been published yet.
 const WarMapPreview = ({ hubMode = false }) => {
-  const [twData,  setTwData]  = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [hovered, setHovered] = useState(null);
+  const [twData,      setTwData]      = useState(null);
+  const [loading,     setLoading]     = useState(true);
+  const [hovered,     setHovered]     = useState(null);
+  const [activeNode,  setActiveNode]  = useState(null); // clicked-node modal
 
   // Built-in demo nodes — shown while the catalog is loading or empty.
   // Positions are percentages of the canvas (0-100 x/y).
@@ -1550,22 +1551,173 @@ const WarMapPreview = ({ hubMode = false }) => {
 
   return (
     <section id={hubMode ? undefined : 'warmap'} style={{
-      background: hubMode
-        ? 'linear-gradient(180deg, #020810 0%, #01040c 100%)'
-        : 'linear-gradient(180deg, #020810 0%, #01040c 100%)',
       position: 'relative', overflow: 'hidden',
+      /* Warmap city background — same as the in-game war map */
+      backgroundImage: "url('./assets/background/Backgrounds/warmap.png')",
+      backgroundSize: 'cover',
+      backgroundPosition: 'center center',
+      backgroundRepeat: 'no-repeat',
     }}>
+      {/* Dark colour-grade over the city image so nodes/routes stay legible */}
+      <div style={{ position:'absolute', inset:0, zIndex:1, pointerEvents:'none',
+        background:'linear-gradient(180deg,rgba(2,6,18,0.72) 0%,rgba(2,6,18,0.55) 50%,rgba(2,6,18,0.80) 100%)' }} />
+      {/* Teal atmospheric tint — matches the game's dark-blue tone */}
+      <div style={{ position:'absolute', inset:0, zIndex:1, pointerEvents:'none',
+        background:'radial-gradient(ellipse at 50% 40%, rgba(10,30,60,0.45) 0%, transparent 70%)' }} />
       {/* Scanline texture */}
       <div style={{ position:'absolute', inset:0, zIndex:1, pointerEvents:'none',
-        backgroundImage:'repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.16) 2px,rgba(0,0,0,0.16) 4px)' }} />
+        backgroundImage:'repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.12) 2px,rgba(0,0,0,0.12) 4px)' }} />
       {/* Subtle grid */}
       <div style={{ position:'absolute', inset:0, zIndex:1, pointerEvents:'none',
-        backgroundImage:'linear-gradient(rgba(30,60,90,0.07) 1px,transparent 1px),linear-gradient(90deg,rgba(30,60,90,0.07) 1px,transparent 1px)',
+        backgroundImage:'linear-gradient(rgba(30,60,90,0.06) 1px,transparent 1px),linear-gradient(90deg,rgba(30,60,90,0.06) 1px,transparent 1px)',
         backgroundSize:'64px 64px' }} />
-      {/* Top fade — only on standalone section */}
-      {!hubMode && (
-        <div style={{ position:'absolute', top:0, left:0, right:0, height:60, zIndex:1, pointerEvents:'none',
-          background:'linear-gradient(180deg,rgba(10,10,10,0.5) 0%,transparent 100%)' }} />
+      {/* Top / bottom edge fades */}
+      <div style={{ position:'absolute', top:0, left:0, right:0, height:80, zIndex:1, pointerEvents:'none',
+        background:'linear-gradient(180deg,rgba(2,6,18,0.9) 0%,transparent 100%)' }} />
+      <div style={{ position:'absolute', bottom:0, left:0, right:0, height:60, zIndex:1, pointerEvents:'none',
+        background:'linear-gradient(0deg,rgba(2,6,18,0.9) 0%,transparent 100%)' }} />
+
+      {/* ── Node-click modal (fixed overlay) ── */}
+      {activeNode && (
+        <div
+          onClick={() => setActiveNode(null)}
+          style={{
+            position:'fixed', inset:0, zIndex:9999,
+            background:'rgba(0,4,16,0.78)',
+            display:'flex', alignItems:'center', justifyContent:'center',
+            padding:'1rem',
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background:'linear-gradient(160deg,rgba(4,14,32,0.98) 0%,rgba(2,8,22,0.98) 100%)',
+              border:'1px solid rgba(108,212,255,0.4)',
+              borderRadius:6,
+              padding:'1.75rem 2rem',
+              maxWidth:420, width:'100%',
+              boxShadow:'0 0 60px rgba(108,212,255,0.18), inset 0 0 40px rgba(0,0,0,0.5)',
+              position:'relative',
+            }}
+          >
+            {/* Close */}
+            <button
+              onClick={() => setActiveNode(null)}
+              style={{
+                position:'absolute', top:12, right:14,
+                background:'transparent', border:'none', cursor:'pointer',
+                color:'#3a5a70', fontSize:'1.1rem', lineHeight:1,
+                transition:'color 0.15s',
+              }}
+              onMouseEnter={e => e.currentTarget.style.color='#6cd4ff'}
+              onMouseLeave={e => e.currentTarget.style.color='#3a5a70'}
+            >✕</button>
+
+            {/* Status badge */}
+            <div style={{ display:'flex', alignItems:'center', gap:'0.45rem', marginBottom:'0.85rem' }}>
+              <span style={{ width:7, height:7, borderRadius:'50%', background:'#ffcf5a',
+                boxShadow:'0 0 6px #ffcf5a', display:'inline-block',
+                animation:'tw-mkt-dot 2s ease-in-out infinite' }} />
+              <span style={{ color:'#ffcf5a', fontSize:'0.58rem', letterSpacing:'0.45em',
+                fontFamily:'JetBrains Mono,monospace', textTransform:'uppercase' }}>
+                UNCLAIMED NODE · SECTOR MAP
+              </span>
+            </div>
+
+            {/* Node name */}
+            <div style={{
+              fontFamily:'Cinzel,serif', fontWeight:900,
+              fontSize:'1.75rem', color:'#c8e8ff',
+              letterSpacing:'0.1em',
+              textShadow:'0 0 30px rgba(108,212,255,0.5)',
+              marginBottom:'0.25rem',
+            }}>
+              {activeNode.name}
+            </div>
+            <div style={{ color:'#3a5a70', fontSize:'0.6rem', letterSpacing:'0.3em',
+              fontFamily:'JetBrains Mono,monospace', textTransform:'uppercase',
+              marginBottom:'1.25rem' }}>
+              PRN GRID · {(activeNode.connections||[]).length} ROUTE{(activeNode.connections||[]).length!==1?'S':''}
+            </div>
+
+            {/* Divider */}
+            <div style={{ height:1, background:'rgba(108,212,255,0.15)', marginBottom:'1rem' }} />
+
+            {/* Connected nodes */}
+            {(activeNode.connections||[]).length > 0 && (
+              <div style={{ marginBottom:'1.1rem' }}>
+                <div style={{ color:'#2a4050', fontSize:'0.56rem', letterSpacing:'0.35em',
+                  fontFamily:'JetBrains Mono,monospace', textTransform:'uppercase',
+                  marginBottom:'0.5rem' }}>— CONNECTED NODES</div>
+                <div style={{ display:'flex', flexWrap:'wrap', gap:'0.4rem' }}>
+                  {(activeNode.connections||[]).map(cid => {
+                    const nb = nodeById[cid];
+                    return (
+                      <span key={cid} style={{
+                        padding:'0.2rem 0.6rem',
+                        background:'rgba(108,212,255,0.06)',
+                        border:'1px solid rgba(108,212,255,0.2)',
+                        borderRadius:3, color:'#6cd4ff',
+                        fontSize:'0.62rem', fontFamily:'JetBrains Mono,monospace',
+                        letterSpacing:'0.06em',
+                      }}>
+                        {nb ? nb.name : cid}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Status blurb */}
+            <div style={{
+              background:'rgba(108,212,255,0.04)',
+              border:'1px solid rgba(108,212,255,0.12)',
+              borderRadius:4, padding:'0.7rem 0.85rem',
+              color:'#4a7a9a', fontSize:'0.7rem', lineHeight:1.6,
+              fontFamily:'JetBrains Mono,monospace',
+              marginBottom:'1.35rem',
+            }}>
+              This node is <strong style={{color:'#ffcf5a'}}>uncontrolled</strong>.
+              Capture it in-game to generate yield, build supply lines,
+              and extend your corporation's reach across the map.
+            </div>
+
+            {/* CTA */}
+            <a
+              href={GAME_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display:'block', textAlign:'center',
+                padding:'0.85rem',
+                background:'linear-gradient(135deg,rgba(108,212,255,0.18) 0%,rgba(20,60,100,0.25) 100%)',
+                border:'1px solid rgba(108,212,255,0.5)',
+                borderRadius:4, color:'#6cd4ff',
+                fontFamily:'Cinzel,serif', fontWeight:700,
+                fontSize:'0.82rem', letterSpacing:'0.2em',
+                textTransform:'uppercase', textDecoration:'none',
+                boxShadow:'0 0 20px rgba(108,212,255,0.2)',
+                transition:'all 0.2s',
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.background='linear-gradient(135deg,rgba(108,212,255,0.30) 0%,rgba(20,60,100,0.40) 100%)';
+                e.currentTarget.style.color='#a8eeff';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background='linear-gradient(135deg,rgba(108,212,255,0.18) 0%,rgba(20,60,100,0.25) 100%)';
+                e.currentTarget.style.color='#6cd4ff';
+              }}
+            >
+              ⚔ ENTER THE WAR MAP
+            </a>
+            <p style={{ textAlign:'center', color:'#1e3040', fontSize:'0.56rem',
+              letterSpacing:'0.2em', textTransform:'uppercase',
+              fontFamily:'JetBrains Mono,monospace', marginTop:'0.65rem' }}>
+              Free · No download · Sign up takes 30 seconds
+            </p>
+          </div>
+        </div>
       )}
 
       {/* ── Header — hidden in hub mode (hub card provides its own header bar) ── */}
@@ -1632,8 +1784,11 @@ const WarMapPreview = ({ hubMode = false }) => {
         </div>
         )}
 
-        {/* Canvas */}
-        <div style={{ flex:1, position:'relative', minHeight: hubMode ? 320 : 460, overflow:'visible' }}>
+        {/* Canvas — 16:9 aspect ratio so the warmap.png city background shows in full */}
+        <div style={{ flex:1, position:'relative',
+          minHeight: hubMode ? 400 : 520,
+          aspectRatio: hubMode ? 'auto' : '16/9',
+          overflow:'visible' }}>
           {/* SVG supply-line routes */}
           <svg
             viewBox="0 0 100 100"
@@ -1682,11 +1837,9 @@ const WarMapPreview = ({ hubMode = false }) => {
             const cls   = routeClass({ key: String(n.id)+'|x' }); // for dim check
             const isDim = variety(String(n.id)) % 10 >= 6;
             return (
-              <a
+              <button
                 key={n.id}
-                href={GAME_URL}
-                target="_blank"
-                rel="noopener noreferrer"
+                onClick={() => setActiveNode(n)}
                 onMouseEnter={() => setHovered(String(n.id))}
                 onMouseLeave={() => setHovered(null)}
                 style={{
@@ -1696,10 +1849,10 @@ const WarMapPreview = ({ hubMode = false }) => {
                   transform:`translate(-50%,-50%)${hot?' scale(1.3)':''}`,
                   display:'flex', flexDirection:'column', alignItems:'center', gap:3,
                   zIndex: hot ? 20 : 4,
-                  cursor:'pointer', textDecoration:'none',
+                  cursor:'pointer', background:'transparent', border:'none', padding:0,
                   transition:'transform 0.15s ease',
                 }}
-                title={`${n.name} — click to enter the game`}
+                title={`${n.name} — click to view`}
               >
                 {/* Outer pulse ring when hovered */}
                 {hot && (
@@ -1763,19 +1916,21 @@ const WarMapPreview = ({ hubMode = false }) => {
                     </div>
                   </div>
                 )}
-              </a>
+              </button>
             );
           })}
 
           {/* Corner stamps */}
-          <div style={{ position:'absolute', top:8, left:8, color:'rgba(30,60,80,0.5)',
+          <div style={{ position:'absolute', top:10, left:10, color:'rgba(108,212,255,0.35)',
             fontSize:'0.5rem', letterSpacing:'0.3em', fontFamily:'JetBrains Mono,monospace',
-            textTransform:'uppercase', zIndex:3, pointerEvents:'none' }}>
+            textTransform:'uppercase', zIndex:3, pointerEvents:'none',
+            textShadow:'0 0 8px rgba(108,212,255,0.4)' }}>
             SECTOR MAP · SEASON I
           </div>
-          <div style={{ position:'absolute', bottom:12, right:12, color:'rgba(30,60,80,0.5)',
+          <div style={{ position:'absolute', bottom:14, right:14, color:'rgba(108,212,255,0.35)',
             fontSize:'0.5rem', letterSpacing:'0.3em', fontFamily:'JetBrains Mono,monospace',
-            textTransform:'uppercase', zIndex:3, pointerEvents:'none' }}>
+            textTransform:'uppercase', zIndex:3, pointerEvents:'none',
+            textShadow:'0 0 8px rgba(108,212,255,0.4)' }}>
             MYTHIC SPELLBOOK // PRN GRID
           </div>
         </div>
