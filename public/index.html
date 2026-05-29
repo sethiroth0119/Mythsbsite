@@ -1446,7 +1446,7 @@ const WhyEconomy = () => (
 // the sign-up CTA. Clicking any node or the bottom CTA sends the visitor
 // straight to the game. Falls back to a built-in demo map while loading
 // or when no catalog has been published yet.
-const WarMapPreview = () => {
+const WarMapPreview = ({ hubMode = false }) => {
   const [twData,  setTwData]  = useState(null);
   const [loading, setLoading] = useState(true);
   const [hovered, setHovered] = useState(null);
@@ -1549,8 +1549,10 @@ const WarMapPreview = () => {
   ];
 
   return (
-    <section id="warmap" style={{
-      background: 'linear-gradient(180deg, #020810 0%, #01040c 100%)',
+    <section id={hubMode ? undefined : 'warmap'} style={{
+      background: hubMode
+        ? 'linear-gradient(180deg, #020810 0%, #01040c 100%)'
+        : 'linear-gradient(180deg, #020810 0%, #01040c 100%)',
       position: 'relative', overflow: 'hidden',
     }}>
       {/* Scanline texture */}
@@ -1560,43 +1562,48 @@ const WarMapPreview = () => {
       <div style={{ position:'absolute', inset:0, zIndex:1, pointerEvents:'none',
         backgroundImage:'linear-gradient(rgba(30,60,90,0.07) 1px,transparent 1px),linear-gradient(90deg,rgba(30,60,90,0.07) 1px,transparent 1px)',
         backgroundSize:'64px 64px' }} />
-      {/* Top fade from above section */}
-      <div style={{ position:'absolute', top:0, left:0, right:0, height:60, zIndex:1, pointerEvents:'none',
-        background:'linear-gradient(180deg,rgba(10,10,10,0.5) 0%,transparent 100%)' }} />
+      {/* Top fade — only on standalone section */}
+      {!hubMode && (
+        <div style={{ position:'absolute', top:0, left:0, right:0, height:60, zIndex:1, pointerEvents:'none',
+          background:'linear-gradient(180deg,rgba(10,10,10,0.5) 0%,transparent 100%)' }} />
+      )}
 
-      {/* ── Header ── */}
-      <div style={{ position:'relative', zIndex:3, textAlign:'center', padding:'3rem 1.5rem 1.75rem' }}>
-        <div style={{ display:'inline-flex', alignItems:'center', gap:'0.5rem', marginBottom:'0.8rem' }}>
-          <span style={{
-            display:'inline-block', width:8, height:8, borderRadius:'50%',
-            background: loading ? '#666' : '#22d46a',
-            boxShadow: loading ? 'none' : '0 0 8px #22d46a',
-            animation: loading ? 'none' : 'tw-mkt-dot 2s ease-in-out infinite',
-          }} />
-          <span style={{ color: loading ? '#555' : '#22d46a', fontSize:'0.62rem',
-            letterSpacing:'0.45em', fontFamily:'JetBrains Mono,monospace,sans-serif',
-            textTransform:'uppercase' }}>
-            {loading ? 'LOADING MAP DATA…' : `LIVE · ${nodes.length} PRNs ACTIVE`}
-          </span>
+      {/* ── Header — hidden in hub mode (hub card provides its own header bar) ── */}
+      {!hubMode && (
+        <div style={{ position:'relative', zIndex:3, textAlign:'center', padding:'3rem 1.5rem 1.75rem' }}>
+          <div style={{ display:'inline-flex', alignItems:'center', gap:'0.5rem', marginBottom:'0.8rem' }}>
+            <span style={{
+              display:'inline-block', width:8, height:8, borderRadius:'50%',
+              background: loading ? '#666' : '#22d46a',
+              boxShadow: loading ? 'none' : '0 0 8px #22d46a',
+              animation: loading ? 'none' : 'tw-mkt-dot 2s ease-in-out infinite',
+            }} />
+            <span style={{ color: loading ? '#555' : '#22d46a', fontSize:'0.62rem',
+              letterSpacing:'0.45em', fontFamily:'JetBrains Mono,monospace,sans-serif',
+              textTransform:'uppercase' }}>
+              {loading ? 'LOADING MAP DATA…' : `LIVE · ${nodes.length} PRNs ACTIVE`}
+            </span>
+          </div>
+          <h2 style={{
+            fontFamily:'Cinzel,serif', fontWeight:900, margin:'0 0 0.5rem',
+            fontSize:'clamp(1.6rem,3.5vw,2.75rem)', letterSpacing:'0.14em',
+            color:'#b8deff', textShadow:'0 0 40px rgba(108,212,255,0.35)',
+          }}>
+            PLANETARY RECONSTRUCTION NETWORK
+          </h2>
+          <p style={{ color:'#3a5a70', fontSize:'0.78rem', letterSpacing:'0.22em',
+            textTransform:'uppercase', margin:0, fontFamily:'JetBrains Mono,monospace,sans-serif' }}>
+            War Map · Claim Nodes · Control Supply Lines · Dominate Regions
+          </p>
         </div>
-        <h2 style={{
-          fontFamily:'Cinzel,serif', fontWeight:900, margin:'0 0 0.5rem',
-          fontSize:'clamp(1.6rem,3.5vw,2.75rem)', letterSpacing:'0.14em',
-          color:'#b8deff', textShadow:'0 0 40px rgba(108,212,255,0.35)',
-        }}>
-          PLANETARY RECONSTRUCTION NETWORK
-        </h2>
-        <p style={{ color:'#3a5a70', fontSize:'0.78rem', letterSpacing:'0.22em',
-          textTransform:'uppercase', margin:0, fontFamily:'JetBrains Mono,monospace,sans-serif' }}>
-          War Map · Claim Nodes · Control Supply Lines · Dominate Regions
-        </p>
-      </div>
+      )}
 
       {/* ── Map workspace ── */}
       <div style={{ display:'flex', position:'relative', zIndex:2,
-        maxWidth:1420, margin:'0 auto', padding:'0 0 0 0' }}>
+        maxWidth: hubMode ? '100%' : 1420, margin:'0 auto', padding:'0 0 0 0' }}>
 
-        {/* Field Reports sidebar */}
+        {/* Field Reports sidebar — hidden in hub mode */}
+        {!hubMode && (
         <div style={{ width:210, flexShrink:0, padding:'0.5rem 0 2rem 1.5rem', display:'flex', flexDirection:'column' }}>
           <div style={{ color:'#2a4050', fontSize:'0.56rem', letterSpacing:'0.38em',
             textTransform:'uppercase', fontFamily:'JetBrains Mono,monospace',
@@ -1623,9 +1630,10 @@ const WarMapPreview = () => {
             // YOUR CORP STATUS
           </div>
         </div>
+        )}
 
         {/* Canvas */}
-        <div style={{ flex:1, position:'relative', minHeight:460, overflow:'visible' }}>
+        <div style={{ flex:1, position:'relative', minHeight: hubMode ? 320 : 460, overflow:'visible' }}>
           {/* SVG supply-line routes */}
           <svg
             viewBox="0 0 100 100"
@@ -1773,8 +1781,8 @@ const WarMapPreview = () => {
         </div>
       </div>
 
-      {/* ── Legend ── */}
-      <div style={{ position:'relative', zIndex:3, display:'flex',
+      {/* ── Legend — hidden in hub mode ── */}
+      {!hubMode && <div style={{ position:'relative', zIndex:3, display:'flex',
         justifyContent:'center', alignItems:'center', gap:'1.5rem',
         padding:'1rem 1.5rem 0', flexWrap:'wrap' }}>
         {[
@@ -1794,9 +1802,10 @@ const WarMapPreview = () => {
             </span>
           </div>
         ))}
-      </div>
+      </div>}
 
-      {/* ── CTA strip ── */}
+      {/* ── CTA strip — hidden in hub mode (hub card has its own ENTER → link) ── */}
+      {!hubMode && (
       <div style={{ position:'relative', zIndex:3, textAlign:'center',
         padding:'2rem 1.5rem 3.5rem',
         borderTop:'1px solid rgba(30,60,90,0.3)',
@@ -1844,6 +1853,7 @@ const WarMapPreview = () => {
           Free to play · No download · Sign up takes 30 seconds
         </p>
       </div>
+      )}
     </section>
   );
 };
@@ -3620,6 +3630,52 @@ const PlayerHub = ({ client, session, profile, refreshProfile, onSignedOut }) =>
                   </div>
                 </div>
               </div>
+            </div>
+
+            {/* ===== War Map Widget ===== */}
+            <div className="mb-8 rounded-xl overflow-hidden" style={{
+              border: '1px solid rgba(108,212,255,0.22)',
+              boxShadow: '0 0 40px rgba(108,212,255,0.08), inset 0 0 60px rgba(0,0,0,0.4)',
+            }}>
+              {/* Widget header bar */}
+              <div style={{
+                background: 'rgba(2,6,18,0.95)',
+                borderBottom: '1px solid rgba(108,212,255,0.18)',
+                padding: '0.8rem 1.25rem',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
+                  <span style={{
+                    display: 'inline-block', width: 7, height: 7, borderRadius: '50%',
+                    background: '#22d46a', boxShadow: '0 0 6px #22d46a',
+                    animation: 'tw-mkt-dot 2s ease-in-out infinite',
+                  }} />
+                  <span style={{
+                    fontFamily: 'Cinzel,serif', fontWeight: 700,
+                    color: '#a8d8ff', fontSize: '0.88rem', letterSpacing: '0.14em',
+                  }}>WAR MAP — PLANETARY RECONSTRUCTION NETWORK</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <span style={{ color: '#3a5a70', fontSize: '0.58rem',
+                    letterSpacing: '0.25em', fontFamily: 'JetBrains Mono,monospace',
+                    textTransform: 'uppercase' }}>
+                    Claim · Control · Dominate
+                  </span>
+                  <a href={GAME_URL} target="_blank" rel="noopener noreferrer"
+                    style={{
+                      fontSize: '0.62rem', color: '#6cd4ff',
+                      letterSpacing: '0.22em', textTransform: 'uppercase',
+                      textDecoration: 'none', fontFamily: 'JetBrains Mono,monospace',
+                      border: '1px solid rgba(108,212,255,0.35)',
+                      padding: '0.25rem 0.65rem', borderRadius: 3,
+                      transition: 'all 0.15s',
+                    }}>
+                    ENTER →
+                  </a>
+                </div>
+              </div>
+              {/* Embedded war map — reuses the same component (no sidebar, tighter) */}
+              <WarMapPreview hubMode={true} />
             </div>
 
             {/* ===== Vendor Market section ===== */}
