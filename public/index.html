@@ -1443,27 +1443,6 @@ const WarMapPreview = ({ hubMode = false }) => {
   const [hovered,     setHovered]     = useState(null);
   const [activeNode,  setActiveNode]  = useState(null); // clicked-node modal
 
-  // Built-in demo nodes — shown while the catalog is loading or empty.
-  // Positions are percentages of the canvas (0-100 x/y).
-  const DEMO_NODES = [
-    { id:'d1',  name:'Kiln-7',        position:{x:10,y:28}, connections:['d2','d3'] },
-    { id:'d2',  name:'Emberfall',     position:{x:24,y:15}, connections:['d1','d4'] },
-    { id:'d3',  name:'Ashen Gate',    position:{x:20,y:48}, connections:['d1','d5'] },
-    { id:'d4',  name:'Last Wick',     position:{x:38,y:10}, connections:['d2','d6'] },
-    { id:'d5',  name:'Iron Hollow',   position:{x:36,y:55}, connections:['d3','d7','d8'] },
-    { id:'d6',  name:'Vault Prime',   position:{x:53,y:20}, connections:['d4','d7','d9'] },
-    { id:'d7',  name:'Cinder Cross',  position:{x:50,y:42}, connections:['d5','d6','d10'] },
-    { id:'d8',  name:'Wither Flats',  position:{x:40,y:70}, connections:['d5','d10'] },
-    { id:'d9',  name:'Spire-4',       position:{x:66,y:16}, connections:['d6','d11'] },
-    { id:'d10', name:'Dust Basin',    position:{x:63,y:56}, connections:['d7','d8','d11','d12'] },
-    { id:'d11', name:'North Gate',    position:{x:76,y:30}, connections:['d9','d10','d13'] },
-    { id:'d12', name:'Deep Sump',     position:{x:72,y:72}, connections:['d10','d13'] },
-    { id:'d13', name:'NEXUS-ZERO',    position:{x:88,y:50}, connections:['d11','d12'] },
-    { id:'d14', name:'Rubble Row',    position:{x:56,y:82}, connections:['d8','d12'] },
-    { id:'d15', name:'Signal Peak',   position:{x:84,y:20}, connections:['d9','d11'] },
-    { id:'d16', name:'Outer Crust',   position:{x:14,y:76}, connections:['d3','d8'] },
-  ];
-
   useEffect(() => {
     const fetchTW = async () => {
       try {
@@ -1863,7 +1842,7 @@ const WarMapPreview = ({ hubMode = false }) => {
                   textTransform:'uppercase', whiteSpace:'nowrap',
                   maxWidth:72, overflow:'hidden', textOverflow:'ellipsis',
                   textAlign:'center',
-                  color: hot ? '#fff' : isDim ? '#1e3040' : color,
+                  color: hot ? '#fff' : color,
                   textShadow: hot ? `0 0 10px ${color}` : 'none',
                   transition:'color 0.15s, text-shadow 0.15s',
                 }}>
