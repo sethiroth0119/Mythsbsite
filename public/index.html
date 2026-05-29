@@ -43,16 +43,7 @@
   .boot-shimmer { background: linear-gradient(90deg, #1a1428 0%, #2a1f3d 50%, #1a1428 100%); background-size: 200% 100%; animation: shimmer 1.5s ease-in-out infinite; }
   @keyframes shimmer { 0%,100% { background-position: 0% 0%; } 50% { background-position: 200% 0%; } }
 
-  /* ── War Map Preview animations ── */
-  @keyframes tw-mkt-flow  { to { stroke-dashoffset: -22; } }
-  @keyframes tw-mkt-teal  {
-    0%,100% { stroke: #6cd4ff; }
-    50%     { stroke: #a8eeff; filter: drop-shadow(0 0 3px rgba(108,212,255,0.9)); }
-  }
-  @keyframes tw-mkt-gold  {
-    0%,100% { stroke: #ffcf5a; }
-    50%     { stroke: #ffe880; filter: drop-shadow(0 0 3px rgba(255,210,60,0.9)); }
-  }
+  /* ── War Map Preview — no route animations (static map only) ── */
   @keyframes tw-mkt-node-pulse {
     0%,100% { opacity: 0.85; }
     50%     { opacity: 1; }
@@ -1485,11 +1476,13 @@ const WarMapPreview = ({ hubMode = false }) => {
           .maybeSingle();
         if (!error && data?.moves?.__territory_wars__) {
           const tw = data.moves.__territory_wars__;
+          // Accept ANY node with a valid id and position (even 0,0 — admin placed it there).
+          // No minimum count: show the real map as long as at least 1 node exists.
           const validNodes = Array.isArray(tw.nodes)
             ? tw.nodes.filter(n => n && n.id != null && n.position &&
-                (n.position.x !== 0 || n.position.y !== 0))
+                typeof n.position.x === 'number' && typeof n.position.y === 'number')
             : [];
-          if (validNodes.length >= 4) {
+          if (validNodes.length >= 1) {
             setTwData({ nodes: validNodes, regions: tw.regions || [] });
           }
         }
@@ -1501,7 +1494,9 @@ const WarMapPreview = ({ hubMode = false }) => {
     fetchTW();
   }, []);
 
-  const nodes = twData?.nodes || DEMO_NODES;
+  // Use real catalog nodes only — no demo fallback.
+  // While loading or if the catalog has no nodes, render an empty canvas.
+  const nodes = twData?.nodes || [];
 
   // Build deduplicated route list
   const nodeById = {};
@@ -1517,25 +1512,8 @@ const WarMapPreview = ({ hubMode = false }) => {
     }
   }
 
-  // Deterministic variety: scatter route/node visual classes via simple hash
-  // so the map looks organically occupied rather than striped.
-  const variety = (str) => {
-    let h = 0;
-    for (let i = 0; i < str.length; i++) h = ((h << 5) - h + str.charCodeAt(i)) | 0;
-    return Math.abs(h);
-  };
-  const routeClass = (r) => {
-    const v = variety(r.key) % 10;
-    if (v < 3) return 'allied';     // teal supply line
-    if (v < 5) return 'frontier';   // gold frontier
-    return 'dim';                   // muted/unclaimed
-  };
-  const nodeGlow = (n) => {
-    const v = variety(String(n.id)) % 10;
-    if (v < 4) return '#6cd4ff';
-    if (v < 6) return '#ffcf5a';
-    return '#3a5570';
-  };
+  // Simple node glow — teal for all nodes (matches game aesthetic).
+  const nodeGlow = () => '#6cd4ff';
 
   // Static field-report log — gives the "live world" feel
   const FEED = [
@@ -1784,9 +1762,9 @@ const WarMapPreview = ({ hubMode = false }) => {
         </div>
         )}
 
-        {/* Canvas — 16:9 aspect ratio so the warmap.png city background shows in full */}
+        {/* Canvas — taller map so nodes are easy to see and interact with */}
         <div style={{ flex:1, position:'relative',
-          minHeight: hubMode ? 400 : 520,
+          minHeight: hubMode ? 560 : 640,
           aspectRatio: hubMode ? 'auto' : '16/9',
           overflow:'visible' }}>
           {/* SVG supply-line routes */}
@@ -1797,45 +1775,42 @@ const WarMapPreview = ({ hubMode = false }) => {
               overflow:'visible', zIndex:1, pointerEvents:'none' }}
           >
             {routes.map((r) => {
-              const cls = routeClass(r);
               const { a, b } = r;
               const ax = a.position.x, ay = a.position.y;
               const bx = b.position.x, by = b.position.y;
               const mx = ((ax + bx) / 2 + 1.5).toFixed(2);
               const my = ((ay + by) / 2 - 1.5).toFixed(2);
               const d  = `M ${ax} ${ay} Q ${mx} ${my} ${bx} ${by}`;
-              if (cls === 'allied') return (
-                <g key={r.key}>
-                  {/* soft halo */}
-                  <path d={d} fill="none" stroke="rgba(108,212,255,0.10)" strokeWidth="4" />
-                  {/* animated line */}
-                  <path d={d} fill="none" stroke="#6cd4ff" strokeWidth="1.5"
-                    strokeDasharray="7 3" strokeLinecap="round"
-                    style={{ animation:`tw-mkt-flow ${(variety(r.key)%4)*0.2+1.2}s linear infinite,tw-mkt-teal ${(variety(r.key)%5)*0.2+1.8}s ease-in-out infinite` }} />
-                </g>
-              );
-              if (cls === 'frontier') return (
-                <g key={r.key}>
-                  <path d={d} fill="none" stroke="rgba(255,207,90,0.08)" strokeWidth="3" />
-                  <path d={d} fill="none" stroke="#ffcf5a" strokeWidth="1.2"
-                    strokeDasharray="6 4" strokeLinecap="round"
-                    style={{ animation:`tw-mkt-flow ${(variety(r.key)%4)*0.2+1.6}s linear infinite,tw-mkt-gold ${(variety(r.key)%5)*0.2+2.2}s ease-in-out infinite` }} />
-                </g>
-              );
+              // Static dim supply line — no animation so the marketing map
+              // never falsely implies which routes are lit in the real game.
               return (
                 <path key={r.key} d={d} fill="none"
-                  stroke="rgba(40,70,100,0.35)" strokeWidth="0.7"
-                  strokeDasharray="2 6" />
+                  stroke="rgba(108,212,255,0.30)" strokeWidth="0.8"
+                  strokeDasharray="4 5" strokeLinecap="round" />
               );
             })}
           </svg>
+
+          {/* Loading / empty state when catalog hasn't resolved yet */}
+          {loading && (
+            <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center',
+              justifyContent:'center', color:'rgba(108,212,255,0.55)',
+              fontFamily:'Cinzel,serif', fontSize:13, letterSpacing:'0.1em', zIndex:10 }}>
+              LOADING MAP DATA…
+            </div>
+          )}
+          {!loading && nodes.length === 0 && (
+            <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center',
+              justifyContent:'center', color:'rgba(108,212,255,0.4)',
+              fontFamily:'Cinzel,serif', fontSize:13, letterSpacing:'0.1em', zIndex:10 }}>
+              MAP NOT YET PUBLISHED
+            </div>
+          )}
 
           {/* Node markers */}
           {nodes.map((n) => {
             const hot   = hovered === String(n.id);
             const color = nodeGlow(n);
-            const cls   = routeClass({ key: String(n.id)+'|x' }); // for dim check
-            const isDim = variety(String(n.id)) % 10 >= 6;
             return (
               <button
                 key={n.id}
@@ -1868,21 +1843,18 @@ const WarMapPreview = ({ hubMode = false }) => {
                 {/* Wireframe diamond */}
                 <svg width="22" height="22" viewBox="-12 -12 24 24"
                   style={{ overflow:'visible',
-                    filter: hot ? `drop-shadow(0 0 7px ${color})` : isDim ? 'none' : `drop-shadow(0 0 2px ${color}50)`,
+                    filter: hot ? `drop-shadow(0 0 7px ${color})` : `drop-shadow(0 0 2px ${color}50)`,
                     transition:'filter 0.15s',
-                    animation: isDim ? 'none' : `tw-mkt-node-pulse ${(variety(String(n.id))%5)*0.3+2}s ease-in-out infinite`,
+                    animation: `tw-mkt-node-pulse 2.5s ease-in-out infinite`,
                   }}>
                   {/* Outer ring */}
                   <polygon points="0,-10 10,0 0,10 -10,0"
-                    fill="none" stroke={color} strokeWidth="1.3"
-                    opacity={isDim ? 0.25 : 0.9} />
+                    fill="none" stroke={color} strokeWidth="1.3" opacity="0.9" />
                   {/* Inner core */}
                   <polygon points="0,-5 5,0 0,5 -5,0"
-                    fill={isDim ? 'transparent' : `${color}28`}
-                    stroke={color} strokeWidth="0.8"
-                    opacity={isDim ? 0.18 : 0.7} />
+                    fill={`${color}28`} stroke={color} strokeWidth="0.8" opacity="0.7" />
                   {/* Center dot */}
-                  {!isDim && <circle cx="0" cy="0" r="1.3" fill={color} opacity="0.85" />}
+                  <circle cx="0" cy="0" r="1.3" fill={color} opacity="0.85" />
                 </svg>
                 {/* Node label */}
                 <span style={{
