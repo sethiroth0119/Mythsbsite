@@ -42,6 +42,25 @@
   /* Loading state — shown while Babel transpiles */
   .boot-shimmer { background: linear-gradient(90deg, #1a1428 0%, #2a1f3d 50%, #1a1428 100%); background-size: 200% 100%; animation: shimmer 1.5s ease-in-out infinite; }
   @keyframes shimmer { 0%,100% { background-position: 0% 0%; } 50% { background-position: 200% 0%; } }
+
+  /* ── War Map Preview animations ── */
+  @keyframes tw-mkt-flow  { to { stroke-dashoffset: -22; } }
+  @keyframes tw-mkt-teal  {
+    0%,100% { stroke: #6cd4ff; }
+    50%     { stroke: #a8eeff; filter: drop-shadow(0 0 3px rgba(108,212,255,0.9)); }
+  }
+  @keyframes tw-mkt-gold  {
+    0%,100% { stroke: #ffcf5a; }
+    50%     { stroke: #ffe880; filter: drop-shadow(0 0 3px rgba(255,210,60,0.9)); }
+  }
+  @keyframes tw-mkt-node-pulse {
+    0%,100% { opacity: 0.85; }
+    50%     { opacity: 1; }
+  }
+  @keyframes tw-mkt-dot {
+    0%,100% { opacity: 1;   transform: scale(1); }
+    50%     { opacity: 0.5; transform: scale(0.7); }
+  }
 </style>
 </head>
 <body>
@@ -642,24 +661,38 @@ const Card = ({ card, onClick, size = 'md', floating = true, intensity = 1 }) =>
 };
 
 // ===== NAVBAR =====
-const Navbar = ({ onNavigate, deckCount, survivors, loyalFaction, isSignedIn, displayName, onShowHub, onShowHome, onSignIn, currentPage }) => (
+const Navbar = ({ onNavigate, deckCount, survivors, loyalFaction, isSignedIn, displayName, onShowHub, onShowHome, onShowCommunity, onShowRMT, onShowSurvivor, onShowDeckBuilder, onShowNews, onShowPledge, onSignIn, currentPage }) => {
+  // Dismissible emergency-broadcast banner. Default open; X button closes it
+  // for the rest of the session and the nav slides up to top:0.
+  const [bannerOpen, setBannerOpen] = useState(true);
+  return (
   <>
+    {bannerOpen && (
     <div className="fixed top-0 left-0 right-0 z-[60] bg-red-900/90 backdrop-blur border-b border-red-500 text-red-100 text-[10px] py-1 px-6 flex items-center justify-between tracking-widest uppercase">
-      <div className="flex items-center gap-2">
-        <span className="w-2 h-2 rounded-full bg-red-400" style={{ animation: 'pulse-red 1s infinite' }} />
+      <div className="flex items-center gap-2 min-w-0">
+        <span className="w-2 h-2 rounded-full bg-red-400 shrink-0" style={{ animation: 'pulse-red 1s infinite' }} />
         <span style={{ animation: 'flicker 3s infinite' }}> EMERGENCY BROADCAST · DAY 2,847 SINCE THE COLLAPSE</span>
       </div>
-      <div className="hidden md:flex items-center gap-4">
-        {loyalFaction && (
-          <span className="text-orange-300">
-            FACTION: <span className="font-bold">{loyalFaction.toUpperCase()}</span>
-          </span>
-        )}
-        <span>SURVIVORS ONLINE: <span className="text-orange-300 font-bold">{survivors.toLocaleString()}</span></span>
+      <div className="flex items-center gap-4 shrink-0">
+        <div className="hidden md:flex items-center gap-4">
+          {loyalFaction && (
+            <span className="text-orange-300">
+              FACTION: <span className="font-bold">{loyalFaction.toUpperCase()}</span>
+            </span>
+          )}
+          {/* SURVIVORS ONLINE counter removed — not a real number yet. */}
+        </div>
+        <button
+          onClick={() => setBannerOpen(false)}
+          aria-label="Dismiss broadcast"
+          className="text-white hover:text-red-200 transition leading-none px-1 font-bold"
+          style={{ fontSize: '16px' }}
+        >×</button>
       </div>
     </div>
+    )}
 
-    <nav className="fixed top-6 left-0 right-0 z-50 backdrop-blur-md bg-black/75 border-b border-orange-600/30">
+    <nav className={`fixed ${bannerOpen ? 'top-6' : 'top-0'} left-0 right-0 z-50 backdrop-blur-md bg-black/75 border-b border-orange-600/30 transition-all`}>
       <div className="max-w-7xl mx-auto px-5 py-2.5 flex items-center gap-4 relative">
         <BulletHole className="top-2 right-32" size={16} />
 
@@ -698,19 +731,22 @@ const Navbar = ({ onNavigate, deckCount, survivors, loyalFaction, isSignedIn, di
         </button>
 
         {/* ===== Nav links (center) — single row, never wrap ===== */}
-        <div className="hidden lg:flex items-center gap-5 text-[13px] text-stone-300 mx-auto">
+        <div className="hidden lg:flex items-center gap-4 text-[13px] text-stone-300 mx-auto">
           <button onClick={() => onNavigate('home')}      className="whitespace-nowrap hover:text-orange-400 transition tracking-wide uppercase font-medium">Home</button>
           <button onClick={() => onNavigate('about')}     className="whitespace-nowrap hover:text-orange-400 transition tracking-wide uppercase font-medium">About</button>
-          <button onClick={() => onNavigate('factions')}  className="whitespace-nowrap hover:text-orange-400 transition tracking-wide uppercase font-medium">Factions</button>
-          <button onClick={() => onNavigate('different')} className="whitespace-nowrap hover:text-orange-400 transition tracking-wide uppercase font-medium">What's New</button>
-          <button onClick={() => onNavigate('subclass')}  className="whitespace-nowrap hover:text-orange-400 transition tracking-wide uppercase font-medium">Subclass</button>
-          <button onClick={() => onNavigate('champions')} className="whitespace-nowrap hover:text-orange-400 transition tracking-wide uppercase font-medium">Survivors</button>
-          <button onClick={() => onNavigate('coliseum')}  className="whitespace-nowrap hover:text-orange-400 transition tracking-wide uppercase font-medium">Colosseum</button>
-          <button onClick={() => onNavigate('community')} className="whitespace-nowrap hover:text-orange-400 transition tracking-wide uppercase font-medium">Community</button>
-          <button onClick={() => onNavigate('gymdefenders')} className="whitespace-nowrap hover:text-orange-400 transition tracking-wide uppercase font-medium">Gym Defenders</button>
-          <button onClick={() => onNavigate('free')}      className="whitespace-nowrap hover:text-orange-400 transition tracking-wide uppercase font-medium text-amber-300">Survive Free</button>
-          <button onClick={() => onNavigate('packs')}     className="whitespace-nowrap hover:text-orange-400 transition tracking-wide uppercase font-medium">Packs</button>
-          <button onClick={() => onNavigate('gallery')}   className="whitespace-nowrap hover:text-orange-400 transition tracking-wide uppercase font-medium">Cards</button>
+          {/* Factions nav button removed — section lives on the Survivor page, reachable via the Survivor button. */}
+          {/* News — patch notes / devlogs / announcements (was "What's New"). */}
+          <button onClick={() => { if (onShowNews) onShowNews(); }} className={`whitespace-nowrap hover:text-orange-400 transition tracking-wide uppercase font-medium ${currentPage === 'news' ? 'text-orange-400' : ''}`}>News</button>
+          {/*  Survivor — opens the dedicated Survivor page (Champions + Subclasses + Held Items). */}
+          <button onClick={() => { if (onShowSurvivor) onShowSurvivor(); }} className={`whitespace-nowrap hover:text-orange-400 transition tracking-wide uppercase font-medium ${currentPage === 'survivor' ? 'text-orange-400' : ''}`}>Survivor</button>
+          {/* Colosseum nav button removed — section moved to the Community page. */}
+          {/* 🪙 RMT — Real Money Trading manifesto + Build a Career economy. Highlights gold when active. */}
+          <button onClick={() => { if (onShowRMT) onShowRMT(); }} className={`whitespace-nowrap hover:text-orange-400 transition tracking-wide uppercase font-bold ${currentPage === 'rmt' ? 'text-amber-300' : 'text-amber-200/90'}`}>RMT</button>
+          {/*  Pledge — ownership manifesto + tier scaffold. Amber so it visually groups with RMT. */}
+          <button onClick={() => { if (onShowPledge) onShowPledge(); }} className={`whitespace-nowrap hover:text-orange-400 transition tracking-wide uppercase font-bold ${currentPage === 'pledge' ? 'text-amber-300' : 'text-amber-200/90'}`}>Pledge</button>
+          <button onClick={() => { if (onShowCommunity) onShowCommunity(); }} className={`whitespace-nowrap hover:text-orange-400 transition tracking-wide uppercase font-medium ${currentPage === 'community' ? 'text-orange-400' : ''}`}>Community</button>
+          {/*  Deck Builder — opens the dedicated page (Garden of Eden + Survive Free + Survival Caches + Card Database). */}
+          <button onClick={() => { if (onShowDeckBuilder) onShowDeckBuilder(); }} className={`whitespace-nowrap hover:text-orange-400 transition tracking-wide uppercase font-medium ${currentPage === 'deckbuilder' ? 'text-amber-300' : 'text-amber-300'}`}>Deck Builder</button>
         </div>
 
         {/* ===== Right cluster (auth + play) ===== */}
@@ -744,7 +780,8 @@ const Navbar = ({ onNavigate, deckCount, survivors, loyalFaction, isSignedIn, di
       </div>
     </nav>
   </>
-);
+  );
+};
 
 // ===== HERO =====
 const Hero = ({ featuredCard, onCardClick, onScrollTo }) => (
@@ -835,6 +872,25 @@ const Hero = ({ featuredCard, onCardClick, onScrollTo }) => (
           <span className="sr-only">Mythic Spellbook</span>
           <span className="block text-stone-500 italic font-normal text-3xl md:text-4xl my-2" style={{ textShadow: 'none', transform: 'skewX(-5deg)' }}>·· the cards move ··</span>
         </DistressedHeading>
+
+        {/*  Pillar tagline — four-promise lockup + genre subtitle + the live
+            Cinder conversion rate. Sits between the brand mark and the
+            Goddess lore so it reads as the elevator pitch under the logo. */}
+        <div className="mt-2 mb-6 max-w-xl">
+          <p className="text-yellow-100 font-serif text-lg md:text-2xl leading-snug font-bold mb-2" style={{ textShadow: '0 2px 6px rgba(0,0,0,0.85)' }}>
+            Hunt the world.{' '}
+            <span className="text-orange-300">Build Your Camp.</span>{' '}
+            Trade Your Value.{' '}
+            <span className="text-orange-300">Withdraw Your Victories.</span>
+          </p>
+          <p className="text-stone-300 text-sm md:text-base leading-relaxed italic mb-3">
+            A Survival Horror Deckbuilding Roguelite with a Player-Driven Real World Economy.
+          </p>
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-amber-900/50 to-orange-900/40 border border-amber-500/50 rounded text-amber-100 text-xs tracking-widest uppercase font-bold" style={{ boxShadow: '0 4px 14px rgba(220,140,40,0.18)' }}>
+            <span className="text-amber-300 text-sm">●</span>
+            <span>$1 USD = 5,000 Cinder</span>
+          </div>
+        </div>
 
         {/*  Goddess lore hook — punchier, tighter. Sets the apocalyptic
             tone in three hard sentences before the mechanical pitch. */}
@@ -1259,6 +1315,539 @@ const DeckBuilder = ({ deck, onRemove, onClear }) => {
 };
 
 // ===== JOIN THE RESISTANCE (NEW) =====
+// ===== WHY ECONOMY =====
+// Entropia-inspired pitch: big punchy headline, dramatic apocalypse art on
+// one side, body copy explaining the player-driven economy on the other.
+// The image lives at ./assets/artwork/Sick of Collections.png — if missing,
+// the onError handler swaps in a styled placeholder so the section never
+// breaks the page.
+const WhyEconomy = () => (
+  <section className="relative py-24 px-6 overflow-hidden">
+    <HazardStripe className="absolute top-0 left-0 right-0" />
+    {/* Dark atmospheric backdrop — red-on-purple smoke. */}
+    <div className="absolute inset-0 pointer-events-none" style={{
+      background:
+        'radial-gradient(ellipse at 80% 20%, rgba(220,40,40,0.10) 0%, transparent 55%),' +
+        'radial-gradient(ellipse at 10% 90%, rgba(140,60,200,0.10) 0%, transparent 55%)',
+    }} />
+    <BloodSplatter className="top-32 right-12" size={180} opacity={0.18} />
+    <BulletHole className="top-24 left-1/3" size={22} />
+
+    <div className="max-w-7xl mx-auto relative">
+      <div className="grid lg:grid-cols-2 gap-12 items-center">
+
+        {/* ===== Image ===== */}
+        <div className="relative">
+          <div className="relative rounded-xl overflow-hidden border-2 border-orange-600/40" style={{ boxShadow: '0 30px 80px rgba(0,0,0,0.7), 0 0 80px rgba(220,80,40,0.22)' }}>
+            {/* Corner duct tape so it feels grimy / hand-pinned. */}
+            <DuctTape rotation={-12} className="-top-3 -left-3 z-10" />
+            <DuctTape rotation={15}  className="-top-3 -right-3 z-10" />
+            <DuctTape rotation={8}   className="-bottom-3 -left-3 z-10" />
+            <DuctTape rotation={-18} className="-bottom-3 -right-3 z-10" />
+            <img
+              src="./assets/artwork/Sick%20of%20Collections.png"
+              alt="A warrior facing apocalyptic creatures with the four cards Storm Harvest, Apocalypse Roar, Brainstorm, and Dark Omen — the deck you actually own."
+              className="w-full h-auto block"
+              style={{ background: '#0a0612' }}
+              onError={(e) => {
+                // Fallback placeholder — keeps layout intact if the file
+                // isn't on disk yet. Drop the PNG at the path above to
+                // replace this.
+                const ph = document.createElement('div');
+                ph.style.cssText = 'aspect-ratio:3/2;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at 70% 30%,rgba(220,80,40,0.4),#1a0a08 70%);color:#e8b96a;font-family:Cinzel,serif;font-size:1.5rem;letter-spacing:0.3em;text-align:center;padding:2rem;';
+                ph.innerHTML = '<div><div style="font-size:0.7rem;letter-spacing:0.4em;color:#a16207;margin-bottom:1rem">DROP IMAGE HERE</div><div>Sick of Collections.png</div><div style="font-size:0.6rem;color:#666;margin-top:1rem;letter-spacing:0.2em">./assets/artwork/</div></div>';
+                e.currentTarget.replaceWith(ph);
+              }}
+            />
+            {/* Top hazard stripe overlay */}
+            <HazardStripe className="absolute top-0 left-0 right-0" />
+            {/* Bottom caption overlay */}
+            <div className="absolute left-0 right-0 bottom-0 px-5 py-4 bg-gradient-to-t from-black/95 via-black/70 to-transparent">
+              <div className="text-amber-300/80 text-[10px] tracking-[0.35em] uppercase mb-1">The Deck You Actually Own</div>
+              <div className="text-yellow-100 font-serif text-lg md:text-xl">Storm Harvest · Apocalypse Roar · Brainstorm · Dark Omen</div>
+            </div>
+          </div>
+        </div>
+
+        {/* ===== Text ===== */}
+        <div>
+          <div className="text-red-400/80 text-xs tracking-[0.4em] uppercase mb-3 font-bold">— The Real Question —</div>
+          <DistressedHeading className="text-4xl md:text-5xl lg:text-6xl font-serif font-bold text-yellow-100 mb-3 leading-tight">
+            Sick of building collections…
+          </DistressedHeading>
+          <DistressedHeading level="h3" className="text-2xl md:text-3xl lg:text-4xl font-serif font-bold mb-6 leading-tight">
+            <span className="block bg-gradient-to-r from-red-500 via-orange-500 to-red-600 bg-clip-text text-transparent" style={{ filter: 'drop-shadow(2px 2px 0 rgba(0,0,0,0.85))' }}>
+              AND NEVER BEING ABLE TO TRADE WHAT YOU ACTUALLY WANT?
+            </span>
+          </DistressedHeading>
+
+          <p className="text-stone-300 text-base md:text-lg leading-relaxed mb-4">
+            Most CCGs, deckbuilders, and roguelites lock your collection behind crafting dust, gems, shards, or systems that turn every duplicate into disappointment.
+          </p>
+          <p className="text-stone-200 text-lg md:text-xl leading-relaxed mb-2 font-bold">Your collection sits there.</p>
+          <p className="text-stone-400 italic leading-relaxed mb-6">Static. No stories. No markets. No card shops. No community.</p>
+
+          <p className="text-stone-200 text-base md:text-lg leading-relaxed mb-5">
+            In <strong className="text-orange-300">Mythic Spellbook</strong>, your cards, loot, camps, and discoveries become part of a <strong className="text-orange-300">living player economy</strong>.
+          </p>
+
+          {/* Question / answer ladder — short and punchy, like the Entropia pitch */}
+          <div className="space-y-2.5 mb-7">
+            {[
+              ['Need a card?', 'Buy it.'],
+              ['Want to skip the grind?', 'Trade.'],
+              ['Find something rare?', 'Sell it.'],
+              ['Want to become the person everyone goes to?', 'Build your reputation.'],
+            ].map(([q, a], i) => (
+              <div key={i} className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-3">
+                <span className="text-stone-400 text-sm md:text-base">{q}</span>
+                <span className="text-yellow-100 font-serif font-bold text-lg md:text-xl">{a}</span>
+              </div>
+            ))}
+          </div>
+
+          <p className="text-stone-300 leading-relaxed mb-3">
+            We wanted to bring the feeling of walking into a real card shop into the digital world.
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 mb-7">
+            {['The theories.', 'The market debates.', 'The collectors.', 'The rivalries.', 'The players everyone knows by name.'].map((t, i) => (
+              <div key={i} className="text-stone-300 text-[11px] md:text-xs uppercase tracking-widest text-center bg-black/40 border border-orange-600/25 rounded px-2 py-2">
+                {t}
+              </div>
+            ))}
+          </div>
+
+          <p className="text-stone-200 text-lg md:text-xl leading-relaxed mb-2 italic">
+            Our economy isn't the game.
+          </p>
+          <p className="text-yellow-100 font-serif font-bold text-xl md:text-2xl leading-relaxed mb-8" style={{ textShadow: '0 2px 6px rgba(0,0,0,0.85)' }}>
+            It's the result of players caring about the game.
+          </p>
+
+          {/* Pillar tagline closer — matches the hero pillars exactly */}
+          <div className="border-l-4 border-orange-500/70 pl-5 py-2 mb-3 bg-black/35 rounded-r" style={{ boxShadow: '0 0 30px rgba(255,140,40,0.10)' }}>
+            <p className="text-yellow-100 font-serif text-xl md:text-2xl leading-tight font-bold">
+              Build your camp. <span className="text-orange-300">Trade your value.</span> Withdraw your victories.
+            </p>
+          </div>
+          <p className="text-stone-400 italic text-sm md:text-base leading-relaxed">
+            A Survival Horror Deckbuilding Roguelite with a Player-Driven Economy.
+          </p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+);
+
+// ===== WAR MAP PREVIEW =====
+// Reads the admin-published territory-wars node graph from the shared
+// card_catalog (anon-readable) and renders a live war-map section below
+// the sign-up CTA. Clicking any node or the bottom CTA sends the visitor
+// straight to the game. Falls back to a built-in demo map while loading
+// or when no catalog has been published yet.
+const WarMapPreview = () => {
+  const [twData,  setTwData]  = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [hovered, setHovered] = useState(null);
+
+  // Built-in demo nodes — shown while the catalog is loading or empty.
+  // Positions are percentages of the canvas (0-100 x/y).
+  const DEMO_NODES = [
+    { id:'d1',  name:'Kiln-7',        position:{x:10,y:28}, connections:['d2','d3'] },
+    { id:'d2',  name:'Emberfall',     position:{x:24,y:15}, connections:['d1','d4'] },
+    { id:'d3',  name:'Ashen Gate',    position:{x:20,y:48}, connections:['d1','d5'] },
+    { id:'d4',  name:'Last Wick',     position:{x:38,y:10}, connections:['d2','d6'] },
+    { id:'d5',  name:'Iron Hollow',   position:{x:36,y:55}, connections:['d3','d7','d8'] },
+    { id:'d6',  name:'Vault Prime',   position:{x:53,y:20}, connections:['d4','d7','d9'] },
+    { id:'d7',  name:'Cinder Cross',  position:{x:50,y:42}, connections:['d5','d6','d10'] },
+    { id:'d8',  name:'Wither Flats',  position:{x:40,y:70}, connections:['d5','d10'] },
+    { id:'d9',  name:'Spire-4',       position:{x:66,y:16}, connections:['d6','d11'] },
+    { id:'d10', name:'Dust Basin',    position:{x:63,y:56}, connections:['d7','d8','d11','d12'] },
+    { id:'d11', name:'North Gate',    position:{x:76,y:30}, connections:['d9','d10','d13'] },
+    { id:'d12', name:'Deep Sump',     position:{x:72,y:72}, connections:['d10','d13'] },
+    { id:'d13', name:'NEXUS-ZERO',    position:{x:88,y:50}, connections:['d11','d12'] },
+    { id:'d14', name:'Rubble Row',    position:{x:56,y:82}, connections:['d8','d12'] },
+    { id:'d15', name:'Signal Peak',   position:{x:84,y:20}, connections:['d9','d11'] },
+    { id:'d16', name:'Outer Crust',   position:{x:14,y:76}, connections:['d3','d8'] },
+  ];
+
+  useEffect(() => {
+    const fetchTW = async () => {
+      try {
+        const client = window.msSupabase?.();
+        if (!client) { setLoading(false); return; }
+        const { data, error } = await client
+          .from('card_catalog')
+          .select('moves')
+          .eq('id', 'singleton')
+          .maybeSingle();
+        if (!error && data?.moves?.__territory_wars__) {
+          const tw = data.moves.__territory_wars__;
+          const validNodes = Array.isArray(tw.nodes)
+            ? tw.nodes.filter(n => n && n.id != null && n.position &&
+                (n.position.x !== 0 || n.position.y !== 0))
+            : [];
+          if (validNodes.length >= 4) {
+            setTwData({ nodes: validNodes, regions: tw.regions || [] });
+          }
+        }
+      } catch (e) {
+        console.warn('[WarMapPreview] catalog fetch failed', e);
+      }
+      setLoading(false);
+    };
+    fetchTW();
+  }, []);
+
+  const nodes = twData?.nodes || DEMO_NODES;
+
+  // Build deduplicated route list
+  const nodeById = {};
+  for (const n of nodes) nodeById[n.id] = n;
+  const routes = [];
+  const seenRoutes = new Set();
+  for (const n of nodes) {
+    for (const cid of (n.connections || [])) {
+      const key = [String(n.id), String(cid)].sort().join('|');
+      if (seenRoutes.has(key) || !nodeById[cid]) continue;
+      seenRoutes.add(key);
+      routes.push({ a: n, b: nodeById[cid], key });
+    }
+  }
+
+  // Deterministic variety: scatter route/node visual classes via simple hash
+  // so the map looks organically occupied rather than striped.
+  const variety = (str) => {
+    let h = 0;
+    for (let i = 0; i < str.length; i++) h = ((h << 5) - h + str.charCodeAt(i)) | 0;
+    return Math.abs(h);
+  };
+  const routeClass = (r) => {
+    const v = variety(r.key) % 10;
+    if (v < 3) return 'allied';     // teal supply line
+    if (v < 5) return 'frontier';   // gold frontier
+    return 'dim';                   // muted/unclaimed
+  };
+  const nodeGlow = (n) => {
+    const v = variety(String(n.id)) % 10;
+    if (v < 4) return '#6cd4ff';
+    if (v < 6) return '#ffcf5a';
+    return '#3a5570';
+  };
+
+  // Static field-report log — gives the "live world" feel
+  const FEED = [
+    { icon:'⚔', text:'Assault on Kiln-7 repelled',        time:'2m ago',  col:'#ff6b6b' },
+    { icon:'🏗', text:'PRN Emberfall stabilized',           time:'8m ago',  col:'#6cd4ff' },
+    { icon:'📦', text:'Convoy reached Vault Prime',         time:'15m ago', col:'#ffcf5a' },
+    { icon:'🔥', text:'Cinder Cross falls to Neutral',      time:'31m ago', col:'#ff8c42' },
+    { icon:'🛡', text:'Iron Hollow guard hired',            time:'44m ago', col:'#6cd4ff' },
+    { icon:'⚔', text:'North Gate under siege',             time:'1h ago',  col:'#ff6b6b' },
+    { icon:'📦', text:'Last Wick resources collected',      time:'1h ago',  col:'#ffcf5a' },
+    { icon:'🏗', text:'NEXUS-ZERO fortified +12% stability','time':'2h ago',  col:'#a8eeff' },
+  ];
+
+  return (
+    <section id="warmap" style={{
+      background: 'linear-gradient(180deg, #020810 0%, #01040c 100%)',
+      position: 'relative', overflow: 'hidden',
+    }}>
+      {/* Scanline texture */}
+      <div style={{ position:'absolute', inset:0, zIndex:1, pointerEvents:'none',
+        backgroundImage:'repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.16) 2px,rgba(0,0,0,0.16) 4px)' }} />
+      {/* Subtle grid */}
+      <div style={{ position:'absolute', inset:0, zIndex:1, pointerEvents:'none',
+        backgroundImage:'linear-gradient(rgba(30,60,90,0.07) 1px,transparent 1px),linear-gradient(90deg,rgba(30,60,90,0.07) 1px,transparent 1px)',
+        backgroundSize:'64px 64px' }} />
+      {/* Top fade from above section */}
+      <div style={{ position:'absolute', top:0, left:0, right:0, height:60, zIndex:1, pointerEvents:'none',
+        background:'linear-gradient(180deg,rgba(10,10,10,0.5) 0%,transparent 100%)' }} />
+
+      {/* ── Header ── */}
+      <div style={{ position:'relative', zIndex:3, textAlign:'center', padding:'3rem 1.5rem 1.75rem' }}>
+        <div style={{ display:'inline-flex', alignItems:'center', gap:'0.5rem', marginBottom:'0.8rem' }}>
+          <span style={{
+            display:'inline-block', width:8, height:8, borderRadius:'50%',
+            background: loading ? '#666' : '#22d46a',
+            boxShadow: loading ? 'none' : '0 0 8px #22d46a',
+            animation: loading ? 'none' : 'tw-mkt-dot 2s ease-in-out infinite',
+          }} />
+          <span style={{ color: loading ? '#555' : '#22d46a', fontSize:'0.62rem',
+            letterSpacing:'0.45em', fontFamily:'JetBrains Mono,monospace,sans-serif',
+            textTransform:'uppercase' }}>
+            {loading ? 'LOADING MAP DATA…' : `LIVE · ${nodes.length} PRNs ACTIVE`}
+          </span>
+        </div>
+        <h2 style={{
+          fontFamily:'Cinzel,serif', fontWeight:900, margin:'0 0 0.5rem',
+          fontSize:'clamp(1.6rem,3.5vw,2.75rem)', letterSpacing:'0.14em',
+          color:'#b8deff', textShadow:'0 0 40px rgba(108,212,255,0.35)',
+        }}>
+          PLANETARY RECONSTRUCTION NETWORK
+        </h2>
+        <p style={{ color:'#3a5a70', fontSize:'0.78rem', letterSpacing:'0.22em',
+          textTransform:'uppercase', margin:0, fontFamily:'JetBrains Mono,monospace,sans-serif' }}>
+          War Map · Claim Nodes · Control Supply Lines · Dominate Regions
+        </p>
+      </div>
+
+      {/* ── Map workspace ── */}
+      <div style={{ display:'flex', position:'relative', zIndex:2,
+        maxWidth:1420, margin:'0 auto', padding:'0 0 0 0' }}>
+
+        {/* Field Reports sidebar */}
+        <div style={{ width:210, flexShrink:0, padding:'0.5rem 0 2rem 1.5rem', display:'flex', flexDirection:'column' }}>
+          <div style={{ color:'#2a4050', fontSize:'0.56rem', letterSpacing:'0.38em',
+            textTransform:'uppercase', fontFamily:'JetBrains Mono,monospace',
+            borderBottom:'1px solid rgba(30,60,80,0.35)', paddingBottom:'0.4rem',
+            marginBottom:'0.65rem' }}>
+            — FIELD REPORTS
+          </div>
+          {FEED.map((item, i) => (
+            <div key={i} style={{ padding:'0.38rem 0', borderBottom:'1px solid rgba(25,50,70,0.22)',
+              display:'flex', gap:'0.4rem', alignItems:'flex-start' }}>
+              <span style={{ fontSize:'0.72rem', lineHeight:1.4, flexShrink:0 }}>{item.icon}</span>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontSize:'0.62rem', color:item.col, lineHeight:1.45,
+                  wordBreak:'break-word', fontFamily:'JetBrains Mono,monospace' }}>{item.text}</div>
+                <div style={{ fontSize:'0.52rem', color:'#243040', marginTop:2 }}>{item.time}</div>
+              </div>
+            </div>
+          ))}
+          <div style={{ marginTop:'auto', paddingTop:'1.5rem', color:'#1e3040',
+            fontSize:'0.52rem', letterSpacing:'0.2em', lineHeight:1.6,
+            fontFamily:'JetBrains Mono,monospace', textTransform:'uppercase' }}>
+            {twData ? '// LIVE MAP DATA' : '// DEMO MAP'}<br/>
+            // SIGN IN TO SEE<br/>
+            // YOUR CORP STATUS
+          </div>
+        </div>
+
+        {/* Canvas */}
+        <div style={{ flex:1, position:'relative', minHeight:460, overflow:'visible' }}>
+          {/* SVG supply-line routes */}
+          <svg
+            viewBox="0 0 100 100"
+            preserveAspectRatio="none"
+            style={{ position:'absolute', inset:0, width:'100%', height:'100%',
+              overflow:'visible', zIndex:1, pointerEvents:'none' }}
+          >
+            {routes.map((r) => {
+              const cls = routeClass(r);
+              const { a, b } = r;
+              const ax = a.position.x, ay = a.position.y;
+              const bx = b.position.x, by = b.position.y;
+              const mx = ((ax + bx) / 2 + 1.5).toFixed(2);
+              const my = ((ay + by) / 2 - 1.5).toFixed(2);
+              const d  = `M ${ax} ${ay} Q ${mx} ${my} ${bx} ${by}`;
+              if (cls === 'allied') return (
+                <g key={r.key}>
+                  {/* soft halo */}
+                  <path d={d} fill="none" stroke="rgba(108,212,255,0.10)" strokeWidth="4" />
+                  {/* animated line */}
+                  <path d={d} fill="none" stroke="#6cd4ff" strokeWidth="1.5"
+                    strokeDasharray="7 3" strokeLinecap="round"
+                    style={{ animation:`tw-mkt-flow ${(variety(r.key)%4)*0.2+1.2}s linear infinite,tw-mkt-teal ${(variety(r.key)%5)*0.2+1.8}s ease-in-out infinite` }} />
+                </g>
+              );
+              if (cls === 'frontier') return (
+                <g key={r.key}>
+                  <path d={d} fill="none" stroke="rgba(255,207,90,0.08)" strokeWidth="3" />
+                  <path d={d} fill="none" stroke="#ffcf5a" strokeWidth="1.2"
+                    strokeDasharray="6 4" strokeLinecap="round"
+                    style={{ animation:`tw-mkt-flow ${(variety(r.key)%4)*0.2+1.6}s linear infinite,tw-mkt-gold ${(variety(r.key)%5)*0.2+2.2}s ease-in-out infinite` }} />
+                </g>
+              );
+              return (
+                <path key={r.key} d={d} fill="none"
+                  stroke="rgba(40,70,100,0.35)" strokeWidth="0.7"
+                  strokeDasharray="2 6" />
+              );
+            })}
+          </svg>
+
+          {/* Node markers */}
+          {nodes.map((n) => {
+            const hot   = hovered === String(n.id);
+            const color = nodeGlow(n);
+            const cls   = routeClass({ key: String(n.id)+'|x' }); // for dim check
+            const isDim = variety(String(n.id)) % 10 >= 6;
+            return (
+              <a
+                key={n.id}
+                href={GAME_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                onMouseEnter={() => setHovered(String(n.id))}
+                onMouseLeave={() => setHovered(null)}
+                style={{
+                  position:'absolute',
+                  left:`${n.position.x}%`,
+                  top:`${n.position.y}%`,
+                  transform:`translate(-50%,-50%)${hot?' scale(1.3)':''}`,
+                  display:'flex', flexDirection:'column', alignItems:'center', gap:3,
+                  zIndex: hot ? 20 : 4,
+                  cursor:'pointer', textDecoration:'none',
+                  transition:'transform 0.15s ease',
+                }}
+                title={`${n.name} — click to enter the game`}
+              >
+                {/* Outer pulse ring when hovered */}
+                {hot && (
+                  <div style={{
+                    position:'absolute', left:'50%', top:'50%',
+                    transform:'translate(-50%,-50%)',
+                    width:32, height:32, borderRadius:'50%',
+                    border:`1px solid ${color}`,
+                    opacity:0.45, pointerEvents:'none',
+                    animation:'tw-mkt-node-pulse 1s ease-in-out infinite',
+                  }} />
+                )}
+                {/* Wireframe diamond */}
+                <svg width="22" height="22" viewBox="-12 -12 24 24"
+                  style={{ overflow:'visible',
+                    filter: hot ? `drop-shadow(0 0 7px ${color})` : isDim ? 'none' : `drop-shadow(0 0 2px ${color}50)`,
+                    transition:'filter 0.15s',
+                    animation: isDim ? 'none' : `tw-mkt-node-pulse ${(variety(String(n.id))%5)*0.3+2}s ease-in-out infinite`,
+                  }}>
+                  {/* Outer ring */}
+                  <polygon points="0,-10 10,0 0,10 -10,0"
+                    fill="none" stroke={color} strokeWidth="1.3"
+                    opacity={isDim ? 0.25 : 0.9} />
+                  {/* Inner core */}
+                  <polygon points="0,-5 5,0 0,5 -5,0"
+                    fill={isDim ? 'transparent' : `${color}28`}
+                    stroke={color} strokeWidth="0.8"
+                    opacity={isDim ? 0.18 : 0.7} />
+                  {/* Center dot */}
+                  {!isDim && <circle cx="0" cy="0" r="1.3" fill={color} opacity="0.85" />}
+                </svg>
+                {/* Node label */}
+                <span style={{
+                  fontSize:'0.5rem', letterSpacing:'0.07em',
+                  fontFamily:'JetBrains Mono,monospace,sans-serif',
+                  textTransform:'uppercase', whiteSpace:'nowrap',
+                  maxWidth:72, overflow:'hidden', textOverflow:'ellipsis',
+                  textAlign:'center',
+                  color: hot ? '#fff' : isDim ? '#1e3040' : color,
+                  textShadow: hot ? `0 0 10px ${color}` : 'none',
+                  transition:'color 0.15s, text-shadow 0.15s',
+                }}>
+                  {n.name}
+                </span>
+                {/* Hover tooltip */}
+                {hot && (
+                  <div style={{
+                    position:'absolute', bottom:'115%', left:'50%',
+                    transform:'translateX(-50%)',
+                    background:'rgba(1,4,14,0.96)',
+                    border:`1px solid ${color}55`,
+                    borderRadius:4, padding:'0.45rem 0.7rem',
+                    whiteSpace:'nowrap', pointerEvents:'none',
+                    boxShadow:`0 0 14px ${color}30`,
+                  }}>
+                    <div style={{ color, fontSize:'0.68rem', fontFamily:'Cinzel,serif',
+                      fontWeight:700, letterSpacing:'0.09em' }}>{n.name}</div>
+                    <div style={{ color:'#3a5a70', fontSize:'0.56rem', marginTop:3,
+                      fontFamily:'JetBrains Mono,monospace' }}>
+                      {(n.connections||[]).length} route{(n.connections||[]).length!==1?'s':''} · Click to attack
+                    </div>
+                  </div>
+                )}
+              </a>
+            );
+          })}
+
+          {/* Corner stamps */}
+          <div style={{ position:'absolute', top:8, left:8, color:'rgba(30,60,80,0.5)',
+            fontSize:'0.5rem', letterSpacing:'0.3em', fontFamily:'JetBrains Mono,monospace',
+            textTransform:'uppercase', zIndex:3, pointerEvents:'none' }}>
+            SECTOR MAP · SEASON I
+          </div>
+          <div style={{ position:'absolute', bottom:12, right:12, color:'rgba(30,60,80,0.5)',
+            fontSize:'0.5rem', letterSpacing:'0.3em', fontFamily:'JetBrains Mono,monospace',
+            textTransform:'uppercase', zIndex:3, pointerEvents:'none' }}>
+            MYTHIC SPELLBOOK // PRN GRID
+          </div>
+        </div>
+      </div>
+
+      {/* ── Legend ── */}
+      <div style={{ position:'relative', zIndex:3, display:'flex',
+        justifyContent:'center', alignItems:'center', gap:'1.5rem',
+        padding:'1rem 1.5rem 0', flexWrap:'wrap' }}>
+        {[
+          { color:'#6cd4ff', label:'Allied supply line', dash:'solid' },
+          { color:'#ffcf5a', label:'Frontier / contested', dash:'dashed' },
+          { color:'#3a5570', label:'Unclaimed route', dash:'dotted' },
+        ].map(({ color, label, dash }) => (
+          <div key={label} style={{ display:'flex', alignItems:'center', gap:'0.4rem' }}>
+            <svg width="28" height="6" style={{ overflow:'visible' }}>
+              <line x1="0" y1="3" x2="28" y2="3" stroke={color} strokeWidth="2"
+                strokeDasharray={dash==='dashed'?'5 3':dash==='dotted'?'2 4':'0'}
+                strokeLinecap="round" opacity={0.8}/>
+            </svg>
+            <span style={{ color:'#3a5060', fontSize:'0.55rem', letterSpacing:'0.18em',
+              fontFamily:'JetBrains Mono,monospace,sans-serif', textTransform:'uppercase' }}>
+              {label}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {/* ── CTA strip ── */}
+      <div style={{ position:'relative', zIndex:3, textAlign:'center',
+        padding:'2rem 1.5rem 3.5rem',
+        borderTop:'1px solid rgba(30,60,90,0.3)',
+        marginTop:'2rem',
+        background:'linear-gradient(0deg,rgba(108,212,255,0.03) 0%,transparent 100%)' }}>
+        <p style={{ color:'#2e4a5a', fontSize:'0.72rem', letterSpacing:'0.28em',
+          textTransform:'uppercase', marginBottom:'1.25rem',
+          fontFamily:'JetBrains Mono,monospace' }}>
+          Every node you see is capturable in the live game
+        </p>
+        <a
+          href={GAME_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="wm-cta-btn"
+          style={{
+            display:'inline-flex', alignItems:'center', gap:'0.55rem',
+            padding:'0.9rem 2.75rem',
+            background:'linear-gradient(135deg,rgba(108,212,255,0.13) 0%,rgba(20,60,100,0.18) 100%)',
+            border:'1px solid rgba(108,212,255,0.45)',
+            color:'#6cd4ff',
+            fontFamily:'Cinzel,serif', fontWeight:700,
+            fontSize:'0.82rem', letterSpacing:'0.22em',
+            textTransform:'uppercase', textDecoration:'none',
+            borderRadius:3,
+            boxShadow:'0 0 18px rgba(108,212,255,0.18)',
+            transition:'all 0.2s',
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.background = 'linear-gradient(135deg,rgba(108,212,255,0.26) 0%,rgba(20,60,100,0.32) 100%)';
+            e.currentTarget.style.boxShadow  = '0 0 32px rgba(108,212,255,0.38)';
+            e.currentTarget.style.color      = '#a8eeff';
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.background = 'linear-gradient(135deg,rgba(108,212,255,0.13) 0%,rgba(20,60,100,0.18) 100%)';
+            e.currentTarget.style.boxShadow  = '0 0 18px rgba(108,212,255,0.18)';
+            e.currentTarget.style.color      = '#6cd4ff';
+          }}
+        >
+          ⚔ ENTER THE WAR MAP
+        </a>
+        <p style={{ color:'#1e3040', fontSize:'0.58rem', letterSpacing:'0.22em',
+          textTransform:'uppercase', marginTop:'1rem',
+          fontFamily:'JetBrains Mono,monospace' }}>
+          Free to play · No download · Sign up takes 30 seconds
+        </p>
+      </div>
+    </section>
+  );
+};
+
 const JoinResistance = () => {
   const [email, setEmail] = useState('');
   const [signed, setSigned] = useState(false);
@@ -1334,23 +1923,7 @@ const JoinResistance = () => {
               Earn Cinders and Arena Points to enter the Colosseum tournament ladder.
             </p>
 
-            {/* Counter */}
-            <div className="inline-flex items-center gap-6 mb-10 px-8 py-4 bg-black/60 border border-orange-500/40 rounded">
-              <div className="text-left">
-                <div className="text-stone-400 text-[10px] tracking-widest uppercase">Active Survivors</div>
-                <div className="text-orange-300 text-3xl font-bold font-mono" style={{ animation: 'flicker 4s infinite' }}>
-                  20,841
-                </div>
-              </div>
-              <div className="h-12 w-px bg-orange-500/40" />
-              <div className="text-left">
-                <div className="text-stone-400 text-[10px] tracking-widest uppercase">Status</div>
-                <div className="text-green-400 text-xl font-bold flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-green-400" style={{ animation: 'pulse-red 1s infinite' }} />
-                  ONLINE · SEASON 1
-                </div>
-              </div>
-            </div>
+            {/* Active Survivors / Status counter removed — not a real number yet. */}
 
             {/* CTA buttons */}
             <div className="max-w-lg mx-auto">
@@ -1437,30 +2010,79 @@ const Spotlight = ({ card, reverse, onCardClick }) => (
 // ===== HOW TO PLAY =====
 const HowToPlay = () => {
   const steps = [
-    { num: '01', title: 'Build Your Deck', text: 'Forge a 40-card deck from 39 factions. Mix units, spells, traps, weather, walls, and locations. Each hero comes with a starter deck — or build your own.', icon: '' },
-    { num: '02', title: 'Coin Flip → Place Hero', text: 'Win the toss, pick who goes first. Your hero spawns on the grid. Cards in hand cost  energy (refilled every turn).', icon: '' },
-    { num: '03', title: 'Move & Attack', text: 'Units move along tiles like chess pieces. Heroes learn up to 4 moves at a time. Range, accuracy, and elemental matchups all matter.', icon: '' },
-    { num: '04', title: 'Transform & Win', text: 'Trigger Kalon transformations mid-match. Drop weather + locations to reshape the field. Drop the enemy hero to 0 HP to win.', icon: '' },
+    {
+      num: '01',
+      title: 'Build Your Deck',
+      lead: 'Create your loadout before entering the world.',
+      bulletsLabel: 'Build your deck from:',
+      bullets: ['Heroes', 'Units', 'Equipment', 'Evolutions', 'Weather', 'Locations', 'Threat Levels', 'Traps', 'Resources'],
+      outro: 'Every deck changes how you survive, gather, trade, and fight.',
+    },
+    {
+      num: '02',
+      title: 'Survive The World',
+      lead: 'The world is alive.',
+      bullets: ['Explore ruined towns', 'Fight monsters', 'Complete events', 'Gather food, materials, fuel, cards, and rare resources'],
+      outro: 'Your choices decide whether your camp grows… or disappears.',
+    },
+    {
+      num: '03',
+      title: 'Build Your Base',
+      lead: 'Turn ruins into civilization.',
+      bulletsLabel: 'Build:',
+      bullets: ['Camps', 'Deck Builder Houses', 'Hospitals', 'Vendors', 'Storage', 'Workshops', 'Defensive Walls', 'Extraction Sites'],
+      outro: 'Unlock upgrades, improve production, and create safer zones for your survivors.',
+    },
+    {
+      num: '04',
+      title: 'Grow Your Economy',
+      lead: 'Everything has value.',
+      bullets: ['Trade with players', 'Craft gear', 'Sell resources', 'Run shops', 'Build businesses', 'Own production chains'],
+      specializations: ['Merchant', 'Crafter', 'Explorer', 'Collector', 'Fighter'],
+      outro: 'Your economy is part of the world.',
+    },
+    {
+      num: '05',
+      title: 'Enter Tactical Combat',
+      lead: 'Deploy your Hero.',
+      bullets: ['Raise Threat Levels', 'Move across the board', 'Call units', 'Control locations', 'Transform Kalons'],
+      outro: 'Use positioning, deckbuilding, and timing to defeat enemies. Reduce the enemy Hero to 0 HP to win.',
+    },
   ];
 
   return (
     <section className="relative py-24 px-6">
       <HazardStripe className="absolute top-0 left-0 right-0" />
-      <div className="max-w-6xl mx-auto pt-8">
+      <div className="max-w-7xl mx-auto pt-8">
         <div className="text-center mb-16">
           <div className="text-orange-400/80 text-xs tracking-[0.4em] uppercase mb-3">— How To Play —</div>
-          <DistressedHeading className="text-5xl font-serif font-bold text-yellow-100 mb-4">Four Turns to Glory</DistressedHeading>
-          <p className="text-stone-400 max-w-2xl mx-auto uppercase text-xs tracking-widest">Like chess. Like Pokémon. Like nothing else.</p>
+          <DistressedHeading className="text-5xl md:text-6xl font-serif font-bold text-yellow-100 mb-4">Build. Survive. Expand. Conquer.</DistressedHeading>
+          <p className="text-stone-300 max-w-2xl mx-auto text-base md:text-lg leading-relaxed">Part survival game. Part deck builder. Part economy. Part battlefield.</p>
+          <p className="text-stone-400 max-w-2xl mx-auto uppercase text-xs tracking-widest mt-4">Like Pokémon. Like Survival Games. Like Nothing Else.</p>
         </div>
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-5">
           {steps.map((s, i) => (
-            <div key={i} className="relative bg-black/60 border border-orange-600/30 rounded p-6 hover:border-orange-400/60 transition group overflow-hidden">
+            <div key={i} className="relative bg-black/60 border border-orange-600/30 rounded p-6 hover:border-orange-400/60 transition group overflow-hidden flex flex-col">
               <BulletHole className="top-2 right-2" size={14} />
               <div className="absolute top-2 right-8 text-stone-600 text-[9px] font-mono tracking-widest">STEP-{s.num}</div>
               <div className="text-7xl font-serif font-bold text-orange-500/10 mb-2 group-hover:text-orange-500/20 transition">{s.num}</div>
-              <div className="text-3xl mb-2 opacity-60">{s.icon}</div>
               <h3 className="text-yellow-100 font-serif font-bold text-xl mb-3 tracking-wide">{s.title}</h3>
-              <p className="text-stone-400 text-sm leading-relaxed">{s.text}</p>
+              <p className="text-stone-300 text-sm leading-relaxed mb-3 italic">{s.lead}</p>
+              {s.bulletsLabel && <p className="text-orange-300/80 text-[10px] uppercase tracking-widest mb-2">{s.bulletsLabel}</p>}
+              {s.bullets && (
+                <ul className="text-stone-400 text-sm leading-relaxed mb-3 space-y-1">
+                  {s.bullets.map((b, j) => (
+                    <li key={j} className="flex items-start gap-2"><span className="text-orange-500/70 mt-0.5 shrink-0">•</span><span>{b}</span></li>
+                  ))}
+                </ul>
+              )}
+              {s.specializations && (
+                <div className="mb-3">
+                  <p className="text-orange-300/80 text-[10px] uppercase tracking-widest mb-2">Specialize as:</p>
+                  <p className="text-orange-200 text-sm leading-relaxed">{s.specializations.join(' · ')}</p>
+                </div>
+              )}
+              {s.outro && <p className="text-stone-400 text-sm leading-relaxed mt-auto">{s.outro}</p>}
             </div>
           ))}
         </div>
@@ -1793,6 +2415,202 @@ const WhyDifferent = () => {
 };
 
 // ===== COLISEUM / COMPETITIVE LADDER =====
+// ===== RMT PAGE — Real Money Trading manifesto =====
+// Standalone page that explains Ethos Heights' player-first approach to RMT.
+// Hero card image (RMT.png) + long-form manifesto + the full Build a Career
+// section beneath. Reached from the navbar's "RMT" button.
+const RMTPage = () => {
+  // Reusable section wrapper so every part of the manifesto picks up the same
+  // dark glass card treatment without repeating the className blob.
+  const Card = ({ children, tone = 'neutral' }) => {
+    const tones = {
+      neutral: 'from-stone-900/55 to-black/55 border-stone-700/50',
+      warn:    'from-red-950/40 to-black/55 border-red-700/40',
+      amber:   'from-amber-950/30 to-black/55 border-amber-600/40',
+      teal:    'from-emerald-950/30 to-black/55 border-emerald-700/40',
+    };
+    return (
+      <div className={`bg-gradient-to-br ${tones[tone] || tones.neutral} border rounded-lg p-7 md:p-9`} style={{ boxShadow: '0 8px 28px rgba(0,0,0,0.45)' }}>
+        {children}
+      </div>
+    );
+  };
+  return (
+    <div className="pt-20">
+      <section className="relative pt-16 pb-12 px-6 overflow-hidden">
+        {/* Atmospheric backdrop — orange-on-purple glow to read as "the underground brought to the surface" */}
+        <div className="absolute inset-0 pointer-events-none" style={{
+          background:
+            'radial-gradient(ellipse at 20% 10%, rgba(255,140,60,0.10) 0%, transparent 55%),' +
+            'radial-gradient(ellipse at 80% 90%, rgba(168,80,200,0.10) 0%, transparent 55%),' +
+            'linear-gradient(180deg, rgba(8,4,16,0.5) 0%, rgba(8,4,16,0.0) 100%)',
+        }} />
+        <HazardStripe className="absolute top-0 left-0 right-0" />
+
+        <div className="max-w-5xl mx-auto relative">
+          {/* ===== Header ===== */}
+          <div className="text-center mb-10">
+            <div className="text-amber-300/80 text-xs tracking-[0.4em] uppercase mb-3">— The Real Money Trading Manifesto —</div>
+            <DistressedHeading className="text-5xl md:text-7xl font-serif font-bold text-yellow-100 mb-5">
+              Real Money Trading, Done Right
+            </DistressedHeading>
+            <p className="text-stone-300 max-w-3xl mx-auto text-lg leading-relaxed mb-2">
+              Most games pretend RMT does not exist.
+            </p>
+            <p className="text-amber-200 max-w-3xl mx-auto text-xl leading-relaxed font-bold">
+              We are not doing that.
+            </p>
+          </div>
+
+          {/* ===== Hero artwork — RMT.png ===== */}
+          <div className="mb-12 flex justify-center">
+            <div className="relative w-full max-w-3xl rounded-xl overflow-hidden border border-amber-500/40" style={{ boxShadow: '0 20px 60px rgba(0,0,0,0.7), 0 0 60px rgba(255,140,60,0.18)' }}>
+              <img
+                src="./assets/artwork/RMT.png"
+                alt="Real Money Trading — Ethos Heights"
+                className="w-full h-auto block"
+                style={{ background: '#0a0612' }}
+              />
+              {/* Top hazard stripe + bottom caption overlay */}
+              <HazardStripe className="absolute top-0 left-0 right-0" />
+              <div className="absolute left-0 right-0 bottom-0 px-5 py-3 bg-gradient-to-t from-black/90 to-transparent">
+                <div className="text-amber-300/80 text-[10px] tracking-[0.35em] uppercase">Camp Heights · Treasury</div>
+                <div className="text-yellow-100 font-serif text-lg md:text-xl">Build value. Trade fair. Protect the world.</div>
+              </div>
+            </div>
+          </div>
+
+          {/* ===== Manifesto body ===== */}
+          <div className="space-y-6 text-stone-200 leading-relaxed">
+            <Card>
+              <p className="text-lg mb-3">
+                Players have always traded value inside games. They sell <strong className="text-amber-200">accounts, rare items, currency, cards, resources, services, carries, land, and access</strong> through black markets anyway.
+              </p>
+              <p className="text-lg">
+                So instead of forcing players into shady third-party spaces, <strong className="text-yellow-100">Ethos Heights</strong> is building real money trading into the game economy in a <strong className="text-amber-300">safer, monitored, and player-first</strong> way.
+              </p>
+            </Card>
+
+            <div>
+              <DistressedHeading level="h2" className="text-3xl md:text-4xl font-serif font-bold text-yellow-100 mb-5 mt-4">Why We Welcome RMT</DistressedHeading>
+              <Card>
+                <p className="text-lg mb-3">We believe if players create value inside our universe, they should have a legitimate way to benefit from that value.</p>
+                <div className="grid sm:grid-cols-2 gap-3 my-5">
+                  <div className="border-l-2 border-amber-400/60 pl-4 py-1">
+                    <div className="text-amber-200 font-bold text-base">Some players will spend money.</div>
+                  </div>
+                  <div className="border-l-2 border-emerald-400/60 pl-4 py-1">
+                    <div className="text-emerald-200 font-bold text-base">Some players will spend time.</div>
+                  </div>
+                </div>
+                <p className="text-lg text-stone-300 italic mb-3">Both matter.</p>
+                <p>Whales need active players. Active players need buyers. Creators need audiences. Traders need markets. Builders need customers. Resource grinders need demand.</p>
+                <p className="mt-3 text-stone-400 italic">That relationship is not a problem.</p>
+                <p className="text-2xl text-amber-300 font-serif font-bold mt-2">That is an economy.</p>
+                <p className="mt-3 text-stone-300">Our job is to make sure it stays fair, safe, and worth participating in.</p>
+              </Card>
+            </div>
+
+            <div>
+              <DistressedHeading level="h2" className="text-3xl md:text-4xl font-serif font-bold text-yellow-100 mb-5 mt-4">Protected, Monitored, and Player-First</DistressedHeading>
+              <Card tone="amber">
+                <p className="text-lg mb-3">We will actively monitor the economy, trades, markets, fraud reports, suspicious activity, and unfair behavior.</p>
+                <p className="text-stone-200 mb-4">We are not building a system where cheating gets ignored until it ruins the game.</p>
+                <p className="text-amber-200 font-bold text-lg mb-4">If something hits our radar, we handle it.</p>
+                <p className="text-stone-400 text-xs uppercase tracking-widest mb-3">That means fighting against:</p>
+                <div className="grid sm:grid-cols-2 gap-x-6 gap-y-1.5 text-stone-300 text-sm">
+                  {[
+                    'Cheating', 'Bots', 'Duplication exploits', 'Stolen accounts',
+                    'Fraudulent trades', 'Market manipulation', 'Scams', 'Chargeback abuse',
+                    'Real-world payment abuse', 'Unfair automation', 'Black-market exploitation',
+                  ].map(item => (
+                    <div key={item} className="flex gap-2"><span className="text-red-400 mt-0.5">▸</span><span>{item}</span></div>
+                  ))}
+                </div>
+                <div className="mt-5 pt-4 border-t border-amber-700/30">
+                  <p className="text-stone-300">We will also work with <strong className="text-amber-200">trusted members of the community</strong> to help report problems, monitor behavior, protect new players, and keep the market healthy.</p>
+                  <p className="mt-3 text-stone-400 italic">The community is not just playing the game.</p>
+                  <p className="text-emerald-200 font-bold">The community helps defend the game.</p>
+                </div>
+              </Card>
+            </div>
+
+            <div>
+              <DistressedHeading level="h2" className="text-3xl md:text-4xl font-serif font-bold text-yellow-100 mb-5 mt-4">Whales Matter. So Do Everyday Players.</DistressedHeading>
+              <Card>
+                <p className="text-amber-300 text-lg font-bold mb-3">We are not anti-whale.</p>
+                <p className="mb-3">Whales help fuel the economy.</p>
+                <p className="text-yellow-200 font-bold text-lg mb-4">But whales cannot carry a dead world.</p>
+                <p className="mb-4">A strong economy needs <strong className="text-amber-200">gatherers, crafters, builders, merchants, fighters, creators, workers, collectors, and casual players.</strong></p>
+                <ul className="space-y-2 text-stone-300 border-l-2 border-orange-500/40 pl-4 py-2 my-4">
+                  <li>The player who spends money needs the player who grinds.</li>
+                  <li>The player who grinds needs the player who buys.</li>
+                  <li>The player who creates content needs the players watching.</li>
+                  <li>The business owner needs customers.</li>
+                </ul>
+                <p className="text-stone-300 italic">Everyone has a role.</p>
+                <p className="text-amber-200 font-serif font-bold text-xl mt-2">That is how Ethos Heights stays alive.</p>
+              </Card>
+            </div>
+
+            <div>
+              <DistressedHeading level="h2" className="text-3xl md:text-4xl font-serif font-bold text-yellow-100 mb-5 mt-4">A Game Economy People Can Actually Build From</DistressedHeading>
+              <Card tone="teal">
+                <p className="text-lg mb-4">We want players to be able to <strong className="text-emerald-200">feed their families, grow their communities, build their names, and create real opportunities</strong> from helping build this universe.</p>
+                <div className="grid sm:grid-cols-3 gap-2 mb-4 text-stone-400 text-sm">
+                  <div className="bg-black/40 border border-red-700/40 rounded px-3 py-2">Not through hype.</div>
+                  <div className="bg-black/40 border border-red-700/40 rounded px-3 py-2">Not through scams.</div>
+                  <div className="bg-black/40 border border-red-700/40 rounded px-3 py-2">Not through "get rich quick" nonsense.</div>
+                </div>
+                <p className="text-stone-300 mb-1">Through <strong className="text-emerald-200">contribution.</strong></p>
+                <p className="text-stone-300 mb-1">Through <strong className="text-emerald-200">skill.</strong></p>
+                <p className="text-stone-300 mb-1">Through <strong className="text-emerald-200">time.</strong></p>
+                <p className="text-stone-300 mb-1">Through <strong className="text-emerald-200">trade.</strong></p>
+                <p className="text-stone-300">Through <strong className="text-emerald-200">building value</strong> in a world that rewards participation.</p>
+              </Card>
+            </div>
+
+            <div>
+              <DistressedHeading level="h2" className="text-3xl md:text-4xl font-serif font-bold text-yellow-100 mb-5 mt-4">We Are Not Big Corporate Gaming</DistressedHeading>
+              <Card tone="warn">
+                <ul className="space-y-3 text-stone-200 mb-5">
+                  <li className="flex gap-3"><span className="text-red-400 text-2xl leading-none">✗</span><span>We are not here to pretend we care about players while silently letting black markets run wild.</span></li>
+                  <li className="flex gap-3"><span className="text-red-400 text-2xl leading-none">✗</span><span>We are not here to ban honest players while ignoring the real exploiters.</span></li>
+                  <li className="flex gap-3"><span className="text-red-400 text-2xl leading-none">✗</span><span>We are not here to build an economy that only benefits the studio.</span></li>
+                </ul>
+                <p className="text-stone-200 leading-relaxed border-t border-red-700/30 pt-4">
+                  We are building a world where the <strong className="text-yellow-200">studio, the players, creators, traders, and community</strong> can all benefit from the success of the game.
+                </p>
+              </Card>
+            </div>
+
+            {/* ===== Closing slam ===== */}
+            <div className="relative bg-gradient-to-r from-amber-950/40 via-stone-900/60 to-amber-950/40 border-2 border-amber-500/30 rounded-lg p-8 md:p-10 mt-6"
+                 style={{ boxShadow: '0 0 40px rgba(255,180,40,0.18), inset 0 0 30px rgba(0,0,0,0.4)' }}>
+              <BulletHole className="top-3 right-4" size={24} />
+              <p className="text-xl md:text-2xl text-stone-200 mb-3">RMT is not the enemy.</p>
+              <p className="text-2xl md:text-3xl font-bold text-amber-300 mb-5">Uncontrolled, unsafe, shady RMT is the enemy.</p>
+              <p className="text-stone-200 text-lg mb-6">So we are bringing it into the light.</p>
+              <div className="text-center border-t border-amber-700/30 pt-6">
+                <div className="text-amber-300/80 text-xs tracking-[0.4em] uppercase mb-2">— Welcome to —</div>
+                <DistressedHeading level="h3" className="text-4xl md:text-5xl font-serif font-bold text-yellow-100 mb-4">Ethos Heights</DistressedHeading>
+                <div className="text-yellow-200 font-serif italic text-xl">
+                  Build value. Trade fair. Protect the world.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ===== Build a Career section — moved here from the home page ===== */}
+      <div id="career"><BuildACareer /></div>
+
+      <Footer />
+    </div>
+  );
+};
+
 // ===== BUILD A CAREER — full player-driven economy section =====
 // Eight pillars: intro → Trade → Black Market → Betting → Cashout → Competitive
 // Economy → Built for Players. Cinder + Aza Coin icons accent every price/value
@@ -2159,6 +2977,90 @@ const SurviveForFree = () => (
   </section>
 );
 
+// ===== PLAYERS FIRST — studio promise / manifesto =====
+const PlayersFirst = () => (
+  <section className="relative py-28 px-6 overflow-hidden">
+    <div className="absolute inset-0 pointer-events-none" style={{
+      background:
+        'radial-gradient(ellipse at 18% 12%, rgba(120,90,220,0.16) 0%, transparent 55%),' +
+        'radial-gradient(ellipse at 85% 85%, rgba(255,160,60,0.12) 0%, transparent 55%),' +
+        'linear-gradient(180deg, rgba(8,4,16,0.55) 0%, rgba(8,4,16,0.0) 100%)',
+    }} />
+    <HazardStripe className="absolute top-0 left-0 right-0" />
+    <BloodSplatter className="top-24 left-1/5" size={150} opacity={0.10} />
+    <BloodSplatter className="bottom-20 right-1/4" size={160} opacity={0.10} />
+
+    <div className="max-w-4xl mx-auto relative">
+      {/* ===== Header ===== */}
+      <div className="text-center mb-12">
+        <div className="text-amber-400/80 text-xs tracking-[0.4em] uppercase mb-3">— Our Promise —</div>
+        <DistressedHeading className="text-5xl md:text-7xl font-serif font-bold text-yellow-100 mb-4">
+          Players First
+        </DistressedHeading>
+        <p className="text-stone-400 text-lg italic">An indie team of fewer than five — building with you, not just selling to you.</p>
+      </div>
+
+      {/* ===== Cast showcase image ===== */}
+      <div className="relative flex justify-center mb-10">
+        <div className="absolute inset-x-1/4 bottom-0 h-1/2 bg-orange-500/10 blur-3xl rounded-full pointer-events-none" />
+        <img
+          src="assets/artwork/Players first.png"
+          alt="Mythic Spellbook survivors"
+          loading="lazy"
+          className="relative w-full max-w-4xl h-auto object-contain"
+          style={{ filter: 'drop-shadow(0 20px 50px rgba(0,0,0,0.7))' }}
+          onError={(e) => { e.currentTarget.style.display = 'none'; }}
+        />
+      </div>
+
+      {/* ===== Manifesto body ===== */}
+      <div className="space-y-6 text-stone-300 text-lg leading-relaxed">
+        <p>We know game studios need to make money. <span className="text-stone-400">That's reality.</span></p>
+        <p>But we're an indie team of fewer than five people, and we believe there's a better trade than squeezing players: <strong className="text-yellow-200">building with the community instead of just selling to it.</strong></p>
+        <p>Our goal isn't to build a game and lock players out of the process. Our goal is to build a <strong className="text-yellow-200">living universe</strong> alongside the people who believe in it.</p>
+        <p>That means listening to feedback, rewarding creators, opening development where it makes sense, and creating opportunities for players to leave their mark on the world they help grow.</p>
+      </div>
+
+      {/* ===== Abraxas Codex callout ===== */}
+      <div className="relative bg-gradient-to-r from-amber-950/40 via-stone-900/50 to-amber-950/40 border-2 border-amber-500/30 rounded-lg p-7 my-10" style={{ boxShadow: '0 0 36px rgba(255,160,60,0.16), inset 0 0 28px rgba(0,0,0,0.4)' }}>
+        <BulletHole className="top-3 right-4" size={20} />
+        <div className="text-amber-300/90 text-[11px] tracking-[0.3em] uppercase mb-2">Abraxas Codex</div>
+        <p className="text-stone-200 leading-relaxed">Through <strong className="text-yellow-100">Abraxas Codex</strong>, players can join us behind the scenes and become part of the process. Share ideas, create card concepts, report bugs, contribute feedback, collaborate with the community, and help shape features that may one day appear in-game.</p>
+      </div>
+
+      <div className="space-y-6 text-stone-300 text-lg leading-relaxed">
+        <p>We're building more than a game. We're building a <strong className="text-yellow-200">player-driven economy</strong> and a universe where <strong className="text-yellow-200">contribution matters.</strong></p>
+      </div>
+
+      {/* ===== Creator Program box ===== */}
+      <div className="relative bg-gradient-to-b from-stone-900/70 to-black/80 border-2 border-orange-500/40 rounded-xl p-7 my-10" style={{ boxShadow: '0 0 34px rgba(255,120,40,0.16), inset 0 0 24px rgba(0,0,0,0.45)' }}>
+        <BulletHole className="top-3 right-4" size={18} />
+        <div className="text-orange-300 text-xs tracking-[0.34em] uppercase mb-3">★ Coming Soon — Creator Program</div>
+        <p className="text-stone-300 leading-relaxed mb-3">If you create, support, teach, entertain, organize communities, or help grow the world — <strong className="text-yellow-100">we want to reward that.</strong></p>
+        <p className="text-stone-400 leading-relaxed">Our upcoming <strong className="text-orange-300">Creator Program</strong> is designed for Survivors who want to build their name, grow influence, and become part of the universe itself — recognition, rewards, community opportunities, original characters, and even the possibility of becoming part of the game through cards and future content.</p>
+      </div>
+
+      {/* ===== The belief ===== */}
+      <div className="text-center my-12 border-y border-stone-700/60 py-10">
+        <DistressedHeading level="h3" className="text-3xl md:text-4xl font-serif font-bold text-yellow-100 mb-4">
+          We believe games should put players first.
+        </DistressedHeading>
+        <p className="text-stone-400 text-lg">Not trends. Not chasing headlines. Not treating players like metrics.</p>
+        <p className="text-stone-300 text-lg mt-2">Games should respect the people who spend their time inside them.</p>
+        <p className="text-stone-300 leading-relaxed max-w-2xl mx-auto mt-6">We're here to create <strong className="text-yellow-200">worlds worth escaping into</strong>, <strong className="text-yellow-200">systems worth mastering</strong>, and <strong className="text-yellow-200">communities worth building together.</strong></p>
+      </div>
+
+      {/* ===== Closing CTA ===== */}
+      <div className="text-center">
+        <p className="text-stone-300 text-lg mb-5">So if you believe games can be more than storefronts… <span className="text-amber-300">join us.</span></p>
+        <DistressedHeading level="h3" className="text-3xl md:text-5xl font-serif font-bold text-yellow-100 leading-tight">
+          Build with us. Shape the world.<br />Become part of the story.
+        </DistressedHeading>
+      </div>
+    </div>
+  </section>
+);
+
 const CommunityFuture = ({ cardA, cardB, onCardClick }) => (
   <section className="relative py-28 px-6 overflow-hidden">
     {/* Hopeful dawn glow — warmer + lighter than the apocalyptic sections so
@@ -2367,10 +3269,8 @@ const PlayerHub = ({ client, session, profile, refreshProfile, onSignedOut }) =>
     if (!client) { setAuthError('Network not ready. Refresh and try again.'); return; }
     setLoading(true);
     try {
-      const fn = authMode === 'signup' ? 'signUp' : 'signInWithPassword';
-      const { error } = await client.auth[fn]({ email, password });
+      const { error } = await client.auth.signInWithPassword({ email, password });
       if (error) setAuthError(error.message);
-      else if (authMode === 'signup') setAuthError('Check your email for a verification link, then sign in.');
     } catch (err) { setAuthError((err && err.message) || 'Auth failed.'); }
     setLoading(false);
   };
@@ -2558,14 +3458,17 @@ const PlayerHub = ({ client, session, profile, refreshProfile, onSignedOut }) =>
           <p className="text-stone-300 max-w-3xl mx-auto text-lg leading-relaxed">
             Sign in with your in-game account. Buy packs here, open them in-game. Same Cinders, same Aza coin, same collection — one account across the web and the app.
           </p>
+          <p className="text-orange-300/90 max-w-3xl mx-auto text-sm mt-3">
+            New player? Hit <span className="font-bold tracking-widest">PLAY NOW</span> at the top to create an account and start your run.
+          </p>
         </div>
 
         {!session ? (
           /* ===== Sign-in / Sign-up card ===== */
           <div className="max-w-md mx-auto bg-black/65 border border-orange-500/40 rounded-lg p-7" style={{ boxShadow: '0 0 32px rgba(255,140,40,0.18)' }}>
-            <div className="flex gap-2 mb-5 border-b border-stone-700/50 pb-3">
-              <button onClick={() => { setAuthMode('signin'); setAuthError(''); }} className={`flex-1 py-2 rounded text-xs tracking-widest uppercase font-bold transition ${authMode === 'signin' ? 'bg-orange-600 text-yellow-100' : 'bg-black/40 text-stone-400 hover:text-orange-300'}`}>Sign In</button>
-              <button onClick={() => { setAuthMode('signup'); setAuthError(''); }} className={`flex-1 py-2 rounded text-xs tracking-widest uppercase font-bold transition ${authMode === 'signup' ? 'bg-orange-600 text-yellow-100' : 'bg-black/40 text-stone-400 hover:text-orange-300'}`}>Create Account</button>
+            <div className="mb-5 border-b border-stone-700/50 pb-3 text-center">
+              <div className="text-orange-300 text-xs tracking-[0.3em] uppercase font-bold">Sign In</div>
+              <div className="text-stone-500 text-[10px] tracking-widest uppercase mt-1">Use your in-game account</div>
             </div>
             <form onSubmit={handleSignIn} className="space-y-3">
               <div>
@@ -2578,9 +3481,9 @@ const PlayerHub = ({ client, session, profile, refreshProfile, onSignedOut }) =>
               </div>
               {authError && <div className="text-red-300 text-sm bg-red-950/40 border border-red-700/40 rounded px-3 py-2">{authError}</div>}
               <button type="submit" disabled={loading} className="w-full py-3 bg-gradient-to-r from-orange-600 to-red-700 text-yellow-100 font-bold rounded tracking-widest uppercase text-sm hover:shadow-xl hover:shadow-orange-500/40 transition border border-orange-400/50 disabled:opacity-50">
-                {loading ? '…' : (authMode === 'signup' ? 'Create Account' : 'Sign In')}
+                {loading ? '…' : 'Sign In'}
               </button>
-              <p className="text-stone-500 text-xs text-center pt-2">{authMode === 'signup' ? 'Already have an account?' : 'New here?'} <button type="button" onClick={() => setAuthMode(authMode === 'signup' ? 'signin' : 'signup')} className="text-orange-300 underline">{authMode === 'signup' ? 'Sign in instead' : 'Create one'}</button></p>
+              <p className="text-stone-500 text-xs text-center pt-2">New here? Click <span className="text-orange-300 font-bold tracking-widest">PLAY NOW</span> at the top to make your account in-game.</p>
             </form>
           </div>
         ) : (
@@ -2903,7 +3806,7 @@ const CardModal = ({ card, onClose, onAddToDeck }) => {
   if (!card) return null;
   return (
     <div className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md flex items-center justify-center p-6" onClick={onClose} style={{ animation: 'rise 0.3s' }}>
-      <button onClick={onClose} className="absolute top-6 right-6 w-12 h-12 rounded bg-red-900/40 hover:bg-red-700/50 border border-red-500/40 text-red-200 text-xl flex items-center justify-center transition z-10"></button>
+      <button onClick={onClose} aria-label="Close" className="absolute top-6 right-6 w-12 h-12 rounded bg-red-900/40 hover:bg-red-700/50 border border-red-500/40 text-white text-2xl font-bold leading-none flex items-center justify-center transition z-10">×</button>
       <div onClick={(e) => e.stopPropagation()} className="grid md:grid-cols-2 gap-12 items-center max-w-5xl">
         <div className="flex justify-center"><Card card={card} size="xl" floating={false} /></div>
         <div className="text-white max-w-md">
@@ -3250,7 +4153,7 @@ const HeroModal = ({ hero, onClose }) => {
   if (!hero) return null;
   return (
     <div className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md flex items-center justify-center p-6 overflow-y-auto" onClick={onClose} style={{ animation: 'rise 0.3s' }}>
-      <button onClick={onClose} className="absolute top-6 right-6 w-12 h-12 rounded bg-red-900/40 hover:bg-red-700/50 border border-red-500/40 text-red-200 text-xl flex items-center justify-center transition z-10"></button>
+      <button onClick={onClose} aria-label="Close" className="absolute top-6 right-6 w-12 h-12 rounded bg-red-900/40 hover:bg-red-700/50 border border-red-500/40 text-white text-2xl font-bold leading-none flex items-center justify-center transition z-10">×</button>
       <div onClick={(e) => e.stopPropagation()} className="grid md:grid-cols-5 gap-8 max-w-6xl w-full my-12">
         <div className="md:col-span-2 flex flex-col items-center">
           <div className="relative w-full aspect-[3/4] rounded-lg overflow-hidden border-2" style={{ borderColor: hero.accent, boxShadow: `0 0 60px ${hero.glow}` }}>
@@ -3311,6 +4214,1404 @@ const HeroModal = ({ hero, onClose }) => {
         </div>
       </div>
     </div>
+  );
+};
+
+// ===== SURVIVOR CREATOR PROGRAM (Community page) =====
+const SCP_CAN_DO = [
+  'Create videos, guides, lore, streams, and community content',
+  'Design and submit card concepts',
+  'Participate in testing and feedback cycles',
+  'Report bugs and influence development',
+  'Build communities around factions, decks, and strategies',
+  'Help grow the player economy and creator ecosystem',
+  'Earn rewards for meaningful contributions',
+  'Potentially become part of the universe through characters, cards, events, and recognition',
+];
+const SCP_WHO = ['Create consistently', 'Help others', 'Share ideas', 'Build communities', 'Respect the game and players', 'Want to help redefine digital card gaming'];
+const SCP_REWARDS = [
+  'Exclusive in-game rewards', 'Revenue opportunities and creator incentives', 'Early access to updates and testing',
+  'Community spotlight features', 'Creator profile badges', 'Custom cosmetics and titles',
+  'Character appearances inside the universe', 'Card creation opportunities', 'Creator events and collaborations',
+  'Access to private creator channels',
+];
+const SCP_CODEX = ['Submit ideas', 'Create card concepts', 'Share feedback', 'Report bugs', 'Collaborate with other Survivors', 'Help shape future content'];
+const SCP_STANDARDS = ['Build — not destroy — communities', 'Respect players and developers', 'Give honest feedback', 'Create original content', 'Represent the spirit of competition, creativity, and survival'];
+
+// ===== PLEDGE TIERS =====
+// Founder & Node packages shown on the Pledge page. Sorted entry → endgame.
+// Nodes are the individual civilization-engine servers that plug into the
+// Planetary Survival Network (PSN) — see the PSN_LORE constant below for the
+// full lore (also surfaced via the "Learn About The PSN" modal).
+// Card fields:
+//   id, name, tagline
+//   priceUsd        — number; 0 for the free Survivor tier
+//   priceDisplay    — optional override (e.g. "FREE")
+//   inherits        — optional "Includes everything in X, plus" line
+//   benefits        — primary bullet list
+//   boosts          — optional secondary bullet list (rendered under a "Boosts" subheading)
+//   audience        — "Perfect for:" line
+//   color / border / glow — visual treatment
+//   badge           — optional ribbon ("Most Popular", "Legendary"...)
+//   ctaUrl          — optional href; if set, the CTA links there. Otherwise "Coming Soon" (disabled).
+const PLEDGE_TIERS = [
+  {
+    id: 'survivor',
+    name: 'Survivor Access',
+    tagline: 'Enter the world of Mythic Spellbook and begin your survival.',
+    priceUsd: 0,
+    priceDisplay: 'FREE',
+    benefits: [
+      'Full access to Mythic Spellbook',
+      '1 Cash Out per month',
+      '3 Booster Packs',
+      '1 Starter Deck',
+      '3 Tester Promo Cards',
+    ],
+    audience: 'New survivors entering the economy for the first time.',
+    accent: '#9aa3b2',          // cool gray
+    border: 'border-stone-600/60',
+    glow: 'rgba(180,180,200,0.18)',
+    ctaUrl: PLAY_URL,
+    ctaLabel: 'Play Free',
+    image: null,                // optional: './assets/artwork/Pledge/Survivor.png'
+  },
+  {
+    id: 'vault-key',
+    name: 'Vault Key',
+    tagline: 'Unlock your first step into the Vault economy.',
+    priceUsd: 10,
+    benefits: [
+      '3 Cash Outs per month',
+      '5 Booster Packs',
+      '1 Starter Deck',
+      '5 Tester Promo Cards',
+      'Vault Key Profile Badge',
+    ],
+    audience: 'Players looking to trade, grind, and start building value.',
+    accent: '#7aa2d6',          // cool blue
+    border: 'border-slate-500/60',
+    glow: 'rgba(140,170,220,0.20)',
+    image: null,
+  },
+  {
+    id: 'scavenger',
+    name: 'Scavenger Tier',
+    tagline: 'For survivors ready to become active traders and collectors.',
+    priceUsd: 50,
+    benefits: [
+      '5 Cash Outs per month',
+      '8 Booster Packs',
+      '1 Starter Deck',
+      '8 Tester Promo Cards',
+      '25,000 Cinder',
+      'Full Access to the Codex',
+      'Exclusive Tester Deck Sleeves',
+      'Exclusive Tester Tombstone Cosmetic',
+    ],
+    audience: 'Dedicated players wanting deeper access to the ecosystem.',
+    accent: '#f97316',          // orange
+    border: 'border-orange-500/70',
+    glow: 'rgba(255,140,40,0.30)',
+    badge: 'Most Popular',
+    featured: true,
+    image: null,
+  },
+  {
+    id: 'starter-node',
+    name: 'Starter Node License',
+    tagline: 'Become part of the infrastructure powering the world.',
+    priceUsd: 250,
+    benefits: [
+      '8 Cash Outs per month',
+      '12 Booster Packs',
+      '1 Starter Deck',
+      '10 Tester Promo Cards',
+      '25,000 Cinder',
+      'Full Codex Access',
+      'Tester Deck Sleeves',
+      'Tester Tombstone Cosmetic',
+      '10 FREE Packs Every Set Release',
+      '+1% Node Power Progression',
+    ],
+    note: 'Node Power Progression increases how quickly your Node levels up through daily player activity, improving long-term reward payouts. Nodes plug into the Planetary Survival Network (PSN) — see "Learn About The PSN" above.',
+    audience: 'Early Node operators and community builders.',
+    accent: '#fbbf24',          // amber
+    border: 'border-amber-500/60',
+    glow: 'rgba(255,180,40,0.24)',
+    image: null,
+  },
+  {
+    id: 'outpost-operator',
+    name: 'Outpost Operator',
+    tagline: 'Take control of a growing economic territory.',
+    priceUsd: 500,
+    inherits: 'Everything in Starter Node, plus:',
+    benefits: [
+      '+3% Node Power Progression',
+      '+5% Cinder Boost when starting Operations',
+      '+5% Cinder Boost from higher-level player activity',
+      'Priority access to future Node expansions',
+      'Exclusive Operator cosmetics',
+    ],
+    audience: 'Players building influence inside the economy.',
+    accent: '#ef4444',          // red
+    border: 'border-red-500/60',
+    glow: 'rgba(220,80,60,0.24)',
+    image: null,
+  },
+  {
+    id: 'foundation-contributor',
+    name: 'Foundation Contributor',
+    tagline: 'Become permanently embedded in the Mythic Spellbook universe.',
+    priceUsd: 2000,
+    inherits: 'Everything in Outpost Operator, plus:',
+    benefits: [
+      'Your Character Added Into the Game World',
+      '+8% Node Power Progression',
+      '+5% Cinder Boost when starting Operations',
+      '+5% Cinder Boost from businesses created in Just Business',
+      '+10% Cinder Boost from higher-level player activity',
+      'Founder Recognition inside the Codex Archives',
+      'Exclusive Founder cosmetics and title',
+    ],
+    audience: 'Serious supporters helping shape the future of the universe.',
+    accent: '#a855f7',          // purple
+    border: 'border-purple-500/60',
+    glow: 'rgba(168,80,220,0.24)',
+    image: null,
+  },
+  {
+    id: 'dominion-founder',
+    name: 'Dominion Founder',
+    tagline: 'A high-level economic founder package for major supporters.',
+    priceUsd: 3500,
+    inherits: 'Everything in Foundation Contributor, plus:',
+    benefits: [
+      'Expanded in-game character presence',
+      'Founder Statue or Memorial placed in select regions',
+      'Exclusive Dominion-tier cosmetics',
+      'Increased visibility in the community economy',
+      'Priority access to future land, business, and Node systems',
+      'Founder-only seasonal rewards',
+      'Additional Collector Pack allocations every expansion',
+    ],
+    audience: 'Players and investors who want lasting influence in the ecosystem.',
+    accent: '#e879f9',          // fuchsia
+    border: 'border-fuchsia-500/60',
+    glow: 'rgba(220,80,200,0.24)',
+    image: null,
+  },
+  {
+    id: 'titan-node',
+    name: 'Titan Node Founder',
+    tagline: 'Own part of the infrastructure powering Mythic Spellbook.',
+    priceUsd: 5000,
+    inherits: 'Everything in Dominion Founder, plus:',
+    benefits: [
+      '5% Royalty Participation Pool',
+      'Access to ALL in-game businesses',
+      '100 FREE Packs Every New Set Release',
+      'Exclusive Titan Founder Badge',
+      'Priority economic expansion access',
+      'Elite Node cosmetics and branding',
+      'Enhanced Founder profile recognition',
+    ],
+    boosts: [
+      '+8% Node Power Progression',
+      '+5% Cinder Boost when starting Operations',
+      '+5% Cinder Boost from Just Business businesses',
+      '+10% Cinder Boost from higher-level player activity',
+    ],
+    audience: 'Whales, guild leaders, infrastructure supporters, and long-term ecosystem believers.',
+    accent: '#facc15',          // yellow
+    border: 'border-yellow-400/70',
+    glow: 'rgba(255,210,80,0.30)',
+    badge: 'Titan',
+    image: null,
+  },
+  {
+    id: 'eternal',
+    name: 'Eternal Founder',
+    tagline: 'The highest level of Mythic Spellbook founding status.',
+    priceUsd: 10000,
+    inherits: 'Everything in Titan Node Founder, plus:',
+    benefits: [
+      'Major Character Integration Into the World Lore',
+      '25% Royalty Participation Pool',
+      '1,000 FREE Packs Every Set Release',
+      'Access to all businesses and future expansion systems',
+      'Legendary Founder Status',
+      'Direct access to future ecosystem planning discussions',
+      'Eternal Founder Monument or Tribute inside the world',
+      'Ultra-exclusive cosmetics never sold again',
+    ],
+    boosts: [
+      '+15% Node Power Progression',
+      '+15% Cinder Boost when starting Operations',
+      '+15% Cinder Boost from Just Business businesses',
+      '+20% Cinder Boost from higher-level player activity',
+    ],
+    audience: 'Legacy founders helping build the future of player-owned gaming.',
+    accent: '#fde047',          // bright gold
+    border: 'border-yellow-300/80',
+    glow: 'rgba(255,220,80,0.40)',
+    badge: 'Legendary',
+    mythic: true,
+    image: null,
+  },
+];
+
+// ===== PSN LORE =====
+// Full lore for the Planetary Survival Network — surfaced via the "Learn
+// About The PSN" button under the Choose Your Pledge heading. Same body
+// format as NEWS_POSTS: paragraphs, "## " headings, "• " bullets.
+const PSN_LORE = {
+  title: 'The PSN Network',
+  subtitle: '"Civilization is not rebuilt by one hero… it is rebuilt by the network."',
+  body: [
+    'After the collapse, humanity lost more than cities. It lost infrastructure.',
+    'Supply chains failed. Governments disappeared. Manufacturing stopped. Entire regions became overrun by monsters, corruption, and anomalies no one could explain.',
+    'The world was dying.',
+    'Then the Foundation discovered something hidden beneath the ruins.',
+    'The PSN.',
+    '## What Is The PSN?',
+    'The PSN (Planetary Survival Network) is a massive reconstruction infrastructure system connected to the Nodes spread across the world.',
+    'The Nodes are not simple servers, passive staking systems, or meaningless digital assets. They are civilization engines.',
+    'Every active Node powers part of humanity\'s survival. The PSN coordinates:',
+    '• Reconstruction efforts',
+    '• Resource gathering',
+    '• Trade routes',
+    '• Manufacturing',
+    '• Campaigns',
+    '• Settlement recovery',
+    '• Emergency response systems',
+    '• Transportation',
+    '• World stabilization',
+    'Without the PSN… civilization collapses.',
+    '## This Is NOT "Just Buy And Stake"',
+    'The PSN was designed differently from traditional crypto projects. There are:',
+    '• No meaningless idle systems',
+    '• No fake passive economy',
+    '• No "number go up" gameplay',
+    '• No disconnected token speculation',
+    'The network only grows through:',
+    '• Player activity',
+    '• Campaigns',
+    '• Rebuilding efforts',
+    '• Resource gathering',
+    '• Civilization maintenance',
+    '• Community cooperation',
+    'The system exists to support the living world of Mythic Spellbook. Not replace it.',
+    '## How The PSN Connects To Mythic Spellbook',
+    'The world of Mythic Spellbook is powered by active Nodes connected to the PSN.',
+    'Every booster pack, cosmetic, material, crafted item, vendor supply, and reconstruction effort is tied to resources gathered throughout the world.',
+    'Nodes collect resources through:',
+    '• Player campaigns',
+    '• Roguelite operations',
+    '• Settlement defense',
+    '• Monster extermination',
+    '• Convoy protection',
+    '• Reconstruction missions',
+    'Those resources are sent into the Foundation Reserve.',
+    '### The Foundation Reserve',
+    'The Foundation Reserve manufactures items for the world economy. This means the economy is alive. Nothing appears infinitely from nowhere.',
+    'If supplies run low, players must gather resources to stabilize production.',
+    '## Why Nodes Matter',
+    'Nodes are the backbone of civilization. Each Node:',
+    '• Protects survivors',
+    '• Powers trade routes',
+    '• Supports settlements',
+    '• Stabilizes regions',
+    '• Gathers resources',
+    '• Funds reconstruction',
+    '• Prevents corruption spread',
+    'Every Node starts with 200,000 NPC survivors — workers, traders, families, engineers, scavengers, guards, civilians.',
+    '### If players support the Node:',
+    '• Population grows',
+    '• Cities rebuild',
+    '• Roads repair',
+    '• Vendors expand',
+    '• Civilization advances',
+    '### If players ignore the Node:',
+    '• Corruption spreads',
+    '• Monsters invade',
+    '• Infrastructure collapses',
+    '• Civilians die',
+    '• Production slows',
+    '• Anomalies emerge',
+    'The world visibly changes based on player activity.',
+    '## A Living Civilization',
+    'The PSN creates a world where players are not just grinding rewards. They are maintaining civilization itself.',
+    '### Players will see:',
+    '• Roads being repaired',
+    '• Camps expanding',
+    '• Cities rebuilding',
+    '• Lights returning online',
+    '• Supply routes reopening',
+    '• Settlements recovering',
+    '### Or they will witness:',
+    '• Evacuation zones',
+    '• Burning districts',
+    '• Abandoned roads',
+    '• Monster infestations',
+    '• Collapsing trade systems',
+    '• Dying populations',
+    'The state of the world reflects the actions of the community.',
+    '## Node Owners Are NOT Kings',
+    'The PSN was specifically designed to avoid centralized control. One Node Owner cannot dominate civilization alone.',
+    '### Owners can:',
+    '• Improve efficiency',
+    '• Help fund upgrades',
+    '• Stabilize infrastructure',
+    '• Accelerate progression',
+    '• Support reconstruction',
+    'But the community is more important than any single owner.',
+    'Nodes survive through player participation, campaign completion, resource contribution, and civilization maintenance. If players abandon a Node, it will eventually collapse. No amount of money alone can permanently save it.',
+    'This keeps the world community-driven, balanced, cooperative, and alive.',
+    '## The Foundation Reserve',
+    'The Foundation Reserve acts as the manufacturing backbone of the PSN. Resources gathered by players are used to:',
+    '• Create booster packs',
+    '• Manufacture cosmetics',
+    '• Rebuild vendor inventory',
+    '• Produce materials',
+    '• Support world operations',
+    'Every item in circulation is connected to actual activity within the world.',
+    'When new items are released, only 100,000 are created globally. Once supplies run out, the Foundation Reserve must rebuild inventory using resources gathered from active Nodes.',
+    'This creates real scarcity, real supply chains, meaningful world progression, and a living economy.',
+    '## Why Gamers Care',
+    'The PSN turns Mythic Spellbook into more than a card game. Players are not simply opening packs, buying cosmetics, or farming currency. They are helping rebuild humanity.',
+    'Their actions affect the economy, the world map, settlement survival, trade systems, reconstruction progress, and future campaigns. The world evolves through community activity.',
+    '## Why Investors Care',
+    'The PSN is infrastructure. Not hype. Not meaningless speculation. Not disconnected "staking."',
+    'The network is tied directly to player activity, world progression, reconstruction systems, resource production, civilization growth, and economic circulation.',
+    'As the world grows: Nodes grow. Infrastructure expands. Reconstruction accelerates. Player activity increases. The economy deepens.',
+    'The PSN exists to support a living ecosystem rather than extract value from one.',
+    '## The Future Of The World',
+    'The long-term goal of the PSN is simple: create a living online civilization where players matter, infrastructure matters, economies matter, rebuilding matters, survival matters.',
+    'A world where humanity survives together…',
+    'Or collapses together.',
+  ],
+};
+
+// Modal that surfaces the full PSN lore. Esc / backdrop click closes.
+const PsnLoreModal = ({ open, onClose }) => {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = prev; };
+  }, [open, onClose]);
+  if (!open) return null;
+
+  // Inline body renderer — same shape as renderNewsBody but with PSN-tuned
+  // colors so the modal feels like its own document.
+  const out = [];
+  let bulletBuf = [];
+  const flushBullets = (k) => {
+    if (!bulletBuf.length) return;
+    out.push(
+      <ul key={`b-${k}`} className="text-stone-300 leading-relaxed space-y-1.5 my-3 pl-1">
+        {bulletBuf.map((b, j) => (
+          <li key={j} className="flex items-start gap-2"><span className="text-amber-400/80 mt-0.5 shrink-0">▸</span><span>{b}</span></li>
+        ))}
+      </ul>
+    );
+    bulletBuf = [];
+  };
+  PSN_LORE.body.forEach((line, i) => {
+    if (line.startsWith('• ')) {
+      bulletBuf.push(line.slice(2));
+    } else if (line.startsWith('### ')) {
+      flushBullets(i);
+      out.push(<h4 key={i} className="text-amber-200 font-serif font-bold text-lg mt-5 mb-2 tracking-wide">{line.slice(4)}</h4>);
+    } else if (line.startsWith('## ')) {
+      flushBullets(i);
+      out.push(<h3 key={i} className="text-yellow-100 font-serif font-bold text-2xl md:text-3xl mt-8 mb-3 tracking-wide border-b border-amber-600/40 pb-2">{line.slice(3)}</h3>);
+    } else {
+      flushBullets(i);
+      out.push(<p key={i} className="text-stone-300 leading-relaxed my-3">{line}</p>);
+    }
+  });
+  flushBullets('end');
+
+  return (
+    <div className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md flex items-start justify-center p-4 md:p-8 overflow-y-auto" onClick={onClose} style={{ animation: 'rise 0.3s' }}>
+      <button onClick={onClose} aria-label="Close" className="fixed top-6 right-6 w-12 h-12 rounded bg-red-900/40 hover:bg-red-700/50 border border-red-500/40 text-white text-2xl font-bold leading-none flex items-center justify-center transition z-[110]">×</button>
+      <article
+        onClick={(e) => e.stopPropagation()}
+        className="relative bg-gradient-to-br from-stone-950/95 to-black/95 border border-amber-600/40 rounded-lg p-7 md:p-12 my-8 max-w-3xl w-full"
+        style={{ boxShadow: '0 24px 80px rgba(0,0,0,0.7), 0 0 60px rgba(255,180,40,0.18)' }}
+      >
+        <HazardStripe className="absolute top-0 left-0 right-0" />
+        <div className="pt-4">
+          <div className="text-amber-300/80 text-[10px] tracking-[0.45em] uppercase mb-3 font-bold">— Planetary Survival Network —</div>
+          <DistressedHeading level="h2" className="text-4xl md:text-6xl font-serif font-bold text-yellow-100 mb-4">{PSN_LORE.title}</DistressedHeading>
+          <p className="text-amber-200/90 italic text-lg md:text-xl leading-snug mb-6 border-l-4 border-amber-500/60 pl-5">
+            {PSN_LORE.subtitle}
+          </p>
+          <div>{out}</div>
+          <div className="mt-10 pt-6 border-t border-amber-600/30 flex justify-end">
+            <button
+              onClick={onClose}
+              className="px-5 py-2.5 bg-black/60 border border-amber-500/50 text-amber-200 font-bold text-xs rounded tracking-widest uppercase hover:bg-amber-500/10 transition"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </article>
+    </div>
+  );
+};
+
+// ===== PLEDGE PAGE =====
+// Manifesto on the future of digital ownership + tier scaffold for buy-ins.
+// Reached from the navbar's "Pledge" button.
+const PledgePage = () => {
+  // Learn-more modal toggle for the PSN lore drop-down.
+  const [psnOpen, setPsnOpen] = useState(false);
+  // Section wrapper that gives each block the same dark glass treatment.
+  const Block = ({ tone = 'neutral', children }) => {
+    const tones = {
+      neutral: 'from-stone-900/55 to-black/55 border-stone-700/50',
+      warn:    'from-red-950/40 to-black/55 border-red-700/40',
+      amber:   'from-amber-950/30 to-black/55 border-amber-600/40',
+      violet:  'from-purple-950/35 to-black/55 border-purple-700/40',
+      teal:    'from-emerald-950/30 to-black/55 border-emerald-700/40',
+    };
+    return (
+      <div className={`bg-gradient-to-br ${tones[tone] || tones.neutral} border rounded-lg p-7 md:p-9`} style={{ boxShadow: '0 8px 28px rgba(0,0,0,0.45)' }}>
+        {children}
+      </div>
+    );
+  };
+
+  return (
+    <div className="pt-20">
+      <section className="relative pt-16 pb-12 px-6 overflow-hidden">
+        {/* Atmospheric backdrop — amber and violet glow, "monastic" feel */}
+        <div className="absolute inset-0 pointer-events-none" style={{
+          background:
+            'radial-gradient(ellipse at 20% 10%, rgba(255,180,80,0.10) 0%, transparent 55%),' +
+            'radial-gradient(ellipse at 80% 90%, rgba(168,80,220,0.10) 0%, transparent 55%),' +
+            'linear-gradient(180deg, rgba(8,4,16,0.5) 0%, rgba(8,4,16,0.0) 100%)',
+        }} />
+        <HazardStripe className="absolute top-0 left-0 right-0" />
+
+        <div className="max-w-4xl mx-auto relative">
+
+          {/* ===== Header ===== */}
+          <div className="text-center mb-12">
+            <div className="text-amber-300/80 text-xs tracking-[0.4em] uppercase mb-3">— The Pledge —</div>
+            <DistressedHeading className="text-5xl md:text-7xl font-serif font-bold text-yellow-100 mb-5">
+              The Future of Ownership Is Changing
+            </DistressedHeading>
+            <p className="text-stone-300 max-w-3xl mx-auto text-lg leading-relaxed">
+              Not speculative hype. Not meaningless JPEGs. Not empty NFT projects designed only for flipping.
+            </p>
+            <p className="text-amber-200 max-w-3xl mx-auto text-xl leading-relaxed font-bold mt-3">
+              Digital assets that people can truly use, trade, earn, and build around inside meaningful ecosystems.
+            </p>
+          </div>
+
+          {/* ===== Opening — the joke that stopped being a joke ===== */}
+          <div className="mb-10">
+            <Block>
+              <p className="text-stone-200 text-lg leading-relaxed mb-5">
+                There is a phrase that used to sound like a joke or some impossible conspiracy theory:
+              </p>
+              <blockquote className="text-yellow-100 font-serif italic text-2xl md:text-3xl leading-snug border-l-4 border-red-500/70 pl-6 my-6" style={{ textShadow: '0 2px 6px rgba(0,0,0,0.85)' }}>
+                "You will own nothing and be happy."
+              </blockquote>
+              <p className="text-stone-200 text-lg leading-relaxed mb-4">
+                But every year, that idea feels less like fiction and more like reality.
+              </p>
+              <p className="text-stone-200 text-lg leading-relaxed mb-4">
+                We are watching ownership slowly disappear in real time.
+              </p>
+              <p className="text-stone-300 leading-relaxed mb-4">
+                As this was being written, Amazon announced changes to its cloud gaming service Amazon Luna involving the removal of certain games from player libraries. Situations like this continue to remind people that much of what we "buy" digitally today is often just a temporary license controlled by corporations.
+              </p>
+              <p className="text-stone-200 text-lg leading-relaxed">
+                The truth is simple: <strong className="text-amber-200">modern consumers are increasingly renting access instead of owning products.</strong>
+              </p>
+            </Block>
+          </div>
+
+          {/* ===== The generational reality ===== */}
+          <div className="mb-10">
+            <Block tone="warn">
+              <DistressedHeading level="h2" className="text-3xl md:text-4xl font-serif font-bold text-yellow-100 mb-4">A Generation Locked Out</DistressedHeading>
+              <p className="text-stone-300 leading-relaxed mb-4">
+                For younger generations, the situation feels even worse.
+              </p>
+              <p className="text-stone-300 leading-relaxed mb-4">
+                Millions of people feel locked out of traditional ownership. Housing feels impossible. Stable careers feel uncertain. Many people struggle to find direction, opportunity, or even hope for the future.
+              </p>
+              <p className="text-stone-300 leading-relaxed mb-4">
+                We have spent years encouraging people to learn skills, build businesses, work with government programs, and create opportunities for themselves. But we also understand something many people are afraid to admit:
+              </p>
+              <p className="text-red-200 text-lg leading-relaxed font-bold italic">
+                A large number of people feel like the traditional system no longer works for them.
+              </p>
+              <p className="text-stone-300 leading-relaxed mt-4">
+                That reality is exactly why we believe digital ownership will become one of the defining economic shifts of the future.
+              </p>
+            </Block>
+          </div>
+
+          {/* ===== What digital value already looks like ===== */}
+          <div className="mb-10">
+            <Block>
+              <DistressedHeading level="h2" className="text-3xl md:text-4xl font-serif font-bold text-yellow-100 mb-4">Players Already Value Digital Items</DistressedHeading>
+              <p className="text-stone-300 leading-relaxed mb-5">
+                The gaming industry has already proven this exists. Players already value digital items every single day.
+              </p>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-6">
+                {['Rare skins', 'Collectibles', 'Mounts', 'Cards', 'Cosmetics', 'Profiles', 'Limited rewards', 'Reputation'].map((t, i) => (
+                  <div key={i} className="bg-black/40 border border-amber-600/30 rounded px-3 py-2 text-center text-amber-100 text-xs uppercase tracking-widest">{t}</div>
+                ))}
+              </div>
+              <p className="text-stone-300 leading-relaxed mb-4">
+                The difference is that most platforms do not allow players to freely participate in the value they help create.
+              </p>
+              <p className="text-stone-200 italic leading-relaxed mb-4">
+                Yet secondary markets still appear anyway. Gamers have been building underground economies for decades because players naturally place value on the worlds they spend time in.
+              </p>
+              <p className="text-amber-300/80 text-xs uppercase tracking-widest mb-3 mt-6">Examples already exist:</p>
+              <ul className="text-stone-300 leading-relaxed space-y-2 pl-1">
+                {[
+                  'Valve Corporation Steam Community Market items — weapon skins, cosmetics, profile items',
+                  'Sony PlayStation Stars digital collectibles',
+                  'Rare MMORPG mounts, pets, cosmetics, and titles in games like World of Warcraft and Final Fantasy XIV',
+                  'Mobile app collectibles and digital items within closed ecosystems',
+                  'Subscription-based digital rewards, posters, comics, and collectible media content',
+                ].map((b, i) => (
+                  <li key={i} className="flex items-start gap-3"><span className="text-amber-400/80 mt-0.5 shrink-0">▸</span><span>{b}</span></li>
+                ))}
+              </ul>
+              <p className="text-stone-300 leading-relaxed mt-5">
+                These are all forms of digital assets. The only difference is that most companies control the ecosystem completely while preventing users from freely trading, cashing out, or participating in the value economy surrounding those items.
+              </p>
+            </Block>
+          </div>
+
+          {/* ===== Our vision — centralized for protection ===== */}
+          <div className="mb-10">
+            <Block tone="amber">
+              <DistressedHeading level="h2" className="text-3xl md:text-4xl font-serif font-bold text-yellow-100 mb-4">Our Vision</DistressedHeading>
+              <p className="text-stone-200 leading-relaxed text-lg mb-4">
+                We believe the future will include digital assets that people can <strong className="text-amber-200">truly use, trade, earn, and build around</strong> inside meaningful ecosystems.
+              </p>
+              <p className="text-stone-300 leading-relaxed mb-4">
+                That does not mean abandoning responsibility or allowing chaos. Our platform is intentionally centralized for one reason:
+              </p>
+              <div className="text-center my-6">
+                <div className="inline-block px-8 py-4 bg-black/50 border-2 border-amber-500/60 rounded">
+                  <div className="text-amber-300/80 text-[10px] tracking-[0.5em] uppercase mb-1">One Reason</div>
+                  <div className="text-yellow-100 font-serif font-bold text-3xl md:text-4xl tracking-wide">Protection.</div>
+                </div>
+              </div>
+              <div className="grid sm:grid-cols-3 gap-3 mb-5">
+                {['Protection for gamers.', 'Protection for investors.', 'Protection for the ecosystem.'].map((t, i) => (
+                  <div key={i} className="bg-black/40 border border-amber-600/30 rounded px-4 py-3 text-center text-amber-100 font-bold text-sm">{t}</div>
+                ))}
+              </div>
+              <p className="text-stone-300 leading-relaxed">
+                We actively monitor the platform to prevent fraud, exploitation, cheating, and abuse. Our goal is to create a sustainable environment where honest players can safely participate in the world we are building. Withdrawals, trading systems, and marketplace activity are all governed through platform protections and Terms of Service to maintain stability and long-term sustainability.
+              </p>
+            </Block>
+          </div>
+
+          {/* ===== The bigger mission — a parent's letter ===== */}
+          <div className="mb-10">
+            <Block tone="violet">
+              <DistressedHeading level="h2" className="text-3xl md:text-4xl font-serif font-bold text-yellow-100 mb-4">The Bigger Mission</DistressedHeading>
+              <p className="text-stone-300 leading-relaxed mb-4">
+                But the bigger mission goes beyond gaming.
+              </p>
+              <p className="text-stone-300 leading-relaxed mb-4">
+                As a parent, I think constantly about the future younger generations are inheriting.
+              </p>
+              <p className="text-purple-200 text-lg leading-relaxed mb-4 italic">
+                I want my children to grow up in a world where ownership still matters. A world where they can build something. A world where digital effort can translate into real-world opportunity.
+              </p>
+              <p className="text-stone-300 leading-relaxed mb-4">
+                Maybe one day, a player can honestly say:
+              </p>
+              <blockquote className="text-yellow-100 font-serif italic text-xl md:text-2xl leading-snug border-l-4 border-purple-500/70 pl-6 my-5">
+                "I earned this digital asset, traded it, and used it to help buy something real."
+              </blockquote>
+              <p className="text-stone-300 leading-relaxed mb-4">
+                That sounds unbelievable to some people today. But so did the idea of people making full-time careers from streaming, esports, YouTube, or digital businesses twenty years ago.
+              </p>
+              <p className="text-purple-200 leading-relaxed font-bold">
+                The world changes fast. And the people who prepare for change early are usually the ones who help shape the future.
+              </p>
+            </Block>
+          </div>
+
+          {/* ===== Youth initiatives ===== */}
+          <div className="mb-12">
+            <Block tone="teal">
+              <DistressedHeading level="h2" className="text-3xl md:text-4xl font-serif font-bold text-yellow-100 mb-4">Where the Pledge Goes</DistressedHeading>
+              <p className="text-stone-300 leading-relaxed mb-5">
+                A portion of our revenue and pledge programs will go toward <strong className="text-emerald-200">building youth-focused initiatives</strong> centered around gaming, financial literacy, entrepreneurship, teamwork, and digital opportunity.
+              </p>
+              <p className="text-emerald-200/80 text-xs uppercase tracking-widest mb-3">We want to create spaces where young people can:</p>
+              <ul className="text-stone-300 leading-relaxed space-y-2 pl-1 mb-6">
+                {[
+                  'Learn financial literacy',
+                  'Build skills and confidence',
+                  'Connect with communities',
+                  'Stay out of trouble',
+                  'Work together with their families',
+                  'Have fun while learning real systems',
+                  'Potentially earn money responsibly with parental support',
+                ].map((b, i) => (
+                  <li key={i} className="flex items-start gap-3"><span className="text-emerald-400/80 mt-0.5 shrink-0">▸</span><span>{b}</span></li>
+                ))}
+              </ul>
+              <p className="text-stone-200 leading-relaxed text-lg mb-2">
+                We believe gaming can become more than entertainment.
+              </p>
+              <p className="text-emerald-100 font-serif font-bold text-xl leading-relaxed mb-4">
+                It can become a gateway into education, creativity, teamwork, business, and opportunity.
+              </p>
+              <p className="text-stone-300 leading-relaxed mb-1">Families need stronger communities.</p>
+              <p className="text-stone-300 leading-relaxed mb-1">Young people need hope again.</p>
+              <p className="text-stone-200 leading-relaxed italic mt-4">
+                And if building this world can help create even a small piece of that future, then the work is worth it.
+              </p>
+            </Block>
+          </div>
+
+          {/* ===== Tier grid ===== */}
+          <div className="mb-12">
+            <div className="text-center mb-8">
+              <div className="text-amber-300/80 text-xs tracking-[0.4em] uppercase mb-3">— Founder & Node Packages —</div>
+              <DistressedHeading className="text-4xl md:text-5xl font-serif font-bold text-yellow-100 mb-3">
+                Choose Your Pledge
+              </DistressedHeading>
+              <p className="text-stone-400 max-w-2xl mx-auto text-sm md:text-base leading-relaxed">
+                Every tier supports the platform, funds youth initiatives, and unlocks in-world value. Cash-out limits, Cinder bonuses, Node power, and royalty participation scale with the tier.
+              </p>
+              <p className="text-stone-500 max-w-2xl mx-auto text-xs md:text-sm leading-relaxed mt-3 italic">
+                Nodes plug into the <strong className="text-amber-200 not-italic">Planetary Survival Network (PSN)</strong> — the reconstruction infrastructure powering the world.
+              </p>
+              <button
+                onClick={() => setPsnOpen(true)}
+                className="inline-flex items-center gap-2 mt-5 px-5 py-2.5 bg-gradient-to-r from-amber-600/80 to-orange-700/80 hover:from-amber-500 hover:to-orange-600 text-yellow-50 font-bold text-xs rounded tracking-widest uppercase transition border border-amber-400/60"
+                style={{ boxShadow: '0 6px 20px rgba(220,140,40,0.25)' }}
+              >
+                <span aria-hidden></span>
+                Learn About The PSN
+                <span aria-hidden>→</span>
+              </button>
+              <div className="inline-flex items-center gap-2 mt-4 px-3 py-1.5 bg-gradient-to-r from-amber-900/50 to-orange-900/40 border border-amber-500/50 rounded text-amber-100 text-xs tracking-widest uppercase font-bold" style={{ boxShadow: '0 4px 14px rgba(220,140,40,0.18)' }}>
+                <span className="text-amber-300 text-sm">●</span>
+                <span>$1 USD = 5,000 Cinder</span>
+              </div>
+            </div>
+
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch">
+              {PLEDGE_TIERS.map((tier) => {
+                const priceText = tier.priceDisplay
+                  ? tier.priceDisplay
+                  : tier.priceUsd != null
+                    ? `$${tier.priceUsd.toLocaleString()}`
+                    : 'TBA';
+                return (
+                <div
+                  key={tier.id}
+                  className={`relative bg-gradient-to-b from-stone-900/95 to-black border ${tier.border} rounded-xl overflow-hidden flex flex-col ${tier.featured ? 'lg:-translate-y-3' : ''} ${tier.mythic ? 'ring-2 ring-yellow-300/70 ring-offset-2 ring-offset-black/60' : ''}`}
+                  style={{ boxShadow: `0 14px 40px rgba(0,0,0,0.55), 0 0 48px ${tier.glow}` }}
+                >
+                  {/* ===== Banner image / placeholder ===== */}
+                  <div className="relative w-full aspect-[16/9] bg-black overflow-hidden border-b" style={{ borderColor: tier.accent + '55' }}>
+                    {tier.image ? (
+                      <img
+                        src={tier.image}
+                        alt={tier.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          // Fallback to the styled placeholder if the file is missing.
+                          e.currentTarget.style.display = 'none';
+                          if (e.currentTarget.nextSibling) e.currentTarget.nextSibling.style.display = 'flex';
+                        }}
+                      />
+                    ) : null}
+                    {/* Always-rendered placeholder; hidden by the img above unless image fails/null. */}
+                    <div
+                      className="absolute inset-0 flex items-center justify-center text-center px-4"
+                      style={{
+                        display: tier.image ? 'none' : 'flex',
+                        background:
+                          `radial-gradient(ellipse at 30% 30%, ${tier.accent}33 0%, transparent 60%),` +
+                          `radial-gradient(ellipse at 70% 70%, ${tier.accent}22 0%, transparent 60%),` +
+                          'linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%)',
+                      }}
+                    >
+                      <div>
+                        <div className="font-serif font-black text-5xl md:text-6xl tracking-wider opacity-15" style={{ color: tier.accent }}>
+                          {String(PLEDGE_TIERS.indexOf(tier) + 1).padStart(2, '0')}
+                        </div>
+                        <div className="text-stone-500 text-[10px] uppercase tracking-[0.3em] mt-1">Artwork pending</div>
+                      </div>
+                    </div>
+                    {/* Bottom fade so a future image transitions cleanly into the card body. */}
+                    <div className="absolute inset-x-0 bottom-0 h-12 pointer-events-none" style={{ background: 'linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.85) 100%)' }} />
+                    {/* Badge sits on the banner — visible on both placeholder and real image. */}
+                    {tier.badge && (
+                      <div className={`absolute top-3 right-3 px-2.5 py-0.5 text-[10px] uppercase tracking-widest font-bold rounded whitespace-nowrap ${
+                        tier.mythic
+                          ? 'bg-gradient-to-r from-yellow-300 via-amber-400 to-yellow-500 text-stone-900 shadow-lg shadow-yellow-500/50'
+                          : tier.featured
+                            ? 'bg-orange-500 text-yellow-50 shadow-md shadow-orange-500/40'
+                            : 'bg-stone-800/90 border border-amber-500/50 text-amber-200'
+                      }`}>{tier.badge}</div>
+                    )}
+                  </div>
+
+                  {/* ===== Body ===== */}
+                  <div className="p-6 md:p-7 flex flex-col flex-1">
+                    {/* Header — name + tagline + accent rule */}
+                    <DistressedHeading level="h3" className="text-2xl md:text-3xl font-serif font-bold text-yellow-100 mb-1 leading-tight">{tier.name}</DistressedHeading>
+                    <p className="text-stone-400 text-sm italic mb-5 leading-snug">{tier.tagline}</p>
+                    <div className="h-px w-12 mb-5" style={{ background: tier.accent }} />
+
+                    {/* Price */}
+                    <div className="flex items-baseline justify-between mb-6">
+                      <span className="text-stone-500 text-[10px] uppercase tracking-[0.3em]">Pledge</span>
+                      <span className="font-serif font-black text-3xl md:text-4xl" style={{ color: tier.accent === '#9aa3b2' ? '#fef3c7' : tier.accent, textShadow: `0 0 24px ${tier.accent}55` }}>
+                        {priceText}
+                      </span>
+                    </div>
+
+                    {/* Inherits line */}
+                    {tier.inherits && (
+                      <div className="mb-4 pb-3 border-b border-stone-700/50">
+                        <div className="text-[10px] uppercase tracking-[0.25em] font-bold mb-1" style={{ color: tier.accent }}>Includes</div>
+                        <p className="text-stone-300 text-xs italic leading-snug">{tier.inherits}</p>
+                      </div>
+                    )}
+
+                    {/* Benefits */}
+                    <ul className="text-stone-200 text-sm leading-relaxed space-y-2 mb-5">
+                      {tier.benefits.map((b, j) => (
+                        <li key={j} className="flex items-start gap-2.5">
+                          <span className="mt-1 shrink-0 w-1.5 h-1.5 rounded-full" style={{ background: tier.accent }} />
+                          <span>{b}</span>
+                        </li>
+                      ))}
+                    </ul>
+
+                    {/* Boosts (optional) */}
+                    {tier.boosts && (
+                      <div className="mb-5 mt-2 p-4 rounded-lg bg-black/40 border" style={{ borderColor: tier.accent + '40' }}>
+                        <div className="text-[10px] uppercase tracking-[0.3em] font-bold mb-3" style={{ color: tier.accent }}>Boosts</div>
+                        <ul className="text-stone-200 text-sm leading-relaxed space-y-1.5">
+                          {tier.boosts.map((b, j) => (
+                            <li key={j} className="flex items-start gap-2">
+                              <span className="font-bold shrink-0" style={{ color: tier.accent }}>+</span>
+                              <span>{b}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Optional note */}
+                    {tier.note && (
+                      <p className="text-stone-400 text-xs leading-relaxed italic mb-5 pl-3 border-l-2" style={{ borderColor: tier.accent + '70' }}>
+                        {tier.note}
+                      </p>
+                    )}
+
+                    {/* Audience — pinned just above CTA */}
+                    <div className="mt-auto">
+                      <div className="pt-4 border-t border-stone-700/50 mb-4">
+                        <div className="text-stone-500 text-[10px] uppercase tracking-[0.3em] mb-1">Perfect for</div>
+                        <p className="text-stone-300 text-xs leading-relaxed italic">{tier.audience}</p>
+                      </div>
+
+                      {/* CTA */}
+                      {tier.ctaUrl ? (
+                        <a
+                          href={tier.ctaUrl}
+                          className="block w-full text-center px-4 py-3 bg-gradient-to-r from-orange-600 to-red-700 text-yellow-100 font-bold rounded tracking-widest uppercase text-xs hover:shadow-lg hover:shadow-orange-500/40 transition border border-orange-400/50"
+                        >
+                          {tier.ctaLabel || 'Start Here'}
+                        </a>
+                      ) : (
+                        <button
+                          disabled
+                          className="w-full px-4 py-3 font-bold rounded tracking-widest uppercase text-xs cursor-not-allowed border bg-black/60 transition"
+                          style={{ borderColor: tier.accent + '60', color: tier.accent }}
+                          title="Pledge intake opens soon"
+                        >
+                          Coming Soon
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                );
+              })}
+            </div>
+            <p className="text-center text-stone-500 text-xs uppercase tracking-widest mt-8">
+              Pledge intake opens soon — join the Community for early notice. Cash-out limits and royalty participation governed by Terms of Service.
+            </p>
+          </div>
+
+        </div>
+      </section>
+      <Footer />
+      <PsnLoreModal open={psnOpen} onClose={() => setPsnOpen(false)} />
+    </div>
+  );
+};
+
+// ===== NEWS POSTS =====
+// Patch notes / devlogs / announcements rendered on the News page.
+// To add a new post: paste a new object at the TOP of this array. Newest first.
+// Fields:
+//   date     — YYYY-MM-DD (sorted/shown most recent first)
+//   category — 'Patch Notes' | 'Devlog' | 'Announcement' | 'Event'
+//   title    — short headline
+//   tag      — optional short tag (e.g. 'v0.4.2', 'Hotfix')
+//   summary  — optional one-line teaser shown beneath the title
+//   body     — array of strings. Each string is a paragraph. Lines that start
+//              with "• " render as a bullet list (consecutive bullets group
+//              together). Lines that start with "## " render as a subheading.
+const NEWS_POSTS = [
+  {
+    date: '2026-05-24',
+    category: 'Devlog',
+    tag: 'Manifesto',
+    title: 'Venra × Hidn Studios — Why We Build Games Differently',
+    summary: 'Games stopped being "just games" a long time ago. This is why Mythic Spellbook connects into Venra — and why the goal isn\'t escaping reality, it\'s expanding what reality lets people become.',
+    logos: [
+      { src: './assets/artwork/Hidn%20studios.webp', alt: 'Hidn Studios', caption: 'Hidn Studios' },
+      { src: './assets/artwork/Venra%20Logo.webp',   alt: 'Venra',        caption: 'Venra' },
+    ],
+    body: [
+      'People always ask why we care so much about building games differently.',
+      'The answer is simple.',
+      'Because games stopped being "just games" a long time ago.',
+      '## The EVE Online proof',
+      'Look at EVE Online. People didn\'t just log in. They built corporations. Started wars. Managed supply chains. Ran logistics. Created politics. Built reputations.',
+      'People became diplomats, leaders, traders, manufacturers, and strategists. Entire communities formed around a digital universe.',
+      'That proved something important: people don\'t just want entertainment. People want worlds.',
+      '## What if you actually lived in Yu-Gi-Oh!?',
+      'But we kept asking ourselves a different question.',
+      'What if you took that feeling… and combined it with the fantasy we grew up imagining?',
+      'What would life actually be like if you lived inside Yu-Gi-Oh!? What if your deck wasn\'t just cards… but your team?',
+      'What if every creature mattered the way they do in Pokémon? What if the monsters weren\'t just cute collectibles… but dangerous? What if they were real? What if summoning wasn\'t a tournament… but survival?',
+      'That question became Mythic Spellbook.',
+      '## A life simulator inside a horror universe',
+      'Not just a card game. Not just a survival game.',
+      'A life simulator inside a horror universe. A world where your cards become your companions. Your workers. Your protectors. Your economy. Your strategy.',
+      'You build your deck. You build your camp. You gather resources. You survive. You expand. You recruit. You trade. You tell stories. You become known.',
+      'But there\'s a catch. The world doesn\'t love you back.',
+      'Because these creatures are not game pieces. They exist. They hunt. They mutate. They destroy settlements. They become legends.',
+      'Sometimes your strongest card isn\'t your win condition. Sometimes it\'s the reason your camp no longer exists.',
+      'So progression matters. Your deck evolves. Your camp evolves. Your economy evolves. Your story evolves.',
+      '## Players create value. Players should have opportunities.',
+      'And because players create value… players should have opportunities. That\'s where the bigger ecosystem starts.',
+      'If someone wants the traditional route… cool. Go work. Build your career. Start a business. Use Venra.',
+      'But what if someone cannot find work? What if someone is disabled? What if someone\'s strengths are creativity, systems, games, storytelling, market knowledge, community building?',
+      'What if a teenager is better at economy management than most adults? What if someone\'s parent works during the day… and they help generate value from home?',
+      '## The flywheel',
+      'That\'s the flywheel. Mythic Spellbook connects into Venra.',
+      'Players can hire other players. Guilds can recruit. Communities can organize. People can create services. Teams can build together. Families can split responsibilities.',
+      'One person works traditionally. Another builds value digitally. Another learns. Another manages. Another creates.',
+      'Not because everyone should quit their jobs. Not because gaming replaces reality. But because we think reality got too small.',
+      'People shouldn\'t have one lane. People should have options.',
+      '## Sparta Universe\'s idea',
+      'Sparta Universe\'s idea is simple: build systems where people can move between worlds.',
+      'Learn in one. Earn in another. Build in another. And bring that value back home.',
+      'If your dream is traditional work… go win. If your dream is building inside worlds… go build.',
+      'Either way — the goal isn\'t escaping reality. The goal is expanding what reality lets people become.',
+    ],
+  },
+  {
+    date: '2026-05-24',
+    category: 'Patch Notes',
+    tag: 'v0.0.2',
+    title: 'Patch Notes v0.0.2 — Visual Reset, First Nerfs, Ultimates, Businesses',
+    summary: 'We got a lot done — so much that not everything fit. Visual direction shift, first official nerfs (Vex, Giant Snake), Ultimates, Counter Cards, weather, businesses, and more.',
+    body: [
+      'As development continues, you\'re going to see changes happen in real time. If you notice something completely new and it isn\'t working yet, please do not report it unless we specifically ask for testing.',
+      'I already know what systems are unfinished. I just want to set that expectation early so we spend less time making reports on unfinished content and more time improving what is actually ready to be played.',
+      '## Bug reporting is moving to the Abraxas Codex',
+      'Abraxas Codex will become the place where:',
+      '• You report bugs',
+      '• Keep up with updates',
+      '• Talk with the community',
+      '• Share ideas',
+      '• Help shape the game',
+      'Soon you\'ll even be able to design and submit your own card concepts. If your idea inspires an official card, we\'ll credit you.',
+      'Now… let\'s get into the update.',
+      '## Graphics & Visual Direction',
+      'Originally, Mythic Spellbook was becoming a game that not many people could realistically run. That became a problem.',
+      'Especially because this game has:',
+      '• Economy systems',
+      '• RMT systems',
+      '• Large-scale progression',
+      '• Social spaces',
+      '• Huge card counts',
+      '• Future world expansion',
+      'Performance matters. So I made a hard decision.',
+      'Instead of chasing ultra-heavy visuals, we shifted toward a more stylized realistic look inspired by survival and isometric games. Think Project Zomboid energy… but with realistic card artwork.',
+      'This lets us:',
+      '• Update faster',
+      '• Keep visuals consistent',
+      '• Add more content',
+      '• Lower hardware requirements',
+      '• Build sustainably as an indie project',
+      'I still want players to look at cards and think: "Holy smokes… this looks cool."',
+      'Most importantly: I want Mythic Spellbook to have its own visual identity.',
+      'We also want to push boundaries again. Some cards may touch mythology, religion, legends, and older stories. Not to offend — but because Mythic Spellbook is telling a larger story of creation and worlds. I want this universe to still matter 10+ years from now.',
+      'Also… new music is coming. Testing in silence was getting awkward.',
+      '## Balance Changes — Our First Official Nerfs',
+      '### Vex, Nightblade Survivor',
+      'What was I thinking? This guy was insane.',
+      '• Speed: 3 → 1',
+      'Vex could delete mages in a single turn and was already starting to become a "play Vex or lose" type of card. Even after this nerf… I\'m still watching him.',
+      '### Giant Snake',
+      '• Base Health: 52 → 45',
+      '• Kalon Form Health: 75 → 60',
+      'He is STILL the highest health unit in the game. But 52 base HP was ridiculous. The strategy was basically: see snake, run. Now there\'s more room for counterplay.',
+      '## Gameplay Changes',
+      '### Ultimates',
+      'Heroes now have Ultimates. Heroes gain Ultimate Charges by defeating enemy units. Ultimates are intentionally powerful. Some are completely unfair. Use them wisely.',
+      '### Terrain & Weather',
+      'Everything wants to kill you in Mythic. Including the ground.',
+      'Example: Dark Ground + Fire Ability = Fire Spread.',
+      'Weather now changes battle conditions:',
+      '• Rain — leaves puddles, extinguishes fire',
+      '• Mist — reduces visibility, makes units harder to hit',
+      '### Counter Cards',
+      'Counter Cards are here. Some effects are too dangerous to leave unanswered.',
+      'Example: someone casts Divine Wrath and tries deleting your Hero. You play a Counter. Poof. Didn\'t happen.',
+      'Some units can even appear beside your Hero to intercept attacks. Sometimes surviving matters more than winning.',
+      '### Enemy Information',
+      'Strategy matters. Not credit cards.',
+      'Players can no longer automatically know everything about enemy builds. To reveal information:',
+      '• Use scan abilities',
+      '• Use items',
+      '• Trigger special effects',
+      '• Study the Codex',
+      'You may know who you\'re fighting. But not what they brought to send you back to camp.',
+      '### Card Details',
+      'No more placing cards blindly. Cards now show detailed information directly from your hand. No more guessing.',
+      '### Death / Losing',
+      'I always wanted consequences. But not punishment. You do NOT lose everything.',
+      'You lose:',
+      '• Equipment brought on your Hero',
+      '• Some gathered resources',
+      'Winning matters. Surviving matters too.',
+      '## Businesses',
+      'Businesses are officially open.',
+      'Current industries:',
+      '• Oil',
+      '• Gas',
+      '• Car Dealerships',
+      '• Fishing',
+      '• Oil Companies',
+      'Your Corporation = Your Guild. Recruit players. Assign roles. Trade. Build together. Create supply chains.',
+      '146 resources exist. Every resource matters. Craft. Trade. Sell. Store.',
+      '## Inventory',
+      'Inventory has expanded. Equip:',
+      '• Heroes',
+      '• Units',
+      '• Protection',
+      '• Stat boosts',
+      '• World event tools',
+      'This system is massive. Video coming.',
+      '## Camp View',
+      'Camp View is becoming our social layer. Think Pokémon-style world hubs.',
+      'Players can:',
+      '• Walk together',
+      '• Travel',
+      '• Buy property',
+      '• Decorate homes',
+      '• Invite players',
+      'This is already being worked on heavily.',
+      '## Foundation Reserve',
+      'Foundation Reserve now collects 2–5% taxes on Cinder transactions.',
+      'Global Reward Pool: once the pool reaches milestones, rewards begin distributing to Node owners across the Planetary Survival Network (PSN).',
+      'Distribution scales based on:',
+      '• Node Level',
+      '• Node Count',
+      '• Overall ecosystem growth',
+      'Current Example: 50,000,000 Global Reward Pool ≈ $10,000 USD distribution threshold. Pool expands as player activity grows.',
+      '## Final Note',
+      'There are way too many changes to fit into one patch note. Video coming soon.',
+      'Thank you for testing. Thank you for building this world with me.',
+      '"The Real World Is Broken. So We Built A New One."',
+    ],
+  },
+  {
+    date: '2026-05-23',
+    category: 'Announcement',
+    tag: 'Site v2',
+    title: 'New Site Layout — Survivor, Deck Builder, and News',
+    summary: 'The marketing site has been reorganized into dedicated pages so the home page tells the story and the deep content lives where you can find it.',
+    body: [
+      'We split the long home page into focused destinations. The home page is now the trailer; everything else is a room you can walk into.',
+      '## What moved',
+      '• Champions, Subclasses, and Held Items → Survivor page',
+      '• Factions → Survivor page',
+      '• Garden of Eden, Survive for Free, Survival Caches, and the Card Database → Deck Builder page',
+      '• Colosseum → Community page',
+      '• Build a Career → RMT page (already lived there)',
+      '## New stuff',
+      '• News page (you are here) for patch notes and devlogs',
+      '• Dismissable emergency-broadcast banner at the very top',
+      '• Card modal close button restored',
+      'Tell us what feels off. We will keep iterating.',
+    ],
+  },
+  {
+    date: '2026-05-20',
+    category: 'Devlog',
+    tag: 'Production',
+    title: 'How To Play, Reframed',
+    summary: 'We replaced the old "Four Turns to Glory" walkthrough with the real shape of the game: Build → Survive → Expand → Conquer.',
+    body: [
+      'The original "Four Turns to Glory" treatment described a match. That is one part of Mythic Spellbook — but it left out everything that makes a session feel like its own world.',
+      '## The new five steps',
+      '• 01 — Build Your Deck. Heroes, units, equipment, evolutions, weather, locations, threat levels, traps, resources.',
+      '• 02 — Survive The World. Explore ruined towns, fight monsters, complete events, gather.',
+      '• 03 — Build Your Base. Camps, deck builder houses, hospitals, vendors, workshops, walls.',
+      '• 04 — Grow Your Economy. Trade, craft, sell, run shops, specialize as Merchant / Crafter / Explorer / Collector / Fighter.',
+      '• 05 — Enter Tactical Combat. Raise Threat Levels, move, transform Kalons, reduce the enemy Hero to 0 HP.',
+      'The deckbuilder is one chapter of a longer story. The site now reflects that.',
+    ],
+  },
+];
+
+// ===== NEWS PAGE =====
+// Card list of NEWS_POSTS in reverse-chronological order. Each card stays
+// neat — chip, date, title, summary. Clicking "Read Full" opens a modal
+// with the full body.
+//
+// Body renderer supports:
+//   • "## "  — section heading (h2)
+//   • "### " — sub-heading   (h3)
+//   • "• "   — bullet (consecutive bullets group into a list)
+//   • anything else — paragraph
+const renderNewsBody = (body) => {
+  const out = [];
+  let bulletBuf = [];
+  const flushBullets = (keyBase) => {
+    if (!bulletBuf.length) return;
+    out.push(
+      <ul key={`b-${keyBase}`} className="text-stone-300 leading-relaxed space-y-1.5 my-3 pl-1">
+        {bulletBuf.map((b, j) => (
+          <li key={j} className="flex items-start gap-2"><span className="text-orange-500/80 mt-0.5 shrink-0">▸</span><span>{b}</span></li>
+        ))}
+      </ul>
+    );
+    bulletBuf = [];
+  };
+  body.forEach((line, i) => {
+    if (line.startsWith('• ')) {
+      bulletBuf.push(line.slice(2));
+    } else if (line.startsWith('### ')) {
+      flushBullets(i);
+      out.push(<h4 key={i} className="text-orange-200 font-serif font-bold text-lg mt-5 mb-2 tracking-wide">{line.slice(4)}</h4>);
+    } else if (line.startsWith('## ')) {
+      flushBullets(i);
+      out.push(<h3 key={i} className="text-yellow-100 font-serif font-bold text-2xl mt-7 mb-3 tracking-wide border-b border-orange-600/30 pb-2">{line.slice(3)}</h3>);
+    } else {
+      flushBullets(i);
+      out.push(<p key={i} className="text-stone-300 leading-relaxed my-3">{line}</p>);
+    }
+  });
+  flushBullets('end');
+  return out;
+};
+
+const newsCategoryStyle = (cat) => {
+  switch (cat) {
+    case 'Patch Notes':  return 'bg-emerald-500/10 border-emerald-500/40 text-emerald-200';
+    case 'Devlog':       return 'bg-purple-500/10 border-purple-500/40 text-purple-200';
+    case 'Announcement': return 'bg-amber-500/10 border-amber-500/40 text-amber-200';
+    case 'Event':        return 'bg-red-500/10 border-red-500/40 text-red-200';
+    default:             return 'bg-stone-500/10 border-stone-500/40 text-stone-200';
+  }
+};
+
+// Full-screen modal that shows a single post's complete body. Click backdrop
+// or the × button to close; Esc also closes.
+const NewsPostModal = ({ post, onClose }) => {
+  useEffect(() => {
+    if (!post) return;
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    // Lock body scroll while open so the page beneath doesn't move.
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = prev; };
+  }, [post, onClose]);
+  if (!post) return null;
+  return (
+    <div className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md flex items-start justify-center p-4 md:p-8 overflow-y-auto" onClick={onClose} style={{ animation: 'rise 0.3s' }}>
+      <button onClick={onClose} aria-label="Close" className="fixed top-6 right-6 w-12 h-12 rounded bg-red-900/40 hover:bg-red-700/50 border border-red-500/40 text-white text-2xl font-bold leading-none flex items-center justify-center transition z-[110]">×</button>
+      <article
+        onClick={(e) => e.stopPropagation()}
+        className="relative bg-gradient-to-br from-stone-950/95 to-black/95 border border-orange-600/40 rounded-lg p-7 md:p-12 my-8 max-w-3xl w-full"
+        style={{ boxShadow: '0 24px 80px rgba(0,0,0,0.7), 0 0 60px rgba(255,140,60,0.15)' }}
+      >
+        <HazardStripe className="absolute top-0 left-0 right-0" />
+        <div className="pt-4">
+          <div className="flex flex-wrap items-center gap-3 mb-4">
+            <span className={`px-2.5 py-0.5 border rounded text-[10px] uppercase tracking-widest font-bold ${newsCategoryStyle(post.category)}`}>{post.category}</span>
+            {post.tag && (
+              <span className="px-2.5 py-0.5 bg-stone-500/10 border border-stone-500/40 rounded text-stone-300 text-[10px] uppercase tracking-widest">{post.tag}</span>
+            )}
+            <span className="text-stone-500 text-[11px] uppercase tracking-widest font-mono ml-auto">{post.date}</span>
+          </div>
+          <DistressedHeading level="h2" className="text-3xl md:text-5xl font-serif font-bold text-yellow-100 mb-4">{post.title}</DistressedHeading>
+          {post.logos && post.logos.length > 0 && (
+            <div className="flex items-center justify-center gap-6 md:gap-10 my-8 py-6 border-y border-orange-600/30 bg-black/40 rounded">
+              {post.logos.map((logo, j) => (
+                <React.Fragment key={j}>
+                  {j > 0 && <span className="text-stone-500 text-2xl md:text-3xl font-light select-none">×</span>}
+                  <div className="flex flex-col items-center gap-2">
+                    <img src={logo.src} alt={logo.alt} className="h-16 md:h-24 w-auto object-contain" style={{ filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.6))' }} />
+                    {logo.caption && <div className="text-stone-400 text-[10px] uppercase tracking-widest">{logo.caption}</div>}
+                  </div>
+                </React.Fragment>
+              ))}
+            </div>
+          )}
+          {post.summary && (
+            <p className="text-stone-300 italic text-lg leading-relaxed mb-6 border-l-2 border-orange-500/50 pl-4">{post.summary}</p>
+          )}
+          <div>{renderNewsBody(post.body || [])}</div>
+        </div>
+      </article>
+    </div>
+  );
+};
+
+const NewsPage = () => {
+  // Defensive sort — newest first, regardless of order in the array.
+  const posts = [...NEWS_POSTS].sort((a, b) => (a.date < b.date ? 1 : -1));
+  const [openPost, setOpenPost] = useState(null);
+
+  return (
+    <div className="pt-20">
+      <section className="relative py-16 px-6 overflow-hidden">
+        <HazardStripe className="absolute top-0 left-0 right-0" />
+        <div className="absolute inset-0 pointer-events-none" style={{
+          background:
+            'radial-gradient(ellipse at 20% 10%, rgba(255,140,60,0.10) 0%, transparent 55%),' +
+            'radial-gradient(ellipse at 80% 90%, rgba(168,80,200,0.10) 0%, transparent 55%)',
+        }} />
+        <div className="max-w-4xl mx-auto relative">
+          <div className="text-center mb-12">
+            <div className="text-orange-400/80 text-xs tracking-[0.4em] uppercase mb-3">— Field Reports —</div>
+            <DistressedHeading className="text-5xl md:text-7xl font-serif font-bold text-yellow-100 mb-4">News & Devlogs</DistressedHeading>
+            <p className="text-stone-300 max-w-2xl mx-auto text-base md:text-lg leading-relaxed">
+              Patch notes, devlogs, announcements. The official record of what changes and why.
+            </p>
+          </div>
+
+          {posts.length === 0 ? (
+            <div className="bg-black/55 border border-stone-700/50 rounded-lg p-10 text-center text-stone-400">
+              No posts yet — check back soon.
+            </div>
+          ) : (
+            <div className="space-y-5">
+              {posts.map((post, i) => (
+                <article key={i} className="relative bg-black/55 border border-orange-600/30 rounded-lg p-6 md:p-8 hover:border-orange-400/60 transition group" style={{ boxShadow: '0 8px 28px rgba(0,0,0,0.45)' }}>
+                  <BulletHole className="top-3 right-3" size={14} />
+                  <div className="flex flex-wrap items-center gap-3 mb-3">
+                    <span className={`px-2.5 py-0.5 border rounded text-[10px] uppercase tracking-widest font-bold ${newsCategoryStyle(post.category)}`}>{post.category}</span>
+                    {post.tag && (
+                      <span className="px-2.5 py-0.5 bg-stone-500/10 border border-stone-500/40 rounded text-stone-300 text-[10px] uppercase tracking-widest">{post.tag}</span>
+                    )}
+                    <span className="text-stone-500 text-[11px] uppercase tracking-widest font-mono ml-auto">{post.date}</span>
+                  </div>
+                  <DistressedHeading level="h2" className="text-2xl md:text-3xl font-serif font-bold text-yellow-100 mb-2 group-hover:text-orange-100 transition">{post.title}</DistressedHeading>
+                  {post.logos && post.logos.length > 0 && (
+                    <div className="flex items-center gap-4 my-4">
+                      {post.logos.map((logo, j) => (
+                        <React.Fragment key={j}>
+                          {j > 0 && <span className="text-stone-500 text-lg select-none">×</span>}
+                          <img src={logo.src} alt={logo.alt} className="h-10 md:h-12 w-auto object-contain opacity-90" />
+                        </React.Fragment>
+                      ))}
+                    </div>
+                  )}
+                  {post.summary && (
+                    <p className="text-stone-300 leading-relaxed mb-5 border-l-2 border-orange-500/50 pl-4">{post.summary}</p>
+                  )}
+                  <button
+                    onClick={() => setOpenPost(post)}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-600/80 to-red-700/80 hover:from-orange-500 hover:to-red-600 text-yellow-100 font-bold text-[12px] rounded tracking-wider transition border border-orange-400/50 uppercase"
+                  >
+                    Read Full <span aria-hidden>→</span>
+                  </button>
+                </article>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+      <Footer />
+      <NewsPostModal post={openPost} onClose={() => setOpenPost(null)} />
+    </div>
+  );
+};
+
+// ===== DECK BUILDER PAGE =====
+// Dedicated page for deck-construction content moved off the home page:
+// Garden of Eden (Spotlight on cards[1]), Survive for Free, Survival Caches
+// (StarterPacks), and the Card Database (Gallery). Reached from the navbar's
+// "Deck Builder" button.
+const DeckBuilderPage = ({ cards, onCardClick, onAddToDeck }) => (
+  <div className="pt-20">
+    <Spotlight card={cards[1]} reverse={false} onCardClick={onCardClick} />
+    <div id="free"><SurviveForFree /></div>
+    <div id="packs"><StarterPacks /></div>
+    <div id="gallery"><Gallery onCardClick={onCardClick} onAddToDeck={onAddToDeck} /></div>
+    <Footer />
+  </div>
+);
+
+// ===== SURVIVOR PAGE =====
+// Dedicated page consolidating the survivor-focused sections that used to live
+// on the home page: Choose Your Survivor (Champions), Pick Your Path
+// (Subclasses), and Reshape The Battlefield (HeldItems). Reached from the
+// navbar's "Survivor" button.
+const SurvivorPage = ({ onPickHero }) => (
+  <div className="pt-20">
+    <div id="factions"><Factions /></div>
+    <div id="champions"><Champions onPickHero={onPickHero} /></div>
+    <div id="subclass"><Subclasses /></div>
+    <div id="items"><HeldItems /></div>
+    <Footer />
+  </div>
+);
+
+const SurvivorCreatorProgram = () => {
+  const subHead = (text) => (
+    <DistressedHeading level="h3" className="text-3xl md:text-4xl font-serif font-bold text-yellow-100 mt-14 mb-5">
+      {text}
+    </DistressedHeading>
+  );
+  const bullets = (items) => (
+    <ul className="space-y-2.5 mb-4">
+      {items.map((t) => (
+        <li key={t} className="flex items-start gap-3 text-stone-300 leading-relaxed">
+          <span className="text-orange-400 mt-1 shrink-0">▸</span><span>{t}</span>
+        </li>
+      ))}
+    </ul>
+  );
+  return (
+    <section className="relative py-24 px-6 overflow-hidden">
+      <div className="absolute inset-0 pointer-events-none" style={{
+        background:
+          'radial-gradient(ellipse at 18% 10%, rgba(120,90,220,0.15) 0%, transparent 55%),' +
+          'radial-gradient(ellipse at 85% 88%, rgba(255,160,60,0.12) 0%, transparent 55%)',
+      }} />
+      <HazardStripe className="absolute top-0 left-0 right-0" />
+      <BloodSplatter className="top-28 left-1/5" size={150} opacity={0.10} />
+      <BloodSplatter className="bottom-24 right-1/4" size={160} opacity={0.10} />
+
+      <div className="max-w-4xl mx-auto relative">
+        {/* Hero header */}
+        <div className="text-center mb-12">
+          <div className="text-amber-400/80 text-xs tracking-[0.4em] uppercase mb-3">— Join the Universe —</div>
+          <DistressedHeading className="text-5xl md:text-7xl font-serif font-bold text-yellow-100 mb-4">
+            Survivor Creator Program
+          </DistressedHeading>
+          <p className="text-2xl md:text-3xl font-serif text-amber-200">Build More Than Content. Build the Universe.</p>
+        </div>
+
+        {/* Intro */}
+        <div className="text-center space-y-3 mb-10">
+          <p className="text-stone-300 text-lg">Mythic Spellbook isn't being built behind closed doors.</p>
+          <p className="text-yellow-100 text-2xl font-serif font-bold">We're opening the gates.</p>
+        </div>
+        <p className="text-stone-300 text-lg leading-relaxed mb-4">The <strong className="text-yellow-200">Survivor Creator Program</strong> is for players, creators, theorycrafters, artists, deckbuilders, community leaders, and storytellers who want to help shape the future of the game while building their own audience, reputation, and legacy inside the world.</p>
+        <p className="text-stone-400 leading-relaxed">This isn't just affiliate links and promo codes.</p>
+        <p className="text-amber-200 text-lg leading-relaxed">This is an opportunity to <strong className="text-yellow-100">become part of the ecosystem.</strong></p>
+
+        {subHead('What Is The Survivor Creator Program?')}
+        <p className="text-stone-300 leading-relaxed mb-5">The Survivor Creator Program gives creators direct access to participate in the growth of Mythic Spellbook and its player-driven economy.</p>
+        <p className="text-stone-400 mb-3">Creators can:</p>
+        {bullets(SCP_CAN_DO)}
+        <p className="text-stone-300 leading-relaxed mt-5">We believe players shouldn't just consume the world.</p>
+        <p className="text-yellow-200 text-lg leading-relaxed">They should <strong className="text-yellow-100">leave fingerprints on it.</strong></p>
+
+        {subHead('Who Can Join?')}
+        <p className="text-yellow-200 text-lg mb-3">You do not need a huge audience.</p>
+        <p className="text-stone-400 mb-3">We're looking for people who:</p>
+        {bullets(SCP_WHO)}
+        <p className="text-stone-400 mt-4 mb-3">Whether you have:</p>
+        <div className="flex flex-wrap gap-3 mb-3">
+          {['10 followers', '100 followers', '10,000 followers'].map((t) => (
+            <span key={t} className="px-4 py-2 bg-black/50 border border-amber-500/40 rounded text-amber-200 font-bold">{t}</span>
+          ))}
+        </div>
+        <p className="text-stone-300 text-lg">What matters most is <strong className="text-yellow-100">contribution.</strong></p>
+
+        {subHead('Creator Rewards')}
+        <p className="text-stone-400 mb-4">As the program expands, creators may unlock:</p>
+        <div className="grid sm:grid-cols-2 gap-2.5 mb-5">
+          {SCP_REWARDS.map((t) => (
+            <div key={t} className="flex items-start gap-3 bg-stone-900/60 border border-orange-500/25 rounded p-3 text-stone-300">
+              <span className="shrink-0">⚔️</span><span>{t}</span>
+            </div>
+          ))}
+        </div>
+        <p className="text-stone-400">Build enough influence…</p>
+        <p className="text-yellow-200 text-lg">…and Survivors may <strong className="text-yellow-100">remember your name.</strong></p>
+
+        {subHead('Create With Us')}
+        <p className="text-stone-300 leading-relaxed mb-4">We built tools so the community can participate directly.</p>
+        <div className="relative bg-gradient-to-r from-amber-950/40 via-stone-900/50 to-amber-950/40 border-2 border-amber-500/30 rounded-lg p-7" style={{ boxShadow: '0 0 36px rgba(255,160,60,0.16), inset 0 0 28px rgba(0,0,0,0.4)' }}>
+          <BulletHole className="top-3 right-4" size={20} />
+          <div className="text-amber-300/90 text-[11px] tracking-[0.3em] uppercase mb-3">Through Abraxas Codex you can</div>
+          {bullets(SCP_CODEX)}
+        </div>
+        <p className="text-stone-300 leading-relaxed mt-5">Good ideas can become real systems.</p>
+        <p className="text-yellow-200 text-lg leading-relaxed">Great ideas may become <strong className="text-yellow-100">part of the world.</strong></p>
+
+        {subHead('Our Creator Standards')}
+        <p className="text-stone-400 mb-3">We want creators who:</p>
+        {bullets(SCP_STANDARDS)}
+        <div className="space-y-1 text-stone-400 mt-5">
+          <p>No fake hype.</p>
+          <p>No farming outrage.</p>
+        </div>
+        <p className="text-yellow-200 text-lg mt-2"><strong className="text-yellow-100">Build something people remember.</strong></p>
+
+        {/* Become A Survivor — closing CTA */}
+        <div className="text-center mt-16 border-t border-stone-700/60 pt-12">
+          <DistressedHeading level="h3" className="text-4xl md:text-5xl font-serif font-bold text-yellow-100 mb-5">
+            Become A Survivor
+          </DistressedHeading>
+          <p className="text-stone-300 text-lg mb-2">Games are better when players help create them.</p>
+          <p className="text-stone-300 leading-relaxed max-w-2xl mx-auto mb-6">If you believe games should reward creativity, recognize community, and give players a real voice —</p>
+          <p className="text-amber-300 text-2xl font-serif font-bold mb-6">Join us.</p>
+          <div className="text-yellow-100 text-2xl md:text-3xl font-serif font-bold leading-snug">
+            Build your name.<br />Build your influence.<br />Build the universe.
+          </div>
+        </div>
+      </div>
+    </section>
   );
 };
 
@@ -3558,6 +5859,18 @@ function App() {
   };
   const showHub  = () => { setCurrentPage('hub'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
   const showHome = () => { setCurrentPage('home'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+  // 🪙 RMT page — switches to the RMT manifesto + Build a Career economy page.
+  const showRMT  = () => { setCurrentPage('rmt'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+  // Community is now its own page (Survivor Creator Program + Community + Gym Defenders).
+  const showCommunity = () => { setCurrentPage('community'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+  // Survivor page — consolidates Champions / Subclasses / HeldItems moved off the home page.
+  const showSurvivor = () => { setCurrentPage('survivor'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+  // Deck Builder page — Garden of Eden spotlight + Survive for Free + Survival Caches + Card Database.
+  const showDeckBuilder = () => { setCurrentPage('deckbuilder'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+  // News page — patch notes / devlogs / announcements. Add new posts to NEWS_POSTS at top of file.
+  const showNews = () => { setCurrentPage('news'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+  // Pledge page — ownership manifesto + tier scaffold.
+  const showPledge = () => { setCurrentPage('pledge'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
 
   const isSignedIn = !!session;
   const displayName = profile && profile.display_name
@@ -3577,6 +5890,12 @@ function App() {
         currentPage={currentPage}
         onShowHub={showHub}
         onShowHome={showHome}
+        onShowCommunity={showCommunity}
+        onShowRMT={showRMT}
+        onShowSurvivor={showSurvivor}
+        onShowDeckBuilder={showDeckBuilder}
+        onShowNews={showNews}
+        onShowPledge={showPledge}
         onSignIn={showHub}  // Login button routes to the hub page where the sign-in form lives
       />
 
@@ -3592,6 +5911,31 @@ function App() {
           />
           <Footer />
         </div>
+      ) : currentPage === 'community' ? (
+        /* ===== COMMUNITY PAGE ===== */
+        <div className="pt-20">
+          <SurvivorCreatorProgram />
+          <div id="players-first"><PlayersFirst /></div>
+          <div id="community"><CommunityFuture cardA={COMMUNITY_CARDS[0]} cardB={COMMUNITY_CARDS[1]} onCardClick={setSelectedCard} /></div>
+          <GymDefenders />
+          <div id="coliseum"><Coliseum /></div>
+          <Footer />
+        </div>
+      ) : currentPage === 'rmt' ? (
+        /* ===== RMT PAGE — Real Money Trading manifesto + Build a Career economy ===== */
+        <RMTPage />
+      ) : currentPage === 'survivor' ? (
+        /* ===== SURVIVOR PAGE — Champions + Subclasses + Held Items moved off home ===== */
+        <SurvivorPage onPickHero={setSelectedHero} />
+      ) : currentPage === 'deckbuilder' ? (
+        /* ===== DECK BUILDER PAGE — Garden of Eden + Survive for Free + Survival Caches + Card Database ===== */
+        <DeckBuilderPage cards={cards} onCardClick={setSelectedCard} onAddToDeck={handleAddToDeck} />
+      ) : currentPage === 'news' ? (
+        /* ===== NEWS PAGE — patch notes / devlogs / announcements (edit NEWS_POSTS at top of file) ===== */
+        <NewsPage />
+      ) : currentPage === 'pledge' ? (
+        /* ===== PLEDGE PAGE — ownership manifesto + tier scaffold (edit PLEDGE_TIERS at top of file) ===== */
+        <PledgePage />
       ) : (
         /* ===== HOME / MARKETING PAGE ===== */
         <>
@@ -3600,21 +5944,17 @@ function App() {
           <div id="hook"><GameHook /></div>
           <div id="about"><About /></div>
           <div id="play"><HowToPlay /></div>
-          <Spotlight card={cards[1]} reverse={false} onCardClick={setSelectedCard} />
+          {/*  Garden of Eden spotlight moved to the dedicated Deck Builder page (nav → Deck Builder). */}
           <div id="different"><WhyDifferent /></div>
-          <div id="factions"><Factions /></div>
+          {/*  Factions moved to the dedicated Survivor page (nav → Factions). */}
           <Spotlight card={cards[2]} reverse={true} onCardClick={setSelectedCard} />
-          <div id="champions"><Champions onPickHero={setSelectedHero} /></div>
-          <div id="subclass"><Subclasses /></div>
-          <div id="items"><HeldItems /></div>
-          <div id="coliseum"><Coliseum /></div>
-          <div id="career"><BuildACareer /></div>
-          <div id="community"><CommunityFuture cardA={COMMUNITY_CARDS[0]} cardB={COMMUNITY_CARDS[1]} onCardClick={setSelectedCard} /></div>
-          <div id="gymdefenders"><GymDefenders /></div>
-          <div id="free"><SurviveForFree /></div>
-          <div id="packs"><StarterPacks /></div>
-          <div id="gallery"><Gallery onCardClick={setSelectedCard} onAddToDeck={handleAddToDeck} /></div>
+          {/*  Champions / Subclasses / HeldItems moved to the dedicated Survivor page (nav → Survivor). */}
+          {/*  Colosseum moved to the Community page (nav → Community). */}
+          {/* 🪙 Build a Career section MOVED to the dedicated RMT page (nav → RMT). */}
+          {/*  Survive for Free, Survival Caches, Card Database moved to the dedicated Deck Builder page (nav → Deck Builder). */}
+          <WhyEconomy />
           <JoinResistance />
+          <WarMapPreview />
           <Footer />
         </>
       )}
