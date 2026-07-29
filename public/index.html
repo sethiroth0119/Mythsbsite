@@ -8282,26 +8282,58 @@ const cbkAgo = (ts) => {
   return Math.floor(h / 24) + 'd ago';
 };
 
-// Build a Builder profile from a REAL claimed district node (tw_node_owners
-// row + its tw_node_recon telemetry + node_power level row).
-const cbkNodeProfile = (own, recon, power) => {
-  const lvl = Math.min(CBK_LEVEL_MAX, (power && power.level) || 1);
+// Build a Builder profile for a REAL war-map district node.
+// `cat` is the published catalog node (card_catalog.moves.__territory_wars__
+// .nodes) — the SAME source the war map renders, so names/levels/XP/Cinder
+// rates match the game exactly. `own` is the tw_node_owners row (the owner's
+// handle), `recon` the fresher tw_node_recon row when the viewer is signed
+// in, `power` the node_power row once on-chain power starts accruing.
+const cbkNodeProfile = (cat, own, recon, power) => {
+  const nodeId = cat.id;
+  const lvl = Math.min(CBK_LEVEL_MAX, (power && power.level) || Number(cat.nodeLevel) || 1);
+  const ownerName = (own && own.display_name) || null;
+  // Catalog recon is the anon-visible baseline; the DB row (auth-only) wins.
+  const cr = cat.recon || {};
+  const mergedRecon = {
+    population: (recon && recon.population != null) ? recon.population : Math.round(Number(cr.population) || 0),
+    corruption: (recon && recon.corruption != null) ? recon.corruption : Math.round(Number(cr.corruption) || 0),
+    civilians_total: (recon && recon.civilians_total) || Number(cr.civiliansTotal) || 0,
+    civilians_saved: (recon && recon.civilians_saved) || Number(cr.civiliansSaved) || 0,
+    roads_total: (recon && recon.roads_total) || Number(cr.roadsTotal) || 0,
+    roads_repaired: (recon && recon.roads_repaired) || Number(cr.roadsRepaired) || 0,
+    buildings_total: (recon && recon.buildings_total) || Number(cr.buildingsTotal) || 0,
+    buildings_restored: (recon && recon.buildings_restored) || Number(cr.buildingsRestored) || 0,
+    commerce: (recon && recon.commerce) || 0,
+    shops_registered: (recon && recon.shops_registered) || 0,
+    residents: (recon && recon.residents) || 0,
+    cinder_bank: (recon && recon.cinder_bank) || 0,
+    cinder_total: (recon && recon.cinder_total) || 0,
+    routes: Array.isArray(cat.connections) ? cat.connections.length : 0,
+    updated_at: (recon && recon.updated_at) || (cr.lastTickAt ? new Date(Number(cr.lastTickAt)).toISOString() : null),
+  };
   return {
-    id: 'node-' + own.node_id,
+    id: 'node-' + nodeId,
     real: true,
-    nodeDbId: own.node_id,
-    ownerUserId: own.user_id,
+    nodeDbId: nodeId,
+    ownerUserId: own ? own.user_id : null,
     type: 'Node',
-    name: (power && power.node_name) || `District ${own.node_id}`,
-    ownerName: own.display_name || 'Unknown',
-    hue: cbkHue(own.node_id),
+    name: cat.name || cat.nodeName || `District ${nodeId}`,
+    code: cat.nodeType || cat.type || cat.purpose || 'PRN',
+    ownerName,
+    hue: cbkHue(nodeId),
     tier: lvl >= 8 ? 'GOLD' : lvl >= 4 ? 'SILVER' : 'BRONZE',
-    backers: (recon && recon.residents) || 0,
+    backers: mergedRecon.residents,
     points: (power && power.power) || 0,
-    tagline: `Claimed district node ${own.node_id} on the Mythic Spellbook war map, operated by ${own.display_name || 'a Survivor'}.`,
+    tagline: ownerName
+      ? `${cat.name} — a claimed Planetary Reconstruction Node on the Mythic Spellbook war map, operated by ${ownerName}.`
+      : `${cat.name} — an unclaimed Planetary Reconstruction Node on the Mythic Spellbook war map.`,
     perks: ['Priority queue on node-hosted events', 'Backer badge on your Mythic Spellbook profile', 'Early access to node season tournaments'],
-    recon: recon || null,
+    recon: mergedRecon,
     power: power || null,
+    catLevel: Number(cat.nodeLevel) || 1,
+    catXp: Number(cat.nodeXP) || 0,
+    catXpReq: Number(cat.nodeXPRequired) || CBK_XP_PER_LEVEL,
+    cinderRate: Number(cat.cinderProductionRate) || 25,
   };
 };
 
@@ -8311,23 +8343,29 @@ const cbkTelemetry = (p, localPower) => {
   const recon = p.recon;
   const basePower = (p.power && p.power.power) || 0;
   const totalPower = basePower + (localPower || 0);
-  const baseLevel = (p.power && p.power.level) || 1;
-  const level = Math.min(CBK_LEVEL_MAX, baseLevel + Math.floor((localPower || 0) / CBK_XP_PER_LEVEL));
+  // Level/XP come from the published catalog (what the game shows), then the
+  // preview-power overlay is layered on top.
+  const xpMax = p.catXpReq || CBK_XP_PER_LEVEL;
+  const baseLevel = (p.power && p.power.level) || p.catLevel || 1;
+  const rawXp = (p.catXp || 0) + (localPower || 0);
+  const level = Math.min(CBK_LEVEL_MAX, baseLevel + Math.floor(rawXp / xpMax));
   const atMax = level >= CBK_LEVEL_MAX;
-  const xp = atMax ? CBK_XP_PER_LEVEL : totalPower % CBK_XP_PER_LEVEL;
-  // Cinder-per-cycle curve mirrors the in-game readout (LV1 = 25 → next 50).
-  const cinderCycle = 25 * level;
-  const nextCinder = 25 * (level + 1);
+  const xp = atMax ? xpMax : rawXp % xpMax;
+  // Cinder-per-cycle: the catalog rate is the value AT the node's current
+  // level, so scale it per level rather than deriving a second curve.
+  const perLevel = (p.cinderRate || 25) / Math.max(1, p.catLevel || 1);
+  const cinderCycle = Math.round(perLevel * level);
+  const nextCinder = Math.round(perLevel * (level + 1));
   const mins = recon && recon.updated_at ? Math.floor((Date.now() - new Date(recon.updated_at).getTime()) / 60000) : null;
   const sync = mins === null ? 'never' : mins <= 15 ? 'fresh' : 'stale';
   const pct = (a, b) => (b > 0 ? Math.min(100, Math.round((a / b) * 100)) : 0);
   const capK = recon && recon.civilians_total ? (recon.civilians_total / 1000).toFixed(1) + 'K' : '10.0K';
   const civPct = recon ? Math.round((pct(recon.buildings_restored, recon.buildings_total) + pct(recon.roads_repaired, recon.roads_total) + pct(recon.civilians_saved, recon.civilians_total)) / 3) : 0;
   const vitals = recon ? [
-    { label: 'NPC POPULATION', value: cbkFmt(recon.population), unit: '/ ' + capK, pct: pct(recon.population, recon.civilians_total) + '%', barColor: '#3ECF8E', trend: `${cbkFmt(recon.residents)} RESIDENTS`, trendColor: '#8A7F6A' },
+    { label: 'NPC POPULATION', value: cbkFmt(recon.population), unit: '/ ' + capK, pct: pct(recon.population, recon.civilians_total) + '%', barColor: '#3ECF8E', trend: recon.residents ? `${cbkFmt(recon.residents)} RESIDENTS` : `${cbkFmt(recon.civilians_saved)} SAVED`, trendColor: '#8A7F6A' },
     { label: 'CORRUPTION', value: String(recon.corruption || 0), unit: '%', pct: (recon.corruption || 0) + '%', barColor: (recon.corruption || 0) > 30 ? '#F0655A' : '#E8B34B', trend: (recon.corruption || 0) > 30 ? 'HIGH — RUN CAMPAIGNS' : 'CONTAINED', trendColor: (recon.corruption || 0) > 30 ? '#F0655A' : '#3ECF8E' },
     { label: 'CIVILIZATION', value: String(civPct), unit: '%', pct: civPct + '%', barColor: '#4BA3E8', trend: `${cbkFmt(recon.buildings_restored)} / ${cbkFmt(recon.buildings_total)} BUILDINGS`, trendColor: '#8A7F6A' },
-    { label: 'TRADE STABILITY', value: String(recon.commerce || 0), unit: '%', pct: (recon.commerce || 0) + '%', barColor: '#E8B34B', trend: `${cbkFmt(recon.shops_registered)} SHOPS ACTIVE`, trendColor: '#8A7F6A' },
+    { label: 'TRADE STABILITY', value: String(recon.commerce || 0), unit: '%', pct: (recon.commerce || 0) + '%', barColor: '#E8B34B', trend: `${cbkFmt(recon.routes || 0)} ROUTES ACTIVE`, trendColor: '#8A7F6A' },
   ] : [
     { label: 'NPC POPULATION', value: '0', unit: '/ 10.0K', pct: '0%', barColor: '#3ECF8E', trend: 'AWAITING GAME LINK', trendColor: '#8A7F6A' },
     { label: 'CORRUPTION', value: '0', unit: '%', pct: '0%', barColor: '#E8B34B', trend: 'AWAITING GAME LINK', trendColor: '#8A7F6A' },
@@ -8335,9 +8373,9 @@ const cbkTelemetry = (p, localPower) => {
     { label: 'TRADE STABILITY', value: '0', unit: '%', pct: '0%', barColor: '#E8B34B', trend: 'NO ROUTES', trendColor: '#8A7F6A' },
   ];
   return {
-    level, atMax, xp, xpMax: CBK_XP_PER_LEVEL, cinderCycle, nextCinder,
-    xpPct: Math.round((atMax ? 1 : xp / CBK_XP_PER_LEVEL) * 100) + '%',
-    xpLabel: atMax ? 'MAX LEVEL' : `${cbkFmt(xp)} / ${cbkFmt(CBK_XP_PER_LEVEL)} XP`,
+    level, atMax, xp, xpMax, cinderCycle, nextCinder,
+    xpPct: Math.round((atMax ? 1 : xp / xpMax) * 100) + '%',
+    xpLabel: atMax ? 'MAX LEVEL' : `${cbkFmt(xp)} / ${cbkFmt(xpMax)} XP`,
     sync, syncAgo: mins === null ? 'never' : cbkAgo(recon.updated_at),
     payout: (recon && recon.cinder_bank) || 0,
     lifetime: (recon && recon.cinder_total) || 0,
@@ -8351,6 +8389,7 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
   const [selectedId, setSelectedId] = useState(null);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('All');
+  const [catNodes, setCatNodes] = useState([]);
   const [owners, setOwners] = useState([]);
   const [recons, setRecons] = useState({});
   const [powers, setPowers] = useState({});
@@ -8375,9 +8414,27 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
   const gems = (profile && profile.gems) || 0;
   const displayName = profile && profile.display_name ? profile.display_name : (session && session.user && session.user.email ? session.user.email.split('@')[0] : 'Survivor');
 
-  // ── Live game data: district-node owners + recon + power, own backings.
+  // ── War-map node catalog — the SAME source the war map renders
+  // (card_catalog.moves.__territory_wars__.nodes), so node names, levels,
+  // XP, and Cinder rates always match the game. card_catalog is readable by
+  // authenticated users only, so signed-out visitors get the demo profiles
+  // and a sign-in hint rather than an empty node list.
   useEffect(() => {
-    if (!client || !session) { setOwners([]); setRecons({}); setPowers({}); setBackings([]); return; }
+    if (!client) return;
+    let dead = false;
+    client.from('card_catalog').select('moves').eq('id', 'singleton').maybeSingle()
+      .then(({ data }) => {
+        if (dead) return;
+        const tw = data && data.moves && data.moves.__territory_wars__;
+        const list = tw && Array.isArray(tw.nodes) ? tw.nodes.filter(n => n && n.id != null) : [];
+        setCatNodes(list);
+      }, () => {});
+    return () => { dead = true; };
+  }, [client, reloadN]);
+
+  // ── Per-account + live telemetry: ownership, recon, power, backings, VIPs.
+  useEffect(() => {
+    if (!client || !session) { setOwners([]); setRecons({}); setPowers({}); setBackings([]); setVips([]); return; }
     let dead = false;
     Promise.all([
       client.from('tw_node_owners').select('*'),
@@ -8397,7 +8454,7 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
   }, [client, session, reloadN]);
   // Poll telemetry every 45s so the panels stay fresh (handoff: 30–60s).
   useEffect(() => {
-    if (!client || !session) return;
+    if (!client) return;
     const t = setInterval(() => setReloadN(n => n + 1), 45000);
     return () => clearInterval(t);
   }, [client, session]);
@@ -8433,7 +8490,11 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
     setReloadN(n => n + 1);
   };
 
-  const realNodes = owners.map(o => cbkNodeProfile(o, recons[o.node_id], powers[o.node_id]));
+  // Real nodes come from the published war-map catalog (same source the war
+  // map renders), joined to ownership + live recon + power by node id.
+  const ownerByNode = {};
+  owners.forEach(o => { ownerByNode[o.node_id] = o; });
+  const realNodes = catNodes.map(c => cbkNodeProfile(c, ownerByNode[c.id], recons[c.id], powers[c.id]));
   const allProfiles = [...realNodes, ...CBK_DEMO_PROFILES];
   const findProfile = (id) => allProfiles.find(p => p.id === id);
   const myNodes = session ? realNodes.filter(n => n.ownerUserId === session.user.id) : [];
@@ -8541,7 +8602,7 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
               <span style={{ fontWeight: 600, fontSize: 15 }}>{d.name}</span>
               <span title={p.real ? 'Live game node' : 'Showcase profile'} style={{ color: p.real ? '#3ECF8E' : '#9BA1AB', fontSize: 13 }}>{p.real ? '✓' : '◌'}</span>
             </div>
-            <div style={{ fontSize: 12, color: '#9BA1AB' }}>{d.typeLabel}{p.real ? ` · ${p.ownerName}` : ' · showcase'}</div>
+            <div style={{ fontSize: 12, color: '#9BA1AB' }}>{p.real ? `${p.nodeDbId} · ${p.ownerName || 'Unclaimed'}` : d.typeLabel + ' · showcase'}</div>
           </div>
           <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.06em', padding: '4px 9px', borderRadius: 99, background: d.tierBg, color: d.tierColor }}>{p.tier}</span>
         </div>
@@ -8586,7 +8647,7 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 14, flexWrap: 'wrap' }}>
             <div>
               <div style={{ fontSize: 19, fontWeight: 700, color: '#F2F3F5', letterSpacing: '.01em' }}>{p.name}</div>
-              <div style={{ fontSize: 11, letterSpacing: '.12em', color: '#E8B34B', marginTop: 5 }}>{p.nodeDbId} · OWNER: {(p.ownerName || '').toUpperCase()}</div>
+              <div style={{ fontSize: 11, letterSpacing: '.12em', color: '#E8B34B', marginTop: 5 }}>{p.code} · OWNER: {p.ownerName ? p.ownerName.toUpperCase() : 'UNCLAIMED'}</div>
             </div>
             <span style={{ ...mono, fontSize: 13, fontWeight: 700, color: '#B9A8E8', border: '1px solid #4A3A7A', borderRadius: 99, padding: '6px 15px', background: 'rgba(122,90,200,.12)' }}>LV {t.level} <span style={{ fontSize: 10, color: '#7E6BA8', fontWeight: 500 }}>/ {CBK_LEVEL_MAX}</span></span>
           </div>
@@ -8985,7 +9046,7 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
                       <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.06em', padding: '4px 10px', borderRadius: 99, background: d.tierBg, color: d.tierColor }}>{sel.tier}</span>
                       {!sel.real && <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.1em', padding: '3px 9px', borderRadius: 99, background: 'rgba(160,170,185,.14)', color: '#9BA1AB' }}>SHOWCASE</span>}
                     </div>
-                    <div style={{ color: '#9BA1AB', fontSize: 13, marginTop: 4 }}>{d.typeLabel}{sel.real ? ` · Operated by ${sel.ownerName}` : ''}</div>
+                    <div style={{ color: '#9BA1AB', fontSize: 13, marginTop: 4 }}>{d.typeLabel}{sel.real ? ` · ${sel.nodeDbId} · ${sel.ownerName ? 'Operated by ' + sel.ownerName : 'Unclaimed'}` : ''}</div>
                     <div style={{ color: '#C6CAD1', fontSize: 14, marginTop: 8, maxWidth: 560, lineHeight: 1.5 }}>{sel.tagline}</div>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
