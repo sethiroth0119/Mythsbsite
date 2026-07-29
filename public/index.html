@@ -8241,6 +8241,18 @@ const CBK_ACH = [
   { id: 'patron', icon: '👑', title: 'Mythic Patron', desc: 'Back a Node that reaches Gold tier.' },
   { id: 'scholar', icon: '📜', title: 'Ecosystem Scholar', desc: 'Back a Mentor and a Program in the same season.' },
 ];
+// VIP Room — market-cap airdrop schedule from the handoff prototype. The
+// roster itself is REAL (vip_members table, admin-managed).
+const CBK_MARKET_CAP = 2600000;
+const CBK_MCAPS = [
+  { cap: 1000000, label: '$1M', vip: 'Cinder airdrop + Founding VIP badge' },
+  { cap: 2000000, label: '$2M', vip: 'Cinder airdrop + exclusive card back' },
+  { cap: 5000000, label: '$5M', vip: 'Cinder airdrop + VIP profile frame' },
+  { cap: 10000000, label: '$10M', vip: 'Cinder airdrop + Mythic promo card' },
+  { cap: 25000000, label: '$25M', vip: 'Cinder airdrop + lifetime VIP status' },
+];
+const CBK_VIP_TIERS = ['VIP', 'VIP Gold', 'VIP Elite'];
+
 // Showcase (non-node) builder profiles from the handoff prototype — the
 // Vendor/Worker/Mentor/Guild/Creator/Program half of the ecosystem, kept as
 // a preview of where the platform goes. District Nodes are REAL (from the
@@ -8343,6 +8355,10 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
   const [recons, setRecons] = useState({});
   const [powers, setPowers] = useState({});
   const [backings, setBackings] = useState([]);
+  const [vips, setVips] = useState([]);
+  const [vipQ, setVipQ] = useState('');
+  const [vipResults, setVipResults] = useState(null);
+  const [vipTier, setVipTier] = useState('VIP');
   const [reloadN, setReloadN] = useState(0);
   const [modal, setModal] = useState(null);      // lock-Cinder backing modal
   const [buyModal, setBuyModal] = useState(null); // buy-tokens preview modal
@@ -8368,12 +8384,14 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
       client.from('tw_node_recon').select('*'),
       client.from('node_power').select('*'),
       client.from('cinder_backings').select('*').eq('user_id', session.user.id).order('started_at', { ascending: false }),
-    ]).then(([o, r, pw, b]) => {
+      client.from('vip_members').select('*').order('created_at', { ascending: true }),
+    ]).then(([o, r, pw, b, v]) => {
       if (dead) return;
       setOwners(o.data || []);
       const rm = {}; (r.data || []).forEach(row => { rm[row.node_id] = row; }); setRecons(rm);
       const pm = {}; (pw.data || []).forEach(row => { pm[row.node_id] = row; }); setPowers(pm);
       setBackings(b.data || []);
+      setVips(v.data || []);
     });
     return () => { dead = true; };
   }, [client, session, reloadN]);
@@ -8383,6 +8401,37 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
     const t = setInterval(() => setReloadN(n => n + 1), 45000);
     return () => clearInterval(t);
   }, [client, session]);
+
+  // VIP Room roles — admin from the site's admin list, membership from the
+  // vip_members roster (server-enforced via RLS; the UI checks are cosmetic).
+  const myEmail = session && session.user ? (session.user.email || '') : '';
+  const isAdmin = isAdminEmail(myEmail);
+  const isVip = !!(session && vips.some(v => v.user_id === session.user.id));
+
+  const vipSearch = async () => {
+    const qstr = vipQ.trim();
+    if (!client || qstr.length < 2) { setVipResults([]); return; }
+    const { data } = await client.from('user_profiles').select('user_id, display_name').ilike('display_name', '%' + qstr + '%').limit(8);
+    setVipResults(data || []);
+  };
+  const addVip = async (u) => {
+    if (!isAdmin || busy) return;
+    setBusy(true);
+    const { error } = await client.from('vip_members').insert({ user_id: u.user_id, display_name: u.display_name || 'Survivor', tier: vipTier, added_by: session.user.id });
+    if (error) setNotice(error.code === '23505' ? 'That player is already in the VIP Room.' : 'Could not add VIP — try again.');
+    setBusy(false); setVipResults(null); setVipQ(''); setReloadN(n => n + 1);
+  };
+  const removeVip = async (v) => {
+    if (!isAdmin || busy) return;
+    setBusy(true);
+    await client.from('vip_members').delete().eq('user_id', v.user_id);
+    setBusy(false); setReloadN(n => n + 1);
+  };
+  const setVipMemberTier = async (v, tier) => {
+    if (!isAdmin || busy) return;
+    await client.from('vip_members').update({ tier }).eq('user_id', v.user_id);
+    setReloadN(n => n + 1);
+  };
 
   const realNodes = owners.map(o => cbkNodeProfile(o, recons[o.node_id], powers[o.node_id]));
   const allProfiles = [...realNodes, ...CBK_DEMO_PROFILES];
@@ -8664,6 +8713,7 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
     { key: 'dashboard', label: 'Dashboard', icon: '⌂' },
     { key: 'discover', label: 'Discover', icon: '◈' },
     { key: 'rewards', label: 'Rewards', icon: '✦' },
+    { key: 'vip', label: 'VIP Room', icon: '🏛' },
     { key: 'leaderboard', label: 'Rankings', icon: '♛' },
   ];
   const activeKey = screen === 'profile' ? 'discover' : screen;
@@ -8675,7 +8725,7 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
 
   const leaderboard = [...allProfiles].map(decorate).sort((a, b) => b.pointsShown - a.pointsShown);
 
-  const screenTitles = { dashboard: 'Backer dashboard', discover: 'Discover Builders', profile: 'Builder profile', rewards: 'Rewards & reputation', leaderboard: 'Builder rankings' };
+  const screenTitles = { dashboard: 'Backer dashboard', discover: 'Discover Builders', profile: 'Builder profile', rewards: 'Rewards & reputation', vip: 'VIP Room', leaderboard: 'Builder rankings' };
 
   // Buy modal derived values
   const bm = buyModal;
@@ -8697,7 +8747,10 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
   const lmUnlock = lm ? new Date(Date.now() + lm.days * 864e5).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
 
   return (
-    <div className="cbk" style={{ display: 'flex', minHeight: '100vh', background: '#0C0D10' }}>
+    // position:relative + zIndex lifts the whole platform above the site's
+    // fixed Wasteland backdrop — without it, static content here paints
+    // BENEATH that fixed layer and the page looks empty.
+    <div className="cbk" style={{ display: 'flex', minHeight: '100vh', background: '#0C0D10', position: 'relative', zIndex: 1 }}>
       {/* ── Sidebar ── */}
       <aside className="hidden lg:flex" style={{ width: 232, flexShrink: 0, background: '#0F1014', borderRight: '1px solid #1E222A', flexDirection: 'column', padding: '20px 14px', position: 'sticky', top: 56, height: 'calc(100vh - 56px)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 8px 14px' }}>
@@ -8793,22 +8846,22 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
                 </div>
               )}
 
-              {session && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 14 }}>
-                  {[
-                    { label: 'Available Cinder', value: cbkFmt(gems), sub: 'Live game balance 🔥', color: '#F2F3F5' },
-                    { label: 'Locked backing', value: cbkFmt(locked), sub: `Across ${active.length} commitment${active.length === 1 ? '' : 's'}`, color: '#FF8A55' },
-                    { label: 'Backing points', value: cbkFmt(myPoints), sub: CBK_RANKS[rankIdx][0] + ' rank', color: '#E8B34B' },
-                    { label: 'Achievements', value: `${earned.length} / ${CBK_ACH.length}`, sub: 'Unlocked so far', color: '#3ECF8E' },
-                  ].map((s, i) => (
-                    <div key={i} style={{ ...card, padding: 18 }}>
-                      <div style={{ fontSize: 12, letterSpacing: '.1em', color: '#9BA1AB', textTransform: 'uppercase' }}>{s.label}</div>
-                      <div style={{ ...grotesk, fontSize: 26, fontWeight: 700, marginTop: 8, color: s.color }}>{s.value}</div>
-                      <div style={{ fontSize: 12, color: '#9BA1AB', marginTop: 4 }}>{s.sub}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
+              {/* Stat cards render for EVERYONE — zeros with sign-in hints when
+                  no account is connected, live values once signed in. */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 14 }}>
+                {[
+                  { label: 'Available Cinder', value: cbkFmt(gems), sub: session ? 'Live game balance 🔥' : 'Sign in to connect', color: '#F2F3F5' },
+                  { label: 'Locked backing', value: cbkFmt(locked), sub: session ? `Across ${active.length} commitment${active.length === 1 ? '' : 's'}` : 'Sign in to connect', color: '#FF8A55' },
+                  { label: 'Backing points', value: cbkFmt(myPoints), sub: CBK_RANKS[rankIdx][0] + ' rank', color: '#E8B34B' },
+                  { label: 'Achievements', value: `${earned.length} / ${CBK_ACH.length}`, sub: 'Unlocked so far', color: '#3ECF8E' },
+                ].map((s, i) => (
+                  <div key={i} style={{ ...card, padding: 18 }}>
+                    <div style={{ fontSize: 12, letterSpacing: '.1em', color: '#9BA1AB', textTransform: 'uppercase' }}>{s.label}</div>
+                    <div style={{ ...grotesk, fontSize: 26, fontWeight: 700, marginTop: 8, color: s.color }}>{s.value}</div>
+                    <div style={{ fontSize: 12, color: '#9BA1AB', marginTop: 4 }}>{s.sub}</div>
+                  </div>
+                ))}
+              </div>
 
               {/* MY DISTRICT NODES — the owner's claimed nodes with live progress */}
               {myNodes.length > 0 && (
@@ -8837,7 +8890,7 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
                 </div>
               )}
 
-              {session && (
+              {(
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(320px,1fr))', gap: 18, alignItems: 'start' }}>
                   <div style={{ ...card, padding: 20 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
@@ -9016,6 +9069,126 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
                 })}
               </div>
               <div style={{ background: '#101216', border: '1px solid #262A32', borderRadius: 12, padding: '16px 18px', fontSize: 13, color: '#9BA1AB', lineHeight: 1.6 }}>Rewards are funded exclusively by company-owned allocations and approved company resources. Locked Cinder belongs to backers at all times and is never used for company development.</div>
+            </div>
+          )}
+
+          {/* ═══ VIP ROOM ═══ */}
+          {screen === 'vip' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              <div style={{ background: 'linear-gradient(150deg,#1A130C,#14161B 60%)', border: '1px solid #33261A', borderRadius: 16, padding: 26, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
+                <div>
+                  <div style={{ fontSize: 12, letterSpacing: '.14em', color: '#E8B34B', fontWeight: 600 }}>🏛 VIP ROOM {isAdmin ? '· ADMIN' : isVip ? '· MEMBER' : ''}</div>
+                  <div style={{ ...grotesk, fontSize: 28, fontWeight: 700, marginTop: 4 }}>The market-cap airdrop group</div>
+                  <div style={{ color: '#9BA1AB', fontSize: 13, marginTop: 6, maxWidth: 560, lineHeight: 1.6 }}>An admin-managed circle of top holders and supporters. Every market-cap milestone triggers a Cinder airdrop to every member from company-owned allocations.</div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ ...grotesk, fontSize: 28, fontWeight: 700, color: '#E8B34B' }}>${(CBK_MARKET_CAP / 1000000).toFixed(1)}M</div>
+                  <div style={{ fontSize: 12, color: '#9BA1AB' }}>current market cap</div>
+                </div>
+              </div>
+
+              {!session ? (
+                <div style={{ ...card, padding: 24, textAlign: 'center' }}>
+                  <div style={{ fontSize: 14, color: '#C6CAD1', marginBottom: 14 }}>Sign in with your Mythic Spellbook account to see your VIP status.</div>
+                  <button onClick={onSignIn} style={{ background: '#FF6A2B', color: '#14060A', border: 'none', borderRadius: 10, padding: '11px 22px', fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>Connect account</button>
+                </div>
+              ) : !isVip && !isAdmin ? (
+                <div style={{ ...card, padding: 24, textAlign: 'center' }}>
+                  <div style={{ fontSize: 28, marginBottom: 8 }}>🔒</div>
+                  <div style={{ ...grotesk, fontSize: 18, fontWeight: 700 }}>The VIP Room is invite-only</div>
+                  <div style={{ fontSize: 13, color: '#9BA1AB', marginTop: 8, maxWidth: 460, margin: '8px auto 0', lineHeight: 1.6 }}>Hold Cinder, back Builders, and grow your node — admins invite standout supporters. Below is what members receive at each market-cap milestone.</div>
+                </div>
+              ) : null}
+
+              {/* Milestone schedule — visible to everyone so the goal is public. */}
+              <div style={{ ...card, padding: 20 }}>
+                <div style={{ ...grotesk, fontWeight: 600, fontSize: 16, marginBottom: 14 }}>Market-cap milestones</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {CBK_MCAPS.map((d) => {
+                    const hit = CBK_MARKET_CAP >= d.cap;
+                    const isNext = !hit && CBK_MCAPS.find(x => x.cap > CBK_MARKET_CAP) === d;
+                    return (
+                      <div key={d.cap} style={{ display: 'flex', alignItems: 'center', gap: 14, background: hit ? 'rgba(62,207,142,.06)' : isNext ? 'rgba(255,106,43,.08)' : '#1B1E24', border: '1px solid ' + (hit ? 'rgba(62,207,142,.3)' : isNext ? 'rgba(255,106,43,.45)' : '#262A32'), borderRadius: 12, padding: '13px 16px', opacity: hit || isNext ? 1 : 0.55, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: 15 }}>{hit ? '✅' : '🔒'}</span>
+                        <span style={{ ...grotesk, fontWeight: 700, fontSize: 16, color: hit ? '#3ECF8E' : isNext ? '#FF8A55' : '#9BA1AB', width: 52 }}>{d.label}</span>
+                        <span style={{ fontSize: 13, color: '#C6CAD1', flex: 1, minWidth: 200 }}>{d.vip}</span>
+                        {isNext && <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.1em', padding: '3px 9px', borderRadius: 99, background: 'rgba(255,106,43,.14)', color: '#FF8A55' }}>NEXT</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Roster — members + admins see names; admin can manage. */}
+              {(isVip || isAdmin) && (
+                <div style={{ ...card, padding: 20 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
+                    <div style={{ ...grotesk, fontWeight: 600, fontSize: 16 }}>VIP roster</div>
+                    <span style={{ fontSize: 12, color: '#9BA1AB' }}>{vips.length} member{vips.length === 1 ? '' : 's'}</span>
+                  </div>
+                  {vips.length === 0 ? (
+                    <div style={{ fontSize: 13, color: '#9BA1AB' }}>No members yet{isAdmin ? ' — add the first one below.' : '.'}</div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      {vips.map(v => (
+                        <div key={v.user_id} style={{ display: 'flex', alignItems: 'center', gap: 14, background: '#1B1E24', border: '1px solid #262A32', borderRadius: 12, padding: '12px 14px', flexWrap: 'wrap' }}>
+                          <div style={{ width: 38, height: 38, borderRadius: 10, background: cbkAvatarBg(cbkHue(v.user_id)), display: 'flex', alignItems: 'center', justifyContent: 'center', ...grotesk, fontWeight: 700, fontSize: 13, flexShrink: 0 }}>{cbkInitials(v.display_name)}</div>
+                          <div style={{ flex: 1, minWidth: 140 }}>
+                            <div style={{ fontWeight: 600, fontSize: 14 }}>{v.display_name}{session && v.user_id === session.user.id ? ' (you)' : ''}</div>
+                            <div style={{ fontSize: 11, color: '#9BA1AB', marginTop: 2 }}>Member since {new Date(v.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+                          </div>
+                          {isAdmin ? (
+                            <select value={v.tier} onChange={(e) => setVipMemberTier(v, e.target.value)} style={{ background: '#101216', border: '1px solid #33261A', color: '#E8B34B', borderRadius: 8, padding: '6px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>
+                              {CBK_VIP_TIERS.map(t => <option key={t} value={t}>{t}</option>)}
+                            </select>
+                          ) : (
+                            <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.06em', padding: '4px 10px', borderRadius: 99, background: 'rgba(232,179,75,.14)', color: '#E8B34B' }}>{v.tier}</span>
+                          )}
+                          {isAdmin && (
+                            <button onClick={() => removeVip(v)} disabled={busy} style={{ background: 'rgba(240,101,90,.1)', color: '#F0655A', border: '1px solid rgba(240,101,90,.35)', borderRadius: 8, padding: '6px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>Remove</button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Admin — grant VIP access by player display name. */}
+              {isAdmin && (
+                <div style={{ ...card, border: '1px solid #33261A', padding: 20 }}>
+                  <div style={{ ...grotesk, fontWeight: 600, fontSize: 16, marginBottom: 4 }}>Grant VIP access</div>
+                  <div style={{ fontSize: 12, color: '#9BA1AB', marginBottom: 14 }}>Search players by their in-game display name and add them to the room. Only admins can change the roster.</div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <input value={vipQ} onChange={(e) => setVipQ(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') vipSearch(); }} placeholder="Player display name…"
+                      style={{ flex: 1, minWidth: 200, background: '#101216', border: '1px solid #262A32', borderRadius: 10, padding: '11px 14px', color: '#F2F3F5', fontSize: 13, outline: 'none' }} />
+                    <select value={vipTier} onChange={(e) => setVipTier(e.target.value)} style={{ background: '#101216', border: '1px solid #33261A', color: '#E8B34B', borderRadius: 10, padding: '10px 12px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>
+                      {CBK_VIP_TIERS.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                    <button onClick={vipSearch} style={{ background: '#FF6A2B', color: '#14060A', border: 'none', borderRadius: 10, padding: '10px 20px', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>Search</button>
+                  </div>
+                  {vipResults && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 14 }}>
+                      {vipResults.length === 0 ? (
+                        <div style={{ fontSize: 13, color: '#9BA1AB' }}>No players matched — try at least 2 characters of their display name.</div>
+                      ) : vipResults.map(u => {
+                        const already = vips.some(v => v.user_id === u.user_id);
+                        return (
+                          <div key={u.user_id} style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#1B1E24', border: '1px solid #262A32', borderRadius: 10, padding: '10px 14px' }}>
+                            <div style={{ width: 32, height: 32, borderRadius: 9, background: cbkAvatarBg(cbkHue(u.user_id)), display: 'flex', alignItems: 'center', justifyContent: 'center', ...grotesk, fontWeight: 700, fontSize: 12 }}>{cbkInitials(u.display_name)}</div>
+                            <span style={{ flex: 1, fontWeight: 600, fontSize: 14 }}>{u.display_name || 'Unnamed Survivor'}</span>
+                            {already ? (
+                              <span style={{ fontSize: 12, color: '#9BA1AB' }}>Already a member</span>
+                            ) : (
+                              <button onClick={() => addVip(u)} disabled={busy} style={{ background: 'rgba(232,179,75,.14)', color: '#E8B34B', border: '1px solid rgba(232,179,75,.4)', borderRadius: 8, padding: '7px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>+ Add as {vipTier}</button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
