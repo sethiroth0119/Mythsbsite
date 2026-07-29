@@ -5343,7 +5343,7 @@ const PsnLoreModal = ({ open, onClose }) => {
 // Hardcoded admin email check. The frontend hides admin UI from non-admins,
 // and the Supabase RLS policies (see SQL migration) enforce the same on the
 // server side — clients without the right JWT email can't read other rows.
-const ADMIN_EMAILS = ['richaegisop@gmail.com'];
+const ADMIN_EMAILS = ['richaegisop@gmail.com', 'play@mythicsoa.com'];
 const isAdminEmail = (email) => !!email && ADMIN_EMAILS.includes(email.toLowerCase());
 
 // ===== NODE REGISTRATION FORM CONFIG =====
@@ -8253,6 +8253,46 @@ const CBK_MCAPS = [
 ];
 const CBK_VIP_TIERS = ['VIP', 'VIP Gold', 'VIP Elite'];
 
+// The seven Builder tracks from the handoff's "Become a Builder" wizard.
+const CBK_BUILDER_TYPES = [
+  { type: 'Node', icon: '🗼', title: 'Node Operator', desc: 'Run a Mythic Spellbook Node — host tournaments, grow population, keep uptime.' },
+  { type: 'Vendor', icon: '🏪', title: 'Venra Vendor', desc: 'Sell goods and services in the Venra marketplace and hire Workers.' },
+  { type: 'Worker', icon: '🛠', title: 'Venra Worker', desc: 'Workforce member — build tools, take jobs, ship projects for the ecosystem.' },
+  { type: 'Mentor', icon: '🎓', title: 'Mentor', desc: 'Coach players and Builders; publish guides and run training sessions.' },
+  { type: 'Guild', icon: '⚔', title: 'Guild', desc: 'Lead a community guild — raids, charity drives, member training.' },
+  { type: 'Creator', icon: '🎥', title: 'Content Creator', desc: 'Stream, post, and produce Mythic Spellbook content — guides, highlights, tournaments.' },
+  { type: 'Program', icon: '📋', title: 'Program', desc: 'Run an apprenticeship, creator, or educational program.' },
+];
+// Community campaigns + events. Participation (not committed Cinder) drives
+// reward eligibility; joins/RSVPs persist per account in cinder_participation.
+const CBK_CAMPAIGNS = [
+  { id: 'sector7', builder: 'Emberwatch Node', hue: 24, title: 'Rebuild Sector Seven', desc: 'Help reconstruct the storm-damaged district. Contribute resources, run supply missions, defend the site.', cur: 68, max: 100, unit: 'projects', participants: 341, reward: 'Node decoration + Reward Cinder', ends: 'Aug 2' },
+  { id: 'bughunt', builder: 'Kael Draven', hue: 195, title: 'Bug Hunt Weekend', desc: 'Stress-test the node health dashboard beta. Verified reports earn training credits.', cur: 122, max: 200, unit: 'reports', participants: 89, reward: 'Training credits + tester title', ends: 'Jul 27' },
+  { id: 'festival', builder: 'Forgeline Supply Co.', hue: 12, title: 'Marketplace Festival', desc: 'A week of vendor showcases, limited drops, and worker hiring booths across the Venra market.', cur: 12, max: 20, unit: 'showcases', participants: 214, reward: 'Marketplace coupons', ends: 'Aug 9' },
+  { id: 'training', builder: 'New Builder Bootcamp', hue: 260, title: 'Help Train New Workers', desc: 'Pair with a cohort-2 builder for mentoring sessions. Every verified session moves the goal.', cur: 31, max: 60, unit: 'sessions', participants: 47, reward: 'Mentor credit + profile frame', ends: 'Aug 15' },
+];
+const CBK_EVENTS = [
+  { id: 'worldboss', icon: '🐉', title: 'World Boss: Ashen Colossus', type: 'World event · Ironwood Guild', date: 'Jul 26' },
+  { id: 'careerfair', icon: '🛠', title: 'Venra Career Fair', type: 'Ecosystem event', date: 'Aug 1' },
+  { id: 'conference', icon: '🎪', title: 'Builder Conference — Summer', type: 'Builder conference', date: 'Aug 8' },
+  { id: 'charity', icon: '❤', title: 'Charity Drive: School Supplies', type: 'Charity · Ironwood Guild', date: 'Aug 12' },
+];
+const CBK_GOV_VOTES = [
+  { id: 'season', q: 'Which seasonal festival theme should headline August?', meta: 'Community vote · closes Jul 28', options: ['Emberfall Festival', 'Tides of Venra', 'Night Market Week'], base: [412, 351, 298] },
+  { id: 'format', q: 'Next Colosseum tournament format?', meta: 'Community vote · closes Aug 3', options: ['Draft (sealed pool)', 'Standard constructed', 'Two-headed giant'], base: [288, 264, 197] },
+  { id: 'decor', q: 'Community Node decoration for Season 9 winners?', meta: 'Community vote · closes Aug 10', options: ['Phoenix beacon', 'Obsidian archway', 'Ember garden'], base: [344, 271, 233] },
+];
+const CBK_FOUNDER_ITEMS = ['Founder badge', 'Profile frame', 'Founder card back', 'Founder title'];
+// Per-milestone airdrop allocation, scaled by VIP tier.
+const CBK_DROP_BASE = { $1M: 1500, $2M: 2000, $5M: 2500, $10M: 3000, $25M: 3000 };
+const CBK_TIER_MULT = { 'VIP': 1, 'VIP Gold': 2, 'VIP Elite': 4 };
+const CBK_IMPACT = [
+  { icon: '🎴', title: 'Stormcaller Promo Card', kind: 'Card', from: 'Bug Hunt Weekend' },
+  { icon: '🖼', title: 'Emberwatch Profile Frame', kind: 'Cosmetic', from: 'Season 8 backing' },
+  { icon: '🏷', title: '15% Forgeline Coupon', kind: 'Marketplace coupon', from: 'Festival participation' },
+  { icon: '🎓', title: '2 Training Credits', kind: 'Training', from: 'Mentor session' },
+];
+
 // Showcase (non-node) builder profiles from the handoff prototype — the
 // Vendor/Worker/Mentor/Guild/Creator/Program half of the ecosystem, kept as
 // a preview of where the platform goes. District Nodes are REAL (from the
@@ -8399,6 +8439,21 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
   const [vipResults, setVipResults] = useState(null);
   const [vipTier, setVipTier] = useState('VIP');
   const [reloadN, setReloadN] = useState(0);
+  // Community + participation + user-created Builders
+  const [builders, setBuilders] = useState([]);
+  const [posts, setPosts] = useState([]);
+  const [votes, setVotes] = useState([]);
+  const [parts, setParts] = useState([]);
+  const [leaderTab, setLeaderTab] = useState('points');
+  const [commTab, setCommTab] = useState('feed');
+  const [newPost, setNewPost] = useState('');
+  const [pollQ, setPollQ] = useState('');
+  const [pollOpts, setPollOpts] = useState(['', '']);
+  // Become-a-Builder wizard
+  const [createStep, setCreateStep] = useState(1);
+  const [createType, setCreateType] = useState(null);
+  const [cf, setCf] = useState({ name: '', location: '', bio: '', goal: '', nodeName: '' });
+  const [createdId, setCreatedId] = useState(null);
   const [modal, setModal] = useState(null);      // lock-Cinder backing modal
   const [buyModal, setBuyModal] = useState(null); // buy-tokens preview modal
   const [busy, setBusy] = useState(false);
@@ -8442,13 +8497,21 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
       client.from('node_power').select('*'),
       client.from('cinder_backings').select('*').eq('user_id', session.user.id).order('started_at', { ascending: false }),
       client.from('vip_members').select('*').order('created_at', { ascending: true }),
-    ]).then(([o, r, pw, b, v]) => {
+      client.from('cinder_builders').select('*').order('created_at', { ascending: false }),
+      client.from('cinder_posts').select('*').order('created_at', { ascending: false }).limit(120),
+      client.from('cinder_votes').select('*'),
+      client.from('cinder_participation').select('*'),
+    ]).then(([o, r, pw, b, v, bl, po, vo, pa]) => {
       if (dead) return;
       setOwners(o.data || []);
       const rm = {}; (r.data || []).forEach(row => { rm[row.node_id] = row; }); setRecons(rm);
       const pm = {}; (pw.data || []).forEach(row => { pm[row.node_id] = row; }); setPowers(pm);
       setBackings(b.data || []);
       setVips(v.data || []);
+      setBuilders(bl.data || []);
+      setPosts(po.data || []);
+      setVotes(vo.data || []);
+      setParts(pa.data || []);
     });
     return () => { dead = true; };
   }, [client, session, reloadN]);
@@ -8490,12 +8553,83 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
     setReloadN(n => n + 1);
   };
 
+  // ── Become a Builder: submit the wizard as a real profile row ──
+  const submitBuilder = async () => {
+    if (!client || !session || busy) return;
+    const def = CBK_BUILDER_TYPES.find(b => b.type === createType);
+    if (!def || !cf.name.trim()) return;
+    setBusy(true);
+    const { data, error } = await client.from('cinder_builders').insert({
+      user_id: session.user.id, name: cf.name.trim(), btype: createType,
+      location: cf.location.trim() || 'Unspecified', bio: cf.bio.trim(),
+      goal: cf.goal.trim(), node_name: createType === 'Node' ? cf.nodeName.trim() : null,
+    }).select().maybeSingle();
+    setBusy(false);
+    if (error || !data) { setNotice('Could not submit your Builder profile — try again.'); return; }
+    setCreatedId('builder-' + data.id);
+    setCreateStep(4);
+    setReloadN(n => n + 1);
+  };
+
+  // ── Community feed: builder updates + polls ──
+  const publishPost = async () => {
+    const t = newPost.trim();
+    if (!t || !client || !session || busy) return;
+    setBusy(true);
+    await client.from('cinder_posts').insert({ profile_id: selectedId, author_id: session.user.id, author_name: displayName, kind: 'update', body: t });
+    setNewPost(''); setBusy(false); setReloadN(n => n + 1);
+  };
+  const publishPoll = async () => {
+    const q2 = pollQ.trim();
+    const opts = pollOpts.map(o => o.trim()).filter(Boolean);
+    if (!q2 || opts.length < 2 || !client || !session || busy) return;
+    setBusy(true);
+    await client.from('cinder_posts').insert({ profile_id: selectedId, author_id: session.user.id, author_name: displayName, kind: 'poll', body: q2, options: opts });
+    setPollQ(''); setPollOpts(['', '']); setBusy(false); setReloadN(n => n + 1);
+  };
+  // One vote per poll per account — upsert so changing your mind just moves it.
+  const castVote = async (pollId, choice) => {
+    if (!client || !session) return;
+    await client.from('cinder_votes').upsert({ poll_id: pollId, user_id: session.user.id, choice }, { onConflict: 'poll_id,user_id' });
+    setReloadN(n => n + 1);
+  };
+  const myVote = (pollId) => {
+    const v = votes.find(x => x.poll_id === pollId && x.user_id === (session && session.user.id));
+    return v ? v.choice : null;
+  };
+  const voteCounts = (pollId, optCount, base) => {
+    const counts = Array.from({ length: optCount }, (_, i) => (base ? base[i] || 0 : 0));
+    votes.filter(v => v.poll_id === pollId).forEach(v => { if (counts[v.choice] != null) counts[v.choice] += 1; });
+    return counts;
+  };
+
+  // ── Campaign joins / event RSVPs ──
+  const joined = (kind, refId) => parts.some(p => p.kind === kind && p.ref_id === refId && p.user_id === (session && session.user.id));
+  const toggleJoin = async (kind, refId) => {
+    if (!client || !session || busy) { if (!session && onSignIn) onSignIn(); return; }
+    setBusy(true);
+    if (joined(kind, refId)) await client.from('cinder_participation').delete().eq('kind', kind).eq('ref_id', refId).eq('user_id', session.user.id);
+    else await client.from('cinder_participation').insert({ kind, ref_id: refId, user_id: session.user.id });
+    setBusy(false); setReloadN(n => n + 1);
+  };
+
   // Real nodes come from the published war-map catalog (same source the war
   // map renders), joined to ownership + live recon + power by node id.
   const ownerByNode = {};
   owners.forEach(o => { ownerByNode[o.node_id] = o; });
   const realNodes = catNodes.map(c => cbkNodeProfile(c, ownerByNode[c.id], recons[c.id], powers[c.id]));
-  const allProfiles = [...realNodes, ...CBK_DEMO_PROFILES];
+  // Builder profiles players submitted through the wizard.
+  const myBuilderProfiles = builders.map(b => ({
+    id: 'builder-' + b.id, mine: b.user_id === (session && session.user.id), userMade: true,
+    type: b.btype, name: b.name, location: b.location, hue: cbkHue(b.id),
+    tier: 'BRONZE', backers: 0, points: 0, score: b.score, trust: b.trust, level: b.level,
+    cap: b.capacity, status: b.status, nodeName: b.node_name, goal: b.goal,
+    ownerName: null,
+    tagline: b.bio || `New ${(CBK_BUILDER_TYPES.find(t => t.type === b.btype) || {}).title || b.btype} in the Sparta Ecosystem.`,
+    perks: ['Backer badge on your profile', 'Early supporter recognition'],
+    createdAt: b.created_at,
+  }));
+  const allProfiles = [...realNodes, ...myBuilderProfiles, ...CBK_DEMO_PROFILES];
   const findProfile = (id) => allProfiles.find(p => p.id === id);
   const myNodes = session ? realNodes.filter(n => n.ownerUserId === session.user.id) : [];
   const ownsNode = (p) => !!(p && p.real && session && p.ownerUserId === session.user.id);
@@ -8588,7 +8722,20 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
   const card = { background: '#14161B', border: '1px solid #262A32', borderRadius: '14px' };
   const mono = { fontFamily: "'IBM Plex Mono', monospace" };
   const grotesk = { fontFamily: "'Space Grotesk', sans-serif" };
-  const decorate = (p) => ({ ...p, typeLabel: CBK_TYPE_LABELS[p.type], initials: cbkInitials(p.name), avatarBg: cbkAvatarBg(p.hue), tierBg: CBK_TIERS[p.tier].bg, tierColor: CBK_TIERS[p.tier].color, pointsShown: p.points + prevPower(p.id) });
+  // Builder Score / Community Trust: real nodes derive them from live
+  // reconstruction health; user-made and showcase profiles carry their own.
+  const decorate = (p) => {
+    const r = p.recon;
+    const civ = r && r.buildings_total ? Math.round((r.buildings_restored / r.buildings_total) * 100) : 0;
+    const score = p.score != null ? p.score : (p.real ? Math.min(100, 40 + civ) : 70);
+    const trust = p.trust != null ? p.trust : (p.real ? Math.max(0, 100 - (r ? r.corruption : 0)) : 80);
+    return {
+      ...p, typeLabel: CBK_TYPE_LABELS[p.type], initials: cbkInitials(p.name), avatarBg: cbkAvatarBg(p.hue),
+      tierBg: CBK_TIERS[p.tier].bg, tierColor: CBK_TIERS[p.tier].color, pointsShown: p.points + prevPower(p.id),
+      score, trust, lvl: p.level != null ? p.level : (p.real ? cbkTelemetry(p, prevPower(p.id)).level : 1),
+      capLabel: `${cbkFmt(p.backers)} / ${cbkFmt(p.cap || 500)}`,
+    };
+  };
 
   const ProfileCard = ({ p }) => {
     const d = decorate(p);
@@ -8607,8 +8754,14 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
           <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.06em', padding: '4px 9px', borderRadius: 99, background: d.tierBg, color: d.tierColor }}>{p.tier}</span>
         </div>
         <div style={{ fontSize: 13, color: '#C6CAD1', lineHeight: 1.5 }}>{p.tagline}</div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #1E222A', paddingTop: 12 }}>
-          <div style={{ fontSize: 12, color: '#9BA1AB' }}><span style={{ color: '#F2F3F5', fontWeight: 600 }}>{cbkFmt(p.backers)}</span> backers · <span style={{ color: '#E8B34B', fontWeight: 600 }}>{cbkFmt(d.pointsShown)}</span> pts</div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 11, fontWeight: 600, background: '#1B1E24', border: '1px solid #262A32', borderRadius: 99, padding: '4px 10px', color: '#E8B34B' }}>Score {d.score}</span>
+          <span style={{ fontSize: 11, fontWeight: 600, background: '#1B1E24', border: '1px solid #262A32', borderRadius: 99, padding: '4px 10px', color: '#3ECF8E' }}>Trust {d.trust}</span>
+          <span style={{ fontSize: 11, fontWeight: 600, background: '#1B1E24', border: '1px solid #262A32', borderRadius: 99, padding: '4px 10px', color: '#9BA1AB' }}>Lv {d.lvl}</span>
+          {p.status === 'pending' && <span style={{ fontSize: 11, fontWeight: 600, background: 'rgba(232,179,75,.12)', border: '1px solid #33261A', borderRadius: 99, padding: '4px 10px', color: '#E8B34B' }}>Verification pending</span>}
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #1E222A', paddingTop: 12, gap: 8, flexWrap: 'wrap' }}>
+          <div style={{ fontSize: 12, color: '#9BA1AB' }}><span style={{ color: '#F2F3F5', fontWeight: 600 }}>{d.capLabel}</span> backers · <span style={{ color: '#E8B34B', fontWeight: 600 }}>{cbkFmt(d.pointsShown)}</span> pts</div>
           {session && (
             <button onClick={(e) => { e.stopPropagation(); setModal({ profileId: p.id, step: 1, amountStr: '', days: 90 }); }}
               style={{ background: 'rgba(255,106,43,.12)', color: '#FF8A55', border: '1px solid rgba(255,106,43,.3)', borderRadius: 8, padding: '6px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>Back</button>
@@ -8773,8 +8926,11 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
   const navDefs = [
     { key: 'dashboard', label: 'Dashboard', icon: '⌂' },
     { key: 'discover', label: 'Discover', icon: '◈' },
-    { key: 'rewards', label: 'Rewards', icon: '✦' },
+    { key: 'create', label: 'Become a Builder', icon: '✎' },
+    { key: 'campaigns', label: 'Campaigns', icon: '⚑' },
+    { key: 'governance', label: 'Governance', icon: '⚖' },
     { key: 'vip', label: 'VIP Room', icon: '🏛' },
+    { key: 'rewards', label: 'Rewards', icon: '✦' },
     { key: 'leaderboard', label: 'Rankings', icon: '♛' },
   ];
   const activeKey = screen === 'profile' ? 'discover' : screen;
@@ -8784,9 +8940,27 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
   const q = search.toLowerCase();
   const filtered = allProfiles.filter(p => (filter === 'All' || p.type === filter) && (!q || (p.name + p.tagline + (p.ownerName || '') + CBK_TYPE_LABELS[p.type]).toLowerCase().includes(q)));
 
-  const leaderboard = [...allProfiles].map(decorate).sort((a, b) => b.pointsShown - a.pointsShown);
+  const leaderMetric = { points: p => p.pointsShown, score: p => p.score, trust: p => p.trust, backers: p => p.backers };
+  const leaderboard = [...allProfiles].map(decorate).sort((a, b) => leaderMetric[leaderTab](b) - leaderMetric[leaderTab](a));
+  const leaderCaption = {
+    points: 'Ranked by backing points + Node Power. Live district nodes carry a ✓.',
+    score: 'Ranked by Builder Score — verified delivery, milestones, and reconstruction progress.',
+    trust: 'Ranked by Community Trust — reliability as judged by the community and node health.',
+    backers: 'Ranked by backer count against each Builder’s capacity.',
+  }[leaderTab];
 
-  const screenTitles = { dashboard: 'Backer dashboard', discover: 'Discover Builders', profile: 'Builder profile', rewards: 'Rewards & reputation', vip: 'VIP Room', leaderboard: 'Builder rankings' };
+  const screenTitles = { dashboard: 'Backer dashboard', discover: 'Discover Builders', profile: 'Builder profile', create: 'Become a Builder', campaigns: 'Campaigns & events', governance: 'Community governance', rewards: 'Rewards & reputation', vip: 'VIP Room', leaderboard: 'Builder rankings' };
+
+  // ── Market-cap airdrop milestones (dashboard + VIP room) ──
+  const mcNext = CBK_MCAPS.find(d => d.cap > CBK_MARKET_CAP);
+  const mcMaxCap = CBK_MCAPS[CBK_MCAPS.length - 1].cap;
+  const mcPct = Math.min(100, Math.round((CBK_MARKET_CAP / mcMaxCap) * 100)) + '%';
+  const mcFmtCap = (v) => (v >= 1000000 ? '$' + (v / 1000000) + 'M' : '$' + cbkFmt(v));
+
+  // ── Derived collections used by several screens ──
+  const backedIds = new Set(active.map(b => b.profile_id));
+  const feedUpdates = posts.filter(p => p.kind === 'update' && backedIds.has(p.profile_id)).slice(0, 4);
+  const openVoteCount = CBK_GOV_VOTES.filter(v => myVote('gov-' + v.id) === null).length;
 
   // Buy modal derived values
   const bm = buyModal;
@@ -8907,6 +9081,45 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
                 </div>
               )}
 
+              {/* Market-cap airdrop milestones — public roadmap for VIPs + Builders. */}
+              <div style={{ background: 'linear-gradient(150deg,#1A130C,#14161B 55%)', border: '1px solid #33261A', borderRadius: 16, padding: '22px 24px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 16, flexWrap: 'wrap', marginBottom: 16 }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 11, letterSpacing: '.14em', color: '#E8B34B', fontWeight: 600 }}>CINDER MARKET CAP MILESTONES</span>
+                      <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.08em', padding: '3px 9px', borderRadius: 99, background: 'rgba(62,207,142,.12)', color: '#3ECF8E', border: '1px solid rgba(62,207,142,.3)' }}>🪂 AIRDROP REWARDS</span>
+                    </div>
+                    <div style={{ ...grotesk, fontSize: 24, fontWeight: 700, marginTop: 4 }}>{mcFmtCap(CBK_MARKET_CAP)} <span style={{ fontSize: 13, color: '#9BA1AB', fontWeight: 500 }}>current market cap</span></div>
+                  </div>
+                  {mcNext && <div style={{ fontSize: 12, color: '#9BA1AB', textAlign: 'right' }}>Next unlock: <span style={{ color: '#FF8A55', fontWeight: 600 }}>{mcNext.label}</span> · {mcFmtCap(mcNext.cap - CBK_MARKET_CAP)} to go</div>}
+                </div>
+                <div style={{ position: 'relative', height: 10, background: '#262A32', borderRadius: 99, margin: '0 6px' }}>
+                  <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', width: mcPct, background: 'linear-gradient(90deg,#FF6A2B,#E8B34B)', borderRadius: 99 }}></div>
+                  {CBK_MCAPS.map(d => {
+                    const hit = CBK_MARKET_CAP >= d.cap;
+                    return (
+                      <div key={d.cap} title={d.label} style={{ position: 'absolute', left: Math.round((d.cap / mcMaxCap) * 100) + '%', top: '50%', transform: 'translate(-50%,-50%)', width: 18, height: 18, borderRadius: 99, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, background: hit ? '#14161B' : '#101216', border: '2px solid ' + (hit ? '#3ECF8E' : '#3A404B'), color: hit ? '#3ECF8E' : '#5C626C' }}>{hit ? '✓' : '🔒'}</div>
+                    );
+                  })}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 10, marginTop: 18 }}>
+                  {CBK_MCAPS.map(d => {
+                    const hit = CBK_MARKET_CAP >= d.cap, isNext = mcNext && d.cap === mcNext.cap;
+                    return (
+                      <div key={d.cap} style={{ background: hit ? 'rgba(62,207,142,.06)' : isNext ? 'rgba(255,106,43,.08)' : '#14161B', border: '1px solid ' + (hit ? 'rgba(62,207,142,.3)' : isNext ? 'rgba(255,106,43,.45)' : '#262A32'), borderRadius: 12, padding: 12, opacity: hit || isNext ? 1 : 0.55 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
+                          <span style={{ ...grotesk, fontWeight: 700, fontSize: 14, color: hit ? '#3ECF8E' : isNext ? '#FF8A55' : '#9BA1AB' }}>{d.label}</span>
+                          <span style={{ fontSize: 12 }}>{hit ? '✅' : '🔒'}</span>
+                        </div>
+                        <div style={{ fontSize: 11, color: '#C6CAD1', marginTop: 6, lineHeight: 1.45 }}><span style={{ color: '#E8B34B', fontWeight: 600 }}>VIP:</span> {d.vip}</div>
+                        <div style={{ fontSize: 11, color: '#C6CAD1', marginTop: 4, lineHeight: 1.45 }}><span style={{ color: '#FF8A55', fontWeight: 600 }}>Builders:</span> {d.builder}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div style={{ fontSize: 11, color: '#9BA1AB', marginTop: 12, lineHeight: 1.6 }}>Each milestone triggers a <span style={{ color: '#3ECF8E', fontWeight: 600 }}>Cinder airdrop</span> — sent directly to VIP holders' and Builders' wallets, funded from the company allocation, never from committed Cinder.</div>
+              </div>
+
               {/* Stat cards render for EVERYONE — zeros with sign-in hints when
                   no account is connected, live values once signed in. */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 14 }}>
@@ -8960,7 +9173,25 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
                     </div>
                     {active.length === 0 ? (
                       <div style={{ fontSize: 13, color: '#9BA1AB', lineHeight: 1.6 }}>You haven't backed anyone yet. Open <span style={{ color: '#FF8A55', cursor: 'pointer' }} onClick={() => go('discover')}>Discover</span> to find live district nodes and showcase Builders.</div>
-                    ) : (
+                    ) : (<>
+                      {/* Allocation breakdown — where your committed Cinder sits. */}
+                      <div style={{ marginBottom: 14 }}>
+                        <div style={{ display: 'flex', height: 12, borderRadius: 99, overflow: 'hidden', gap: 2, marginBottom: 10 }}>
+                          {active.map((b, i) => (
+                            <div key={b.id} title={b.profile_name} style={{ width: Math.round(Number(b.amount) / locked * 100) + '%', background: ['#FF6A2B', '#E8B34B', '#3ECF8E', '#7C6BFF', '#4BA3E8'][i % 5] }}></div>
+                          ))}
+                        </div>
+                        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+                          {active.map((b, i) => (
+                            <div key={b.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#9BA1AB' }}>
+                              <span style={{ width: 9, height: 9, borderRadius: 3, background: ['#FF6A2B', '#E8B34B', '#3ECF8E', '#7C6BFF', '#4BA3E8'][i % 5] }}></span>
+                              {b.profile_name} · <span style={{ color: '#F2F3F5', fontWeight: 600 }}>{Math.round(Number(b.amount) / locked * 100)}%</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </>)}
+                    {active.length > 0 && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                         {active.map(b => {
                           const p = findProfile(b.profile_id);
@@ -9004,6 +9235,56 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
                     )}
                     <div style={{ marginTop: 16, padding: 12, background: '#101216', border: '1px solid #262A32', borderRadius: 10, fontSize: 12, color: '#9BA1AB', lineHeight: 1.5 }}>All rewards come from company-owned allocations. Your locked Cinder is never spent on development — it stays yours and returns to your game balance when the lock matures.</div>
                   </div>
+
+                  {/* Builder updates from the Builders you back */}
+                  <div style={{ ...card, padding: 20 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                      <div style={{ ...grotesk, fontWeight: 600, fontSize: 16 }}>Builder updates</div>
+                      <span style={{ fontSize: 12, color: '#9BA1AB' }}>from Builders you back</span>
+                    </div>
+                    {feedUpdates.length === 0 ? (
+                      <div style={{ fontSize: 13, color: '#9BA1AB', lineHeight: 1.5 }}>Updates from the Builders you back will appear here.</div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        {feedUpdates.map(u => {
+                          const bp = findProfile(u.profile_id);
+                          return (
+                            <div key={u.id} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                              <div style={{ width: 32, height: 32, borderRadius: 9, background: cbkAvatarBg(bp ? bp.hue : 24), display: 'flex', alignItems: 'center', justifyContent: 'center', ...grotesk, fontWeight: 700, fontSize: 12, flexShrink: 0 }}>{cbkInitials(bp ? bp.name : u.author_name)}</div>
+                              <div>
+                                <div style={{ fontSize: 13, lineHeight: 1.5 }}><strong>{bp ? bp.name : u.author_name}</strong> — {u.body}</div>
+                                <div style={{ fontSize: 11, color: '#9BA1AB', marginTop: 2 }}>{cbkAgo(u.created_at)}</div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Upcoming events */}
+                  <div style={{ ...card, padding: 20 }}>
+                    <div style={{ ...grotesk, fontWeight: 600, fontSize: 16, marginBottom: 12 }}>Upcoming events</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      {CBK_EVENTS.slice(0, 3).map(ev => (
+                        <div key={ev.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 13, alignItems: 'center' }}>
+                          <div><div style={{ fontWeight: 600 }}>{ev.icon} {ev.title}</div><div style={{ fontSize: 11, color: '#9BA1AB' }}>{ev.type}</div></div>
+                          <span style={{ fontSize: 12, color: '#FF8A55', whiteSpace: 'nowrap' }}>{ev.date}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <button onClick={() => go('campaigns')} style={{ width: '100%', marginTop: 14, background: '#1B1E24', border: '1px solid #262A32', color: '#C6CAD1', borderRadius: 9, padding: 9, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>View campaigns &amp; events</button>
+                  </div>
+
+                  {/* Open governance votes */}
+                  <div style={{ ...card, padding: 20 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                      <div style={{ ...grotesk, fontWeight: 600, fontSize: 16 }}>Open votes</div>
+                      <span style={{ fontSize: 11, fontWeight: 600, background: 'rgba(255,106,43,.14)', color: '#FF8A55', borderRadius: 99, padding: '3px 9px' }}>{openVoteCount}</span>
+                    </div>
+                    <div style={{ fontSize: 13, color: '#9BA1AB', lineHeight: 1.5 }}>Qualified Backers vote on community matters — events, themes, formats.</div>
+                    <button onClick={() => go('governance')} style={{ width: '100%', marginTop: 14, background: '#1B1E24', border: '1px solid #262A32', color: '#C6CAD1', borderRadius: 9, padding: 9, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>Cast your votes</button>
+                  </div>
                 </div>
               )}
             </div>
@@ -9033,7 +9314,12 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
             const d = decorate(sel);
             const myB = active.filter(b => b.profile_id === sel.id);
             const myAmt = myB.reduce((s, b) => s + Number(b.amount), 0);
-            const milestones = (sel.real ? nodeMilestones(sel) : sel.milestones).map(m => ({ ...m, ...msMap[m.status] }));
+            const rawMs = sel.real ? nodeMilestones(sel) : (sel.milestones || [
+              { title: 'Complete Builder verification', desc: 'Identity, compliance, and account history review.', status: 'active' },
+              { title: 'First campaign', desc: 'Create your first community campaign.', status: 'locked' },
+              { title: 'Reach 25 backers', desc: 'Fill your starting capacity to unlock the next tier.', status: 'locked' },
+            ]);
+            const milestones = rawMs.map(m => ({ ...m, ...msMap[m.status] }));
             return (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
                 <button onClick={() => go('discover')} style={{ alignSelf: 'flex-start', background: 'none', border: 'none', color: '#9BA1AB', fontSize: 13, cursor: 'pointer', padding: 0, fontFamily: "'IBM Plex Sans',sans-serif" }}>← Back to discover</button>
@@ -9061,6 +9347,121 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
 
                 {sel.real && <NodeTelemetry p={sel} />}
 
+                {/* Builder Score / Trust / Capacity / Growth */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 14 }}>
+                  {[
+                    { label: 'Builder Score', value: d.score, max: ' / 100', color: '#E8B34B', pct: d.score + '%' },
+                    { label: 'Community Trust', value: d.trust, max: ' / 100', color: '#3ECF8E', pct: d.trust + '%' },
+                    { label: 'Backing capacity', value: d.capLabel, max: '', color: '#F2F3F5', pct: Math.min(100, Math.round(sel.backers / (sel.cap || 500) * 100)) + '%' },
+                    { label: 'Builder level', value: 'Lv ' + d.lvl, max: '', color: '#FF8A55', pct: Math.min(100, d.lvl * 10) + '%' },
+                  ].map((s, i) => (
+                    <div key={i} style={{ ...card, padding: 16 }}>
+                      <div style={{ fontSize: 11, letterSpacing: '.1em', color: '#9BA1AB', textTransform: 'uppercase' }}>{s.label}</div>
+                      <div style={{ ...grotesk, fontSize: 24, fontWeight: 700, color: s.color, marginTop: 6 }}>{s.value}<span style={{ fontSize: 13, color: '#9BA1AB' }}>{s.max}</span></div>
+                      <div style={{ height: 5, background: '#262A32', borderRadius: 99, marginTop: 8, overflow: 'hidden' }}><div style={{ height: '100%', width: s.pct, background: s.color, borderRadius: 99 }}></div></div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Current goal (user-made builders) */}
+                {sel.goal && (
+                  <div style={{ ...card, padding: 20 }}>
+                    <div style={{ ...grotesk, fontWeight: 600, fontSize: 16, marginBottom: 4 }}>Current goal</div>
+                    <div style={{ fontSize: 12, color: '#9BA1AB', marginBottom: 12 }}>Community participation moves every goal. Completion rewards come from the company allocation.</div>
+                    <div style={{ background: '#1B1E24', border: '1px solid #262A32', borderRadius: 12, padding: 14 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                        <div style={{ fontWeight: 600, fontSize: 14 }}>{sel.goal}</div>
+                        <span style={{ fontSize: 12, color: '#9BA1AB' }}>{cbkFmt(sel.backers)} / {cbkFmt(sel.cap || 25)}</span>
+                      </div>
+                      <div style={{ height: 7, background: '#262A32', borderRadius: 99, marginTop: 10, overflow: 'hidden' }}><div style={{ height: '100%', width: Math.min(100, Math.round(sel.backers / (sel.cap || 25) * 100)) + '%', background: 'linear-gradient(90deg,#FF6A2B,#E8B34B)', borderRadius: 99 }}></div></div>
+                      <div style={{ fontSize: 12, color: '#E8B34B', marginTop: 8 }}>Reward: First goal reward eligibility</div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Community — updates + polls, composer for the profile owner */}
+                {(() => {
+                  const feed = posts.filter(p => p.profile_id === sel.id);
+                  const isOwner = sel.mine || ownsNode(sel);
+                  return (
+                    <div style={{ ...card, padding: 20 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
+                        <div style={{ ...grotesk, fontWeight: 600, fontSize: 16 }}>Community</div>
+                        {isOwner && (
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            {[['feed', 'Feed'], ['post', 'Post update'], ['poll', 'New poll']].map(([k, label]) => (
+                              <button key={k} onClick={() => setCommTab(k)} style={{ borderRadius: 99, padding: '6px 13px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif", background: commTab === k ? 'rgba(255,106,43,.14)' : '#14161B', color: commTab === k ? '#FF8A55' : '#C6CAD1', border: '1px solid ' + (commTab === k ? 'rgba(255,106,43,.4)' : '#262A32') }}>{label}</button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {isOwner && commTab === 'post' && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
+                          <div style={{ fontSize: 12, color: '#9BA1AB' }}>Profile owner · status updates notify all your Backers</div>
+                          <textarea value={newPost} onChange={(e) => setNewPost(e.target.value)} placeholder="Share progress with your Backers…" rows={3} style={{ width: '100%', background: '#101216', border: '1px solid #262A32', borderRadius: 10, padding: '12px 14px', color: '#F2F3F5', fontSize: 13, outline: 'none', resize: 'vertical', fontFamily: "'IBM Plex Sans',sans-serif" }} />
+                          <button onClick={publishPost} style={{ alignSelf: 'flex-end', background: newPost.trim() ? '#FF6A2B' : '#1B1E24', color: newPost.trim() ? '#14060A' : '#5C626C', border: 'none', borderRadius: 10, padding: '10px 22px', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>Post update</button>
+                        </div>
+                      )}
+
+                      {isOwner && commTab === 'poll' && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
+                          <div style={{ fontSize: 12, color: '#9BA1AB' }}>Profile owner · ask your Backers a question</div>
+                          <input value={pollQ} onChange={(e) => setPollQ(e.target.value)} placeholder="Poll question…" style={{ width: '100%', background: '#101216', border: '1px solid #262A32', borderRadius: 10, padding: '11px 14px', color: '#F2F3F5', fontSize: 13, outline: 'none' }} />
+                          {pollOpts.map((o, i) => (
+                            <input key={i} value={o} onChange={(e) => { const next = [...pollOpts]; next[i] = e.target.value; setPollOpts(next); }} placeholder={`Option ${i + 1}`} style={{ width: '100%', background: '#101216', border: '1px solid #262A32', borderRadius: 10, padding: '10px 14px', color: '#F2F3F5', fontSize: 13, outline: 'none' }} />
+                          ))}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                            {pollOpts.length < 5 && <button onClick={() => setPollOpts([...pollOpts, ''])} style={{ background: '#1B1E24', border: '1px solid #262A32', color: '#C6CAD1', borderRadius: 10, padding: '9px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>+ Add option</button>}
+                            <button onClick={publishPoll} style={{ marginLeft: 'auto', background: '#FF6A2B', color: '#14060A', border: 'none', borderRadius: 10, padding: '10px 22px', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>Publish poll</button>
+                          </div>
+                        </div>
+                      )}
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        {feed.length === 0 ? (
+                          <div style={{ fontSize: 13, color: '#9BA1AB' }}>{isOwner ? 'No updates yet — post one so your Backers hear from you.' : 'No updates from this Builder yet.'}</div>
+                        ) : feed.map(cp => {
+                          const opts = Array.isArray(cp.options) ? cp.options : [];
+                          const pollId = 'post-' + cp.id;
+                          const mine = myVote(pollId);
+                          const counts = voteCounts(pollId, opts.length, null);
+                          const total = counts.reduce((s, n) => s + n, 0) || 1;
+                          return (
+                            <div key={cp.id} style={{ background: '#1B1E24', border: '1px solid #262A32', borderRadius: 12, padding: 14 }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', marginBottom: 8 }}>
+                                <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', padding: '3px 9px', borderRadius: 99, background: cp.kind === 'poll' ? 'rgba(124,107,255,.14)' : 'rgba(255,106,43,.12)', color: cp.kind === 'poll' ? '#B9A8E8' : '#FF8A55' }}>{cp.kind === 'poll' ? 'Poll' : 'Update'}</span>
+                                <span style={{ fontSize: 11, color: '#9BA1AB' }}>{cbkAgo(cp.created_at)}</span>
+                              </div>
+                              {cp.kind === 'poll' ? (
+                                <>
+                                  <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 10 }}>{cp.body}</div>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                                    {opts.map((label, i) => {
+                                      const pctN = Math.round(counts[i] / total * 100);
+                                      const picked = mine === i;
+                                      return (
+                                        <button key={i} onClick={() => { if (session) castVote(pollId, i); else if (onSignIn) onSignIn(); }}
+                                          style={{ position: 'relative', overflow: 'hidden', textAlign: 'left', background: '#101216', border: '1px solid ' + (picked ? 'rgba(62,207,142,.5)' : '#262A32'), color: '#F2F3F5', borderRadius: 9, padding: '9px 13px', fontSize: 13, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>
+                                          <span style={{ position: 'absolute', inset: 0, width: pctN + '%', background: picked ? 'rgba(62,207,142,.14)' : 'rgba(124,107,255,.12)' }}></span>
+                                          <span style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', gap: 10 }}><span>{picked ? '✓ ' : ''}{label}</span><span style={{ color: picked ? '#3ECF8E' : '#9BA1AB', fontWeight: 600 }}>{pctN}%</span></span>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                  <div style={{ fontSize: 11, color: '#9BA1AB', marginTop: 8 }}>{cbkFmt(counts.reduce((s, n) => s + n, 0))} votes</div>
+                                </>
+                              ) : (
+                                <div style={{ fontSize: 13, lineHeight: 1.55 }}>{cp.body}</div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 18, alignItems: 'start' }}>
                   <div style={{ ...card, padding: 20 }}>
                     <div style={{ ...grotesk, fontWeight: 600, fontSize: 16, marginBottom: 4 }}>Milestones</div>
@@ -9079,6 +9480,39 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
                     </div>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+                    {/* Builder timeline */}
+                    <div style={{ ...card, padding: 20 }}>
+                      <div style={{ ...grotesk, fontWeight: 600, fontSize: 16, marginBottom: 14 }}>Builder timeline</div>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        {(sel.real
+                          ? [
+                              { label: 'Node placed on the war map', date: sel.nodeDbId },
+                              { label: sel.ownerName ? 'Claimed by ' + sel.ownerName : 'Awaiting a claim', date: sel.ownerName ? 'Operator assigned' : 'Unclaimed' },
+                              { label: 'Reconstruction underway', date: 'Level ' + d.lvl + ' · ' + cbkFmt(sel.recon ? sel.recon.population : 0) + ' NPCs' },
+                            ]
+                          : sel.userMade
+                            ? [
+                                { label: 'Builder profile created', date: new Date(sel.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) },
+                                { label: 'Verification review', date: sel.status === 'pending' ? 'In progress' : 'Verified' },
+                              ]
+                            : [
+                                { label: 'Builder joined', date: 'Showcase profile' },
+                                { label: 'Verified by platform review', date: 'Ongoing' },
+                              ]
+                        ).map((t, i, arr) => (
+                          <div key={i} style={{ display: 'flex', gap: 12 }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                              <div style={{ width: 9, height: 9, borderRadius: 99, background: '#FF6A2B', flexShrink: 0, marginTop: 4 }}></div>
+                              {i < arr.length - 1 && <div style={{ width: 1, flex: 1, background: '#262A32' }}></div>}
+                            </div>
+                            <div style={{ paddingBottom: 16 }}>
+                              <div style={{ fontSize: 13, fontWeight: 600 }}>{t.label}</div>
+                              <div style={{ fontSize: 11, color: '#9BA1AB', marginTop: 2 }}>{t.date}</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                     <div style={{ ...card, padding: 20 }}>
                       <div style={{ ...grotesk, fontWeight: 600, fontSize: 16, marginBottom: 14 }}>Backer benefits</div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -9105,15 +9539,40 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               <div style={{ background: 'linear-gradient(150deg,#1A130C,#14161B 60%)', border: '1px solid #33261A', borderRadius: 16, padding: 26, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
                 <div>
-                  <div style={{ fontSize: 12, letterSpacing: '.14em', color: '#E8B34B', fontWeight: 600 }}>CURRENT RANK</div>
+                  <div style={{ fontSize: 12, letterSpacing: '.14em', color: '#E8B34B', fontWeight: 600 }}>COMMUNITY REPUTATION</div>
                   <div style={{ ...grotesk, fontSize: 32, fontWeight: 700, marginTop: 4 }}>{CBK_RANKS[rankIdx][0]}</div>
-                  <div style={{ color: '#9BA1AB', fontSize: 13, marginTop: 6 }}>{rankLabel} · Earn points by locking Cinder behind Builders.</div>
+                  <div style={{ color: '#9BA1AB', fontSize: 13, marginTop: 6 }}>{rankLabel} · Points come from backing and active participation.</div>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+                    {[
+                      active.length > 0 && 'Helpful Backer',
+                      backedProfiles.some(p => p.type === 'Node') && 'Node Champion',
+                      backedProfiles.some(p => p.type === 'Vendor') && 'Marketplace Supporter',
+                      parts.some(p => p.user_id === (session && session.user.id)) && 'Active Participant',
+                    ].filter(Boolean).map(tag => (
+                      <span key={tag} style={{ fontSize: 11, fontWeight: 600, background: 'rgba(232,179,75,.12)', color: '#E8B34B', border: '1px solid #33261A', borderRadius: 99, padding: '4px 12px' }}>{tag}</span>
+                    ))}
+                  </div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <div style={{ ...grotesk, fontSize: 28, fontWeight: 700, color: '#E8B34B' }}>{cbkFmt(myPoints)}</div>
                   <div style={{ fontSize: 12, color: '#9BA1AB' }}>backing points</div>
                 </div>
               </div>
+              {/* Founding Backer recognition */}
+              <div style={{ background: 'linear-gradient(140deg,#16121E,#14161B 65%)', border: '1px solid #2A2438', borderRadius: 14, padding: '18px 20px', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 22 }}>🏛</span>
+                <div style={{ flex: 1, minWidth: 220 }}>
+                  <div style={{ fontWeight: 600, fontSize: 15 }}>Founding Backer</div>
+                  <div style={{ fontSize: 12, color: '#9BA1AB', marginTop: 2 }}>Early Backer recognition — permanent badge, profile frame, and Founder card back.</div>
+                </div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {CBK_FOUNDER_ITEMS.map(fi => (
+                    <span key={fi} style={{ fontSize: 11, fontWeight: 600, background: '#1B1E24', border: '1px solid #2A2438', color: '#B9A8E8', borderRadius: 99, padding: '4px 12px' }}>{fi}</span>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ ...grotesk, fontWeight: 600, fontSize: 16 }}>Achievements</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))', gap: 14 }}>
                 {CBK_ACH.map(a => {
                   const on = earned.includes(a.id);
@@ -9129,7 +9588,223 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
                   );
                 })}
               </div>
-              <div style={{ background: '#101216', border: '1px solid #262A32', borderRadius: 12, padding: '16px 18px', fontSize: 13, color: '#9BA1AB', lineHeight: 1.6 }}>Rewards are funded exclusively by company-owned allocations and approved company resources. Locked Cinder belongs to backers at all times and is never used for company development.</div>
+              {/* Impact rewards earned through participation */}
+              <div style={{ ...grotesk, fontWeight: 600, fontSize: 16 }}>My impact rewards</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))', gap: 14 }}>
+                {CBK_IMPACT.map(ir => (
+                  <div key={ir.title} style={{ ...card, padding: 16, display: 'flex', gap: 12, alignItems: 'center' }}>
+                    <span style={{ fontSize: 20 }}>{ir.icon}</span>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontWeight: 600, fontSize: 13 }}>{ir.title}</div>
+                      <div style={{ fontSize: 11, color: '#9BA1AB', marginTop: 2 }}>{ir.kind} · {ir.from}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ background: '#101216', border: '1px solid #262A32', borderRadius: 12, padding: '16px 18px', fontSize: 13, color: '#9BA1AB', lineHeight: 1.6 }}>Rewards are funded exclusively by company-owned allocations and published ecosystem programs. Committed Cinder belongs to Backers at all times — it is never spent, sold, borrowed, or lent. The platform monitors fake backing, bots, self-backing, reward farming, and related-wallet abuse; violations reduce Builder Score and program eligibility.</div>
+            </div>
+          )}
+
+          {/* ═══ BECOME A BUILDER ═══ */}
+          {screen === 'create' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 760, margin: '0 auto' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                {[['1', 'Type'], ['2', 'Details'], ['3', 'Review']].map(([n, label], i) => {
+                  const st = Number(n), on = createStep >= st;
+                  return (
+                    <div key={n} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ width: 26, height: 26, borderRadius: 99, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, ...grotesk, background: on ? 'rgba(255,106,43,.14)' : '#14161B', color: on ? '#FF8A55' : '#5C626C', border: '1px solid ' + (on ? 'rgba(255,106,43,.45)' : '#262A32') }}>{n}</div>
+                      <span style={{ fontSize: 12, color: on ? '#C6CAD1' : '#5C626C' }}>{label}</span>
+                      {i < 2 && <div style={{ width: 28, height: 1, background: '#262A32' }}></div>}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {!session ? (
+                <div style={{ ...card, padding: 24, textAlign: 'center' }}>
+                  <div style={{ fontSize: 14, color: '#C6CAD1', marginBottom: 14 }}>Connect your Mythic Spellbook account to create a Builder profile.</div>
+                  <button onClick={onSignIn} style={{ background: '#FF6A2B', color: '#14060A', border: 'none', borderRadius: 10, padding: '11px 22px', fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>Connect account</button>
+                </div>
+              ) : createStep === 1 ? (
+                <>
+                  <div>
+                    <div style={{ ...grotesk, fontSize: 24, fontWeight: 700 }}>What kind of Builder are you?</div>
+                    <div style={{ color: '#9BA1AB', fontSize: 14, marginTop: 6 }}>Create one verified Builder profile. Every new Builder starts with a capacity of 25 Backers.</div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(230px,1fr))', gap: 12 }}>
+                    {CBK_BUILDER_TYPES.map(bt => {
+                      const on = createType === bt.type;
+                      return (
+                        <button key={bt.type} onClick={() => setCreateType(bt.type)} style={{ textAlign: 'left', background: on ? 'rgba(255,106,43,.08)' : '#14161B', border: '1px solid ' + (on ? '#FF6A2B' : '#262A32'), borderRadius: 14, padding: 16, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif", display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          <span style={{ fontSize: 20 }}>{bt.icon}</span>
+                          <span style={{ fontWeight: 600, fontSize: 15, color: '#F2F3F5' }}>{bt.title}</span>
+                          <span style={{ fontSize: 12, color: '#9BA1AB', lineHeight: 1.5 }}>{bt.desc}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <button onClick={() => { if (createType) setCreateStep(2); }} style={{ alignSelf: 'flex-end', background: createType ? '#FF6A2B' : '#1B1E24', color: createType ? '#14060A' : '#5C626C', border: 'none', borderRadius: 12, padding: '13px 28px', fontWeight: 600, fontSize: 14, cursor: createType ? 'pointer' : 'default', fontFamily: "'IBM Plex Sans',sans-serif" }}>Continue</button>
+                </>
+              ) : createStep === 2 ? (
+                <>
+                  <div>
+                    <div style={{ ...grotesk, fontSize: 24, fontWeight: 700 }}>Set up your {(CBK_BUILDER_TYPES.find(b => b.type === createType) || {}).title} profile</div>
+                    <div style={{ color: '#9BA1AB', fontSize: 14, marginTop: 6 }}>This becomes your public Builder profile after verification.</div>
+                  </div>
+                  <div style={{ ...card, padding: 22, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    {[
+                      ['Builder name', 'name', 'e.g. Stormforge Node', false],
+                      ...(createType === 'Node' ? [['Node name in Mythic Spellbook', 'nodeName', 'Exact name of your in-game Node', false]] : []),
+                      ['Location / region', 'location', 'e.g. NA-East, Venra Market, Remote', false],
+                      ['Biography', 'bio', 'What are you building for the Sparta Ecosystem?', true],
+                      ['First public goal (optional)', 'goal', 'e.g. Reach 25 Backers', false],
+                    ].map(([label, key, ph, isArea]) => (
+                      <div key={key}>
+                        <div style={{ fontSize: 12, color: '#9BA1AB', marginBottom: 6 }}>{label}</div>
+                        {isArea ? (
+                          <textarea value={cf[key]} onChange={(e) => setCf({ ...cf, [key]: e.target.value })} placeholder={ph} rows={4} style={{ width: '100%', background: '#101216', border: '1px solid #262A32', borderRadius: 10, padding: '12px 14px', color: '#F2F3F5', fontSize: 14, outline: 'none', resize: 'vertical', fontFamily: "'IBM Plex Sans',sans-serif" }} />
+                        ) : (
+                          <input value={cf[key]} onChange={(e) => setCf({ ...cf, [key]: e.target.value })} placeholder={ph} style={{ width: '100%', background: '#101216', border: '1px solid #262A32', borderRadius: 10, padding: '12px 14px', color: '#F2F3F5', fontSize: 14, outline: 'none' }} />
+                        )}
+                        {key === 'nodeName' && <div style={{ fontSize: 11, color: '#5C626C', marginTop: 5 }}>Must match your Node in-game — verification links this profile to it.</div>}
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                    <button onClick={() => setCreateStep(1)} style={{ background: '#1B1E24', border: '1px solid #262A32', color: '#C6CAD1', borderRadius: 12, padding: '13px 24px', fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>Back</button>
+                    <button onClick={() => { if (cf.name.trim()) setCreateStep(3); }} style={{ background: cf.name.trim() ? '#FF6A2B' : '#1B1E24', color: cf.name.trim() ? '#14060A' : '#5C626C', border: 'none', borderRadius: 12, padding: '13px 28px', fontWeight: 600, fontSize: 14, cursor: cf.name.trim() ? 'pointer' : 'default', fontFamily: "'IBM Plex Sans',sans-serif" }}>Review profile</button>
+                  </div>
+                </>
+              ) : createStep === 3 ? (
+                <>
+                  <div style={{ ...grotesk, fontSize: 24, fontWeight: 700 }}>Review &amp; submit for verification</div>
+                  <div style={{ ...card, padding: 22, display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+                    <div style={{ width: 56, height: 56, borderRadius: 14, background: cbkAvatarBg(cbkHue(cf.name)), display: 'flex', alignItems: 'center', justifyContent: 'center', ...grotesk, fontWeight: 700, fontSize: 20, flexShrink: 0 }}>{cbkInitials(cf.name)}</div>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <span style={{ fontWeight: 700, fontSize: 18, ...grotesk }}>{cf.name}</span>
+                        <span style={{ fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 99, background: 'rgba(199,116,66,.14)', color: '#C77442' }}>BRONZE</span>
+                      </div>
+                      <div style={{ fontSize: 12, color: '#9BA1AB', marginTop: 3 }}>{(CBK_BUILDER_TYPES.find(b => b.type === createType) || {}).title} · {cf.location || 'Unspecified'}</div>
+                      {createType === 'Node' && cf.nodeName && <div style={{ fontSize: 12, color: '#FF8A55', marginTop: 3 }}>🗼 In-game Node: {cf.nodeName}</div>}
+                      <div style={{ fontSize: 13, color: '#C6CAD1', marginTop: 8, lineHeight: 1.5 }}>{cf.bio}</div>
+                      {cf.goal && <div style={{ fontSize: 12, color: '#E8B34B', marginTop: 8 }}>First goal: {cf.goal}</div>}
+                    </div>
+                  </div>
+                  <div style={{ background: '#101216', border: '1px solid #262A32', borderRadius: 12, padding: '14px 16px', fontSize: 12, color: '#9BA1AB', lineHeight: 1.7 }}>Starting capacity: <span style={{ color: '#F2F3F5', fontWeight: 600 }}>25 Backers</span> · Builder Level 1 · Capacity grows through commitment, trust, verified milestones, and engagement — not by owning more Cinder. Verification review checks identity, compliance, and account history.</div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                    <button onClick={() => setCreateStep(2)} style={{ background: '#1B1E24', border: '1px solid #262A32', color: '#C6CAD1', borderRadius: 12, padding: '13px 24px', fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>Edit</button>
+                    <button onClick={submitBuilder} disabled={busy} style={{ background: '#FF6A2B', color: '#14060A', border: 'none', borderRadius: 12, padding: '13px 28px', fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif", opacity: busy ? 0.6 : 1 }}>{busy ? 'Submitting…' : 'Submit for verification'}</button>
+                  </div>
+                </>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'center', textAlign: 'center', padding: '26px 0' }}>
+                  <img src="./assets/artwork/gameicons/Cinder.png" alt="" style={{ width: 64, height: 86, objectFit: 'contain', animation: 'emberPulse 2s infinite' }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                  <div style={{ ...grotesk, fontSize: 24, fontWeight: 700 }}>Profile submitted</div>
+                  <div style={{ fontSize: 14, color: '#C6CAD1', lineHeight: 1.6, maxWidth: 400 }}><strong>{cf.name}</strong> is now live in Discover with a <span style={{ color: '#E8B34B', fontWeight: 600 }}>Verification pending</span> status. Once verified, your Builder Score, Community Trust, and capacity unlocks begin tracking.</div>
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
+                    <button onClick={() => { if (createdId) openProfile(createdId); }} style={{ background: '#FF6A2B', color: '#14060A', border: 'none', borderRadius: 12, padding: '13px 26px', fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>View my Builder profile</button>
+                    <button onClick={() => { setCreateStep(1); setCreateType(null); setCf({ name: '', location: '', bio: '', goal: '', nodeName: '' }); go('discover'); }} style={{ background: '#1B1E24', border: '1px solid #262A32', color: '#C6CAD1', borderRadius: 12, padding: '13px 22px', fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>Browse Builders</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ═══ CAMPAIGNS & EVENTS ═══ */}
+          {screen === 'campaigns' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              <div style={{ color: '#9BA1AB', fontSize: 14 }}>Builders create campaigns. Participation — not committed Cinder — determines reward eligibility.</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(330px,1fr))', gap: 16 }}>
+                {CBK_CAMPAIGNS.map(c => {
+                  const on = joined('campaign', c.id);
+                  const extra = parts.filter(p => p.kind === 'campaign' && p.ref_id === c.id).length;
+                  return (
+                    <div key={c.id} style={{ ...card, padding: 18, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{ width: 36, height: 36, borderRadius: 10, background: cbkAvatarBg(c.hue), display: 'flex', alignItems: 'center', justifyContent: 'center', ...grotesk, fontWeight: 700, fontSize: 13 }}>{cbkInitials(c.builder)}</div>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontWeight: 600, fontSize: 15 }}>{c.title}</div>
+                          <div style={{ fontSize: 12, color: '#9BA1AB' }}>by {c.builder} · ends {c.ends}</div>
+                        </div>
+                      </div>
+                      <div style={{ fontSize: 13, color: '#C6CAD1', lineHeight: 1.5 }}>{c.desc}</div>
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#9BA1AB', marginBottom: 6 }}>
+                          <span>{cbkFmt(c.cur)} / {cbkFmt(c.max)} {c.unit}</span>
+                          <span>{cbkFmt(c.participants + extra)} participants</span>
+                        </div>
+                        <div style={{ height: 7, background: '#262A32', borderRadius: 99, overflow: 'hidden' }}><div style={{ height: '100%', width: Math.min(100, Math.round(c.cur / c.max * 100)) + '%', background: 'linear-gradient(90deg,#FF6A2B,#E8B34B)', borderRadius: 99 }}></div></div>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #1E222A', paddingTop: 12, gap: 10, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: 12, color: '#E8B34B' }}>{c.reward}</span>
+                        <button onClick={() => toggleJoin('campaign', c.id)} style={{ background: on ? 'rgba(62,207,142,.12)' : 'rgba(255,106,43,.12)', color: on ? '#3ECF8E' : '#FF8A55', border: '1px solid ' + (on ? 'rgba(62,207,142,.35)' : 'rgba(255,106,43,.3)'), borderRadius: 8, padding: '7px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>{on ? '✓ Joined' : 'Join campaign'}</button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{ ...card, padding: 20 }}>
+                <div style={{ ...grotesk, fontWeight: 600, fontSize: 16, marginBottom: 14 }}>Community events</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {CBK_EVENTS.map(e => {
+                    const on = joined('event', e.id);
+                    return (
+                      <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 14, background: '#1B1E24', border: '1px solid #262A32', borderRadius: 12, padding: '13px 16px', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: 17, width: 24, textAlign: 'center' }}>{e.icon}</span>
+                        <div style={{ flex: 1, minWidth: 150 }}>
+                          <div style={{ fontWeight: 600, fontSize: 14 }}>{e.title}</div>
+                          <div style={{ fontSize: 12, color: '#9BA1AB' }}>{e.type} · {e.date}</div>
+                        </div>
+                        <button onClick={() => toggleJoin('event', e.id)} style={{ background: on ? 'rgba(62,207,142,.12)' : '#101216', color: on ? '#3ECF8E' : '#C6CAD1', border: '1px solid ' + (on ? 'rgba(62,207,142,.35)' : '#262A32'), borderRadius: 8, padding: '6px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>{on ? "✓ Going" : 'RSVP'}</button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ═══ GOVERNANCE ═══ */}
+          {screen === 'governance' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              <div style={{ color: '#9BA1AB', fontSize: 14, lineHeight: 1.6 }}>Qualified Backers vote on approved community matters. Company governance, treasury, employment, and legal decisions remain outside this system.</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(340px,1fr))', gap: 16 }}>
+                {CBK_GOV_VOTES.map(v => {
+                  const pollId = 'gov-' + v.id;
+                  const mine = myVote(pollId);
+                  const counts = voteCounts(pollId, v.options.length, v.base);
+                  const total = counts.reduce((s, n) => s + n, 0) || 1;
+                  return (
+                    <div key={v.id} style={{ ...card, padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'flex-start' }}>
+                        <div style={{ fontWeight: 600, fontSize: 15, lineHeight: 1.4 }}>{v.q}</div>
+                        <span style={{ fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 99, whiteSpace: 'nowrap', background: mine !== null ? 'rgba(62,207,142,.12)' : 'rgba(255,106,43,.12)', color: mine !== null ? '#3ECF8E' : '#FF8A55' }}>{mine !== null ? 'Voted' : 'Open'}</span>
+                      </div>
+                      <div style={{ fontSize: 12, color: '#9BA1AB' }}>{v.meta}</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {v.options.map((label, i) => {
+                          const pctN = Math.round(counts[i] / total * 100);
+                          const picked = mine === i;
+                          return (
+                            <button key={i} onClick={() => { if (session) castVote(pollId, i); else if (onSignIn) onSignIn(); }}
+                              style={{ position: 'relative', overflow: 'hidden', textAlign: 'left', background: '#101216', border: '1px solid ' + (picked ? 'rgba(62,207,142,.5)' : '#262A32'), color: '#F2F3F5', borderRadius: 10, padding: '10px 14px', fontSize: 13, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>
+                              <span style={{ position: 'absolute', inset: 0, width: pctN + '%', background: picked ? 'rgba(62,207,142,.14)' : 'rgba(255,106,43,.10)' }}></span>
+                              <span style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                                <span>{picked ? '✓ ' : ''}{label}</span>
+                                <span style={{ color: picked ? '#3ECF8E' : '#9BA1AB', fontWeight: 600 }}>{pctN}%</span>
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div style={{ fontSize: 11, color: '#9BA1AB' }}>{cbkFmt(total)} votes cast</div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
 
@@ -9160,6 +9835,77 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
                   <div style={{ fontSize: 13, color: '#9BA1AB', marginTop: 8, maxWidth: 460, margin: '8px auto 0', lineHeight: 1.6 }}>Hold Cinder, back Builders, and grow your node — admins invite standout supporters. Below is what members receive at each market-cap milestone.</div>
                 </div>
               ) : null}
+
+              {/* Member view: allocation + airdrop schedule + stats */}
+              {(isVip || isAdmin) && (() => {
+                const me = vips.find(v => session && v.user_id === session.user.id);
+                const tier = me ? me.tier : 'VIP';
+                const mult = CBK_TIER_MULT[tier] || 1;
+                const rows = CBK_MCAPS.map(d => {
+                  const amount = (CBK_DROP_BASE[d.label] || 0) * mult;
+                  const hit = CBK_MARKET_CAP >= d.cap;
+                  const isNext = mcNext && d.cap === mcNext.cap;
+                  return { label: d.label, amount, status: hit ? 'Airdropped' : isNext ? 'Scheduled' : 'Pending', hit, isNext };
+                });
+                const total = rows.reduce((s, r) => s + r.amount, 0);
+                const received = rows.filter(r => r.hit).reduce((s, r) => s + r.amount, 0);
+                const remaining = total - received;
+                return (
+                  <>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 14 }}>
+                      {[
+                        { label: 'Your VIP tier', value: tier, sub: mult + '× allocation', color: '#B9A8E8', border: '#2A2438' },
+                        { label: 'Total allocation', value: cbkFmt(total), sub: 'Cinder across all milestones', color: '#E8B34B', border: '#33261A' },
+                        { label: 'Airdropped', value: cbkFmt(received), sub: rows.filter(r => r.hit).length + ' of ' + rows.length + ' milestones', color: '#3ECF8E', border: '#1E3A2C' },
+                        { label: 'Room members', value: cbkFmt(vips.length), sub: 'Admin-managed roster', color: '#F2F3F5', border: '#262A32' },
+                      ].map((s, i) => (
+                        <div key={i} style={{ background: '#14161B', border: '1px solid ' + s.border, borderRadius: 14, padding: 18 }}>
+                          <div style={{ fontSize: 11, letterSpacing: '.1em', color: '#9BA1AB', textTransform: 'uppercase' }}>{s.label}</div>
+                          <div style={{ ...grotesk, fontSize: 24, fontWeight: 700, marginTop: 8, color: s.color }}>{s.value}</div>
+                          <div style={{ fontSize: 12, color: '#9BA1AB', marginTop: 4 }}>{s.sub}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div style={{ ...card, padding: 20 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 14, flexWrap: 'wrap', marginBottom: 12 }}>
+                        <div>
+                          <div style={{ ...grotesk, fontWeight: 600, fontSize: 16 }}>My airdrop allocation</div>
+                          <div style={{ fontSize: 12, color: '#9BA1AB', marginTop: 3 }}>Released in stages as market-cap milestones are reached.</div>
+                        </div>
+                        <div style={{ fontSize: 13 }}><span style={{ color: '#3ECF8E', fontWeight: 600 }}>{cbkFmt(received)}</span> <span style={{ color: '#9BA1AB' }}>received of</span> <span style={{ fontWeight: 600 }}>{cbkFmt(total)}</span></div>
+                      </div>
+                      <div style={{ display: 'flex', height: 14, borderRadius: 99, overflow: 'hidden', background: '#262A32' }}>
+                        <div style={{ width: Math.round(received / (total || 1) * 100) + '%', background: 'linear-gradient(90deg,#3ECF8E,#5FDCA4)' }}></div>
+                        <div style={{ width: Math.round(remaining / (total || 1) * 100) + '%', background: 'linear-gradient(90deg,#FF6A2B,#E8B34B)' }}></div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', marginTop: 12 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#9BA1AB' }}><span style={{ width: 9, height: 9, borderRadius: 3, background: '#3ECF8E' }}></span>Airdropped · <span style={{ color: '#F2F3F5', fontWeight: 600 }}>{cbkFmt(received)}</span></div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#9BA1AB' }}><span style={{ width: 9, height: 9, borderRadius: 3, background: '#FF6A2B' }}></span>Remaining · <span style={{ color: '#F2F3F5', fontWeight: 600 }}>{cbkFmt(remaining)}</span></div>
+                      </div>
+                    </div>
+
+                    <div style={{ ...card, padding: 20 }}>
+                      <div style={{ ...grotesk, fontWeight: 600, fontSize: 16, marginBottom: 14 }}>Airdrop schedule</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        {rows.map(r => (
+                          <div key={r.label} style={{ display: 'flex', alignItems: 'center', gap: 14, background: r.hit ? 'rgba(62,207,142,.05)' : '#1B1E24', border: '1px solid ' + (r.hit ? 'rgba(62,207,142,.25)' : r.isNext ? 'rgba(255,106,43,.4)' : '#262A32'), borderRadius: 12, padding: 14, flexWrap: 'wrap' }}>
+                            <div style={{ width: 28, height: 28, borderRadius: 99, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, flexShrink: 0, background: r.hit ? 'rgba(62,207,142,.15)' : '#101216', color: r.hit ? '#3ECF8E' : '#9BA1AB' }}>{r.hit ? '✓' : r.isNext ? '◉' : '🔒'}</div>
+                            <div style={{ flex: 1, minWidth: 140 }}>
+                              <div style={{ fontWeight: 600, fontSize: 14 }}>{r.label} milestone airdrop</div>
+                              <div style={{ fontSize: 12, color: '#9BA1AB', marginTop: 2 }}>{r.hit ? 'Released' : r.isNext ? 'Next in line' : 'On milestone'}</div>
+                            </div>
+                            <div style={{ textAlign: 'right' }}>
+                              <div style={{ fontWeight: 600, fontSize: 14, color: r.hit ? '#3ECF8E' : '#E8B34B' }}>{cbkFmt(r.amount)} 🔥</div>
+                              <div style={{ fontSize: 11, color: r.hit ? '#3ECF8E' : r.isNext ? '#FF8A55' : '#9BA1AB' }}>{r.status}</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
 
               {/* Milestone schedule — visible to everyone so the goal is public. */}
               <div style={{ ...card, padding: 20 }}>
@@ -9256,23 +10002,32 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
           {/* ═══ LEADERBOARD ═══ */}
           {screen === 'leaderboard' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <div style={{ color: '#9BA1AB', fontSize: 14 }}>Builders ranked by backing points + Node Power. Live district nodes carry a <span style={{ color: '#3ECF8E' }}>✓</span>.</div>
-              <div style={{ ...card, overflow: 'hidden' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '52px 1.8fr 1fr 1fr 90px', gap: 12, padding: '12px 18px', fontSize: 11, letterSpacing: '.1em', color: '#9BA1AB', textTransform: 'uppercase', borderBottom: '1px solid #1E222A' }}>
-                  <span>#</span><span>Builder</span><span>Type</span><span>Points</span><span>Tier</span>
-                </div>
-                {leaderboard.map((r, i) => (
-                  <div key={r.id} onClick={() => openProfile(r.id)} style={{ display: 'grid', gridTemplateColumns: '52px 1.8fr 1fr 1fr 90px', gap: 12, alignItems: 'center', padding: '13px 18px', borderBottom: '1px solid #16181D', cursor: 'pointer', background: i === 0 ? 'rgba(232,179,75,.04)' : 'transparent' }}>
-                    <span style={{ ...grotesk, fontWeight: 700, fontSize: 15, color: i === 0 ? '#E8B34B' : i < 3 ? '#FF8A55' : '#9BA1AB' }}>{i + 1}</span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                      <div style={{ width: 32, height: 32, borderRadius: 9, background: r.avatarBg, display: 'flex', alignItems: 'center', justifyContent: 'center', ...grotesk, fontWeight: 700, fontSize: 12, flexShrink: 0 }}>{r.initials}</div>
-                      <span style={{ fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}{r.real ? ' ✓' : ''}</span>
-                    </div>
-                    <span style={{ fontSize: 13, color: '#9BA1AB' }}>{r.typeLabel}</span>
-                    <span style={{ fontSize: 13, color: '#E8B34B', fontWeight: 600 }}>{cbkFmt(r.pointsShown)}</span>
-                    <span style={{ fontSize: 11, fontWeight: 600, padding: '4px 0', borderRadius: 99, textAlign: 'center', background: r.tierBg, color: r.tierColor }}>{r.tier}</span>
-                  </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {[['points', 'Backing points'], ['score', 'Builder Score'], ['trust', 'Community Trust'], ['backers', 'Backers']].map(([k, label]) => (
+                  <button key={k} onClick={() => setLeaderTab(k)} style={{ borderRadius: 99, padding: '8px 16px', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif", background: leaderTab === k ? 'rgba(255,106,43,.14)' : '#14161B', color: leaderTab === k ? '#FF8A55' : '#C6CAD1', border: '1px solid ' + (leaderTab === k ? 'rgba(255,106,43,.4)' : '#262A32') }}>{label}</button>
                 ))}
+              </div>
+              <div style={{ color: '#9BA1AB', fontSize: 13 }}>{leaderCaption}</div>
+              <div style={{ ...card, overflow: 'hidden', overflowX: 'auto' }}>
+                <div style={{ minWidth: 640 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '52px 1.8fr 1fr .7fr .7fr .9fr 88px', gap: 12, padding: '12px 18px', fontSize: 11, letterSpacing: '.1em', color: '#9BA1AB', textTransform: 'uppercase', borderBottom: '1px solid #1E222A' }}>
+                    <span>#</span><span>Builder</span><span>Type</span><span>Score</span><span>Trust</span><span>{leaderTab === 'backers' ? 'Backers' : leaderTab === 'score' ? 'Score' : leaderTab === 'trust' ? 'Trust' : 'Points'}</span><span>Tier</span>
+                  </div>
+                  {leaderboard.map((r, i) => (
+                    <div key={r.id} onClick={() => openProfile(r.id)} style={{ display: 'grid', gridTemplateColumns: '52px 1.8fr 1fr .7fr .7fr .9fr 88px', gap: 12, alignItems: 'center', padding: '13px 18px', borderBottom: '1px solid #16181D', cursor: 'pointer', background: i === 0 ? 'rgba(232,179,75,.04)' : 'transparent' }}>
+                      <span style={{ ...grotesk, fontWeight: 700, fontSize: 15, color: i === 0 ? '#E8B34B' : i < 3 ? '#FF8A55' : '#9BA1AB' }}>{i + 1}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                        <div style={{ width: 32, height: 32, borderRadius: 9, background: r.avatarBg, display: 'flex', alignItems: 'center', justifyContent: 'center', ...grotesk, fontWeight: 700, fontSize: 12, flexShrink: 0 }}>{r.initials}</div>
+                        <span style={{ fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}{r.real ? ' ✓' : ''}</span>
+                      </div>
+                      <span style={{ fontSize: 13, color: '#9BA1AB' }}>{r.typeLabel}</span>
+                      <span style={{ fontSize: 13, color: '#E8B34B' }}>{r.score}</span>
+                      <span style={{ fontSize: 13, color: '#3ECF8E' }}>{r.trust}</span>
+                      <span style={{ fontSize: 13, fontWeight: 600 }}>{leaderTab === 'backers' ? r.capLabel : cbkFmt(leaderMetric[leaderTab](r))}</span>
+                      <span style={{ fontSize: 11, fontWeight: 600, padding: '4px 0', borderRadius: 99, textAlign: 'center', background: r.tierBg, color: r.tierColor }}>{r.tier}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           )}
