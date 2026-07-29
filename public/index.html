@@ -8454,6 +8454,10 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
   const [createType, setCreateType] = useState(null);
   const [cf, setCf] = useState({ name: '', location: '', bio: '', goal: '', nodeName: '' });
   const [createdId, setCreatedId] = useState(null);
+  // Mythic Token (MT) — the on-chain asset. Balance + linked wallet are read
+  // only; every debit/credit runs through the server-side RPCs.
+  const [mtBal, setMtBal] = useState(0);
+  const [wallet, setWallet] = useState(null);
   const [modal, setModal] = useState(null);      // lock-Cinder backing modal
   const [buyModal, setBuyModal] = useState(null); // buy-tokens preview modal
   const [busy, setBusy] = useState(false);
@@ -8501,7 +8505,9 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
       client.from('cinder_posts').select('*').order('created_at', { ascending: false }).limit(120),
       client.from('cinder_votes').select('*'),
       client.from('cinder_participation').select('*'),
-    ]).then(([o, r, pw, b, v, bl, po, vo, pa]) => {
+      client.from('mythic_balances').select('mt').eq('user_id', session.user.id).maybeSingle(),
+      client.from('ownership_accounts').select('wallet_address, status, chain_id').eq('player_id', session.user.id).maybeSingle(),
+    ]).then(([o, r, pw, b, v, bl, po, vo, pa, mb, oa]) => {
       if (dead) return;
       setOwners(o.data || []);
       const rm = {}; (r.data || []).forEach(row => { rm[row.node_id] = row; }); setRecons(rm);
@@ -8512,6 +8518,8 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
       setPosts(po.data || []);
       setVotes(vo.data || []);
       setParts(pa.data || []);
+      setMtBal(mb.data ? Number(mb.data.mt) || 0 : 0);
+      setWallet(oa.data || null);
     });
     return () => { dead = true; };
   }, [client, session, reloadN]);
@@ -8636,6 +8644,8 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
 
   const active = backings.filter(b => !b.released);
   const locked = active.reduce((s, b) => s + Number(b.amount), 0);
+  const lockedCinder = active.filter(b => b.currency !== 'MT').reduce((s, b) => s + Number(b.amount), 0);
+  const lockedMt = active.filter(b => b.currency === 'MT').reduce((s, b) => s + Number(b.amount), 0);
   const myPoints = backings.reduce((s, b) => s + (b.points || 0), 0);
   let rankIdx = CBK_RANKS.reduce((acc, r, i) => (myPoints >= r[1] ? i : acc), 0);
   const nextRank = CBK_RANKS[rankIdx + 1];
@@ -8655,21 +8665,50 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
 
   const pushPost = (text) => savePrev({ ...prev, posts: [{ text, when: new Date().toISOString() }, ...prevPosts].slice(0, 30) });
 
-  // ── Lock Cinder behind a Builder (real: deducts gems + writes the row).
+  // ── Lock value behind a Builder. Two currencies, two very different paths:
+  //  · CINDER comes out of the player's GAME account (user_profiles.gems),
+  //    which the client owns under RLS — same mechanic as buying a pack.
+  //  · MT (Mythic Token) is the on-chain asset. mythic_balances is read-only
+  //    to the client, so the debit runs server-side through cinder_lock_mt,
+  //    which verifies the caller, checks funds, moves the balance, writes the
+  //    token ledger, and computes the points itself.
   const confirmLock = async () => {
     const m = modal;
     const amt = parseInt((m.amountStr || '').replace(/[^0-9]/g, '') || '0', 10);
-    if (!amt || amt > gems || busy) return;
+    const isMt = m.cur === 'MT';
+    const funds = isMt ? mtBal : gems;
+    if (!amt || amt > funds || busy) return;
     setBusy(true);
     const p = findProfile(m.profileId);
     const mult = CBK_DUR.find(d => d.days === m.days).mult;
     const pts = Math.round(amt * mult / 10);
+
+    if (isMt) {
+      const { data, error } = await client.rpc('cinder_lock_mt', {
+        p_profile_id: p.id, p_profile_name: p.name, p_profile_type: p.type,
+        p_amount: amt, p_days: m.days,
+      });
+      setBusy(false);
+      const res = data || {};
+      if (error || !res.ok) {
+        setNotice(res.error === 'insufficient_mt'
+          ? `Not enough Mythic Token — your wallet balance is ${cbkFmt(res.balance || 0)} MT.`
+          : 'Could not lock your Mythic Token — nothing was moved.');
+        return;
+      }
+      setMtBal(Number(res.balance) || 0);
+      pushPost(`You committed ${cbkFmt(amt)} MT behind ${p.name} (${m.days}-day commitment) — +${cbkFmt(res.points)} backing points.`);
+      setReloadN(n => n + 1);
+      setModal({ ...m, step: 3, confirmedAmount: amt, confirmedPoints: res.points });
+      return;
+    }
+
     const unlockAt = new Date(Date.now() + m.days * 864e5);
     const { error: e1 } = await client.from('user_profiles').update({ gems: gems - amt, updated_at: new Date().toISOString() }).eq('user_id', session.user.id);
-    if (e1) { setBusy(false); setNotice('Could not reach your account balance — try again.'); return; }
+    if (e1) { setBusy(false); setNotice('Could not reach your game balance — try again.'); return; }
     const { error: e2 } = await client.from('cinder_backings').insert({
       user_id: session.user.id, profile_id: p.id, profile_name: p.name, profile_type: p.type,
-      amount: amt, days: m.days, points: pts, unlock_at: unlockAt.toISOString(),
+      amount: amt, days: m.days, points: pts, unlock_at: unlockAt.toISOString(), currency: 'CINDER',
     });
     if (e2) {
       await client.from('user_profiles').update({ gems, updated_at: new Date().toISOString() }).eq('user_id', session.user.id);
@@ -8680,16 +8719,27 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
     setModal({ ...m, step: 3, confirmedAmount: amt, confirmedPoints: pts });
   };
 
-  // ── Release a matured lock (idempotent: guarded update, then credit back).
+  // ── Release a matured lock back to wherever it came from.
   const releaseLock = async (b) => {
     if (busy) return;
     setBusy(true);
+    if (b.currency === 'MT') {
+      const { data, error } = await client.rpc('cinder_release_mt', { p_backing_id: b.id });
+      const res = data || {};
+      if (!error && res.ok) {
+        setMtBal(Number(res.balance) || 0);
+        pushPost(`Unlocked ${cbkFmt(b.amount)} MT from ${b.profile_name} — returned to your wallet balance.`);
+      } else if (res.error === 'not_releasable') {
+        setNotice('That commitment has not matured yet.');
+      }
+      setReloadN(n => n + 1); setBusy(false); return;
+    }
     const { data, error } = await client.from('cinder_backings')
       .update({ released: true, released_at: new Date().toISOString() })
       .eq('id', b.id).eq('released', false).select();
     if (!error && data && data.length) {
       await client.from('user_profiles').update({ gems: gems + Number(b.amount), updated_at: new Date().toISOString() }).eq('user_id', session.user.id);
-      pushPost(`Unlocked ${cbkFmt(b.amount)} CINDER from ${b.profile_name} — returned to your wallet.`);
+      pushPost(`Unlocked ${cbkFmt(b.amount)} CINDER from ${b.profile_name} — returned to your game account.`);
       refreshProfile();
     }
     setReloadN(n => n + 1); setBusy(false);
@@ -8975,7 +9025,10 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
   const lm = modal;
   const lmProfile = lm ? findProfile(lm.profileId) : null;
   const lmAmt = lm ? parseInt((lm.amountStr || '').replace(/[^0-9]/g, '') || '0', 10) : 0;
-  const lmOver = lmAmt > gems;
+  const lmIsMt = !!(lm && lm.cur === 'MT');
+  const lmFunds = lmIsMt ? mtBal : gems;
+  const lmUnit = lmIsMt ? 'MT' : 'CINDER';
+  const lmOver = lmAmt > lmFunds;
   const lmValid = lmAmt > 0 && !lmOver;
   const lmMult = lm ? CBK_DUR.find(d => d.days === lm.days).mult : 1;
   const lmPts = Math.round(lmAmt * lmMult / 10);
@@ -9033,6 +9086,11 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
                   <span style={{ width: 8, height: 8, borderRadius: 99, background: '#3ECF8E' }}></span>
                   <span style={{ fontSize: 13, fontWeight: 600 }}>{cbkFmt(gems)}</span>
                   <span style={{ fontSize: 12, color: '#9BA1AB' }}>available 🔥</span>
+                </div>
+                <div title="Mythic Token — on-chain balance" style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#14161B', border: '1px solid #2A2438', borderRadius: 99, padding: '7px 14px' }}>
+                  <span style={{ fontSize: 12, color: '#B9A8E8' }}>⬢</span>
+                  <span style={{ fontSize: 13, fontWeight: 600 }}>{cbkFmt(mtBal)}</span>
+                  <span style={{ fontSize: 12, color: '#9BA1AB' }}>MT</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#14161B', border: '1px solid #33261A', borderRadius: 99, padding: '7px 14px' }}>
                   <span style={{ width: 8, height: 8, borderRadius: 99, background: '#FF6A2B', animation: 'emberPulse 2.4s infinite' }}></span>
@@ -9125,7 +9183,8 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 14 }}>
                 {[
                   { label: 'Available Cinder', value: cbkFmt(gems), sub: session ? 'Live game balance 🔥' : 'Sign in to connect', color: '#F2F3F5' },
-                  { label: 'Locked backing', value: cbkFmt(locked), sub: session ? `Across ${active.length} commitment${active.length === 1 ? '' : 's'}` : 'Sign in to connect', color: '#FF8A55' },
+                  { label: 'Mythic Token', value: cbkFmt(mtBal), sub: session ? (wallet && wallet.wallet_address ? 'Wallet ' + wallet.wallet_address.slice(0, 6) + '…' + wallet.wallet_address.slice(-4) : 'No wallet linked yet') : 'Sign in to connect', color: '#B9A8E8' },
+                  { label: 'Locked backing', value: cbkFmt(locked), sub: session ? `${cbkFmt(lockedCinder)} 🔥 · ${cbkFmt(lockedMt)} ⬢ across ${active.length}` : 'Sign in to connect', color: '#FF8A55' },
                   { label: 'Backing points', value: cbkFmt(myPoints), sub: CBK_RANKS[rankIdx][0] + ' rank', color: '#E8B34B' },
                   { label: 'Achievements', value: `${earned.length} / ${CBK_ACH.length}`, sub: 'Unlocked so far', color: '#3ECF8E' },
                 ].map((s, i) => (
@@ -9204,7 +9263,7 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
                                 <div style={{ fontSize: 12, color: '#9BA1AB', marginTop: 2 }}>{b.days}-day lock · unlocks {new Date(b.unlock_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
                               </div>
                               <div style={{ textAlign: 'right' }}>
-                                <div style={{ fontWeight: 600, fontSize: 14 }}>{cbkFmt(b.amount)} 🔥</div>
+                                <div style={{ fontWeight: 600, fontSize: 14, color: b.currency === 'MT' ? '#B9A8E8' : '#F2F3F5' }}>{cbkFmt(b.amount)} {b.currency === 'MT' ? '⬢ MT' : '🔥'}</div>
                                 <div style={{ fontSize: 12, color: '#E8B34B' }}>+{cbkFmt(b.points)} pts</div>
                               </div>
                               {matured && (
@@ -9524,7 +9583,12 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
                     {myAmt > 0 && (
                       <div style={{ background: 'linear-gradient(160deg,#0F1A14,#14161B)', border: '1px solid #1E3A2C', borderRadius: 14, padding: 20 }}>
                         <div style={{ fontSize: 12, letterSpacing: '.1em', color: '#3ECF8E', fontWeight: 600 }}>YOUR POSITION</div>
-                        <div style={{ ...grotesk, fontSize: 24, fontWeight: 700, marginTop: 6 }}>{cbkFmt(myAmt)} CINDER</div>
+                        <div style={{ ...grotesk, fontSize: 24, fontWeight: 700, marginTop: 6 }}>
+                          {[['CINDER', myB.filter(b => b.currency !== 'MT')], ['MT', myB.filter(b => b.currency === 'MT')]]
+                            .filter(([, rows]) => rows.length)
+                            .map(([unit, rows]) => cbkFmt(rows.reduce((s, b) => s + Number(b.amount), 0)) + ' ' + unit)
+                            .join(' + ')}
+                        </div>
                         <div style={{ fontSize: 12, color: '#9BA1AB', marginTop: 4 }}>{myB[0].days}-day lock · earning points since {new Date(myB[0].started_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
                       </div>
                     )}
@@ -10042,19 +10106,48 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
               <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
                 <div>
                   <div style={{ ...grotesk, fontSize: 20, fontWeight: 700 }}>Back {lmProfile.name}</div>
-                  <div style={{ fontSize: 13, color: '#9BA1AB', marginTop: 4 }}>Lock Cinder from your Mythic Spellbook balance. You keep ownership — it returns when the lock matures.</div>
+                  <div style={{ fontSize: 13, color: '#9BA1AB', marginTop: 4 }}>Commit Cinder from your game account or Mythic Token from your wallet. You keep ownership either way — it returns when the lock matures.</div>
                 </div>
+
+                {/* Currency picker — two different sources of value. */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  {[
+                    { key: 'CINDER', icon: '🔥', label: 'Cinder', sub: 'From your game account', bal: gems, on: '#FF6A2B' },
+                    { key: 'MT', icon: '⬢', label: 'Mythic Token', sub: 'From your crypto wallet', bal: mtBal, on: '#B9A8E8' },
+                  ].map(c => {
+                    const sel2 = (lm.cur || 'CINDER') === c.key;
+                    return (
+                      <button key={c.key} onClick={() => setModal({ ...lm, cur: c.key, amountStr: '' })}
+                        style={{ textAlign: 'left', background: sel2 ? 'rgba(255,255,255,.04)' : '#101216', border: '1px solid ' + (sel2 ? c.on : '#262A32'), borderRadius: 12, padding: '12px 14px', cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                          <span style={{ fontSize: 15 }}>{c.icon}</span>
+                          <span style={{ fontWeight: 700, fontSize: 13, color: sel2 ? '#F2F3F5' : '#C6CAD1' }}>{c.label}</span>
+                        </div>
+                        <div style={{ fontSize: 11, color: '#9BA1AB', marginTop: 4 }}>{c.sub}</div>
+                        <div style={{ ...grotesk, fontSize: 15, fontWeight: 700, color: sel2 ? c.on : '#9BA1AB', marginTop: 5 }}>{cbkFmt(c.bal)}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+                {lmIsMt && (
+                  <div style={{ ...mono, fontSize: 11, color: wallet ? '#7E6BA8' : '#E8B34B', background: '#101216', border: '1px solid ' + (wallet ? '#2A2438' : '#33261A'), borderRadius: 10, padding: '10px 12px', lineHeight: 1.6, wordBreak: 'break-all' }}>
+                    {wallet && wallet.wallet_address
+                      ? <>WALLET {wallet.wallet_address.slice(0, 6)}…{wallet.wallet_address.slice(-4)} · BASE MAINNET · MT balance {cbkFmt(mtBal)}</>
+                      : <>No wallet linked yet — open the Bank of Ethos in-game to link one and buy MT. You can still back with Cinder now.</>}
+                  </div>
+                )}
+
                 <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#9BA1AB', marginBottom: 8 }}><span>Amount to lock</span><span>Available: {cbkFmt(gems)} 🔥</span></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#9BA1AB', marginBottom: 8 }}><span>Amount to commit</span><span>Available: {cbkFmt(lmFunds)} {lmIsMt ? '⬢' : '🔥'}</span></div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#101216', border: '1px solid ' + (lmOver ? '#F0655A' : '#262A32'), borderRadius: 12, padding: '4px 4px 4px 16px' }}>
                     <input value={lm.amountStr} onChange={(e) => setModal({ ...lm, amountStr: e.target.value.replace(/[^0-9]/g, '') })} placeholder="0" inputMode="numeric"
                       style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: '#F2F3F5', ...grotesk, fontSize: 22, fontWeight: 600, minWidth: 0 }} />
-                    <span style={{ fontSize: 13, color: '#9BA1AB', paddingRight: 8 }}>CINDER</span>
+                    <span style={{ fontSize: 13, color: '#9BA1AB', paddingRight: 8 }}>{lmUnit}</span>
                   </div>
-                  {lmOver && <div style={{ fontSize: 12, color: '#F0655A', marginTop: 6 }}>Exceeds your available balance</div>}
+                  {lmOver && <div style={{ fontSize: 12, color: '#F0655A', marginTop: 6 }}>Exceeds your available {lmIsMt ? 'Mythic Token' : 'Cinder'} balance</div>}
                   <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
                     {[25, 50, 75, 100].map(pc => (
-                      <button key={pc} onClick={() => setModal({ ...lm, amountStr: String(Math.floor(gems * pc / 100)) })}
+                      <button key={pc} onClick={() => setModal({ ...lm, amountStr: String(Math.floor(lmFunds * pc / 100)) })}
                         style={{ flex: 1, background: '#1B1E24', border: '1px solid #262A32', color: '#C6CAD1', borderRadius: 8, padding: '7px 0', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>{pc === 100 ? 'Max' : pc + '%'}</button>
                     ))}
                   </div>
@@ -10085,7 +10178,8 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
                 <div style={{ display: 'flex', flexDirection: 'column', background: '#101216', border: '1px solid #262A32', borderRadius: 12, overflow: 'hidden' }}>
                   {[
                     ['Builder', lmProfile.name, '#F2F3F5'],
-                    ['Amount locked', cbkFmt(lmAmt) + ' CINDER', '#F2F3F5'],
+                    ['Amount committed', cbkFmt(lmAmt) + ' ' + lmUnit, lmIsMt ? '#B9A8E8' : '#F2F3F5'],
+                    ['Taken from', lmIsMt ? 'Your Mythic Token wallet balance' : 'Your Mythic Spellbook game account', '#C6CAD1'],
                     ['Lock duration', lm.days + ' days · unlocks ' + lmUnlock, '#F2F3F5'],
                     ['Backing points', '+' + cbkFmt(lmPts), '#E8B34B'],
                     ['Ownership', 'Stays with you', '#3ECF8E'],
@@ -10095,10 +10189,14 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
                     </div>
                   ))}
                 </div>
-                <div style={{ fontSize: 12, color: '#9BA1AB', lineHeight: 1.6, background: '#101216', border: '1px solid #262A32', borderRadius: 10, padding: '12px 14px' }}>Your Cinder moves out of your game balance into the backing lock until the unlock date, then you can return it to your wallet with one click. It is never spent, transferred, or used for company development.</div>
+                <div style={{ fontSize: 12, color: '#9BA1AB', lineHeight: 1.6, background: '#101216', border: '1px solid #262A32', borderRadius: 10, padding: '12px 14px' }}>
+                  {lmIsMt
+                    ? 'Your Mythic Token moves out of your wallet balance into the backing lock until the unlock date, then one click returns it. It is never spent, transferred, or used for company development.'
+                    : 'Your Cinder moves out of your game balance into the backing lock until the unlock date, then one click returns it to your game account. It is never spent, transferred, or used for company development.'}
+                </div>
                 <div style={{ display: 'flex', gap: 10 }}>
                   <button onClick={() => setModal({ ...lm, step: 1 })} style={{ flex: 1, background: '#1B1E24', border: '1px solid #262A32', color: '#C6CAD1', borderRadius: 12, padding: 13, fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>Edit</button>
-                  <button onClick={confirmLock} disabled={busy} style={{ flex: 2, background: '#FF6A2B', color: '#14060A', border: 'none', borderRadius: 12, padding: 13, fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif", opacity: busy ? 0.6 : 1 }}>{busy ? 'Locking…' : 'Lock & back'}</button>
+                  <button onClick={confirmLock} disabled={busy} style={{ flex: 2, background: lmIsMt ? '#7C6BFF' : '#FF6A2B', color: lmIsMt ? '#0B0818' : '#14060A', border: 'none', borderRadius: 12, padding: 13, fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif", opacity: busy ? 0.6 : 1 }}>{busy ? 'Committing…' : (lmIsMt ? 'Commit Mythic Token' : 'Lock Cinder & back')}</button>
                 </div>
               </div>
             )}
@@ -10106,7 +10204,7 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'center', textAlign: 'center', padding: '10px 0' }}>
                 <img src="./assets/artwork/gameicons/Cinder.png" alt="" style={{ width: 64, height: 86, objectFit: 'contain', animation: 'emberPulse 2s infinite' }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
                 <div style={{ ...grotesk, fontSize: 22, fontWeight: 700 }}>Backing confirmed</div>
-                <div style={{ fontSize: 14, color: '#C6CAD1', lineHeight: 1.6, maxWidth: 340 }}>You're now backing <strong>{lmProfile.name}</strong> with {cbkFmt(lm.confirmedAmount)} CINDER. You earned <span style={{ color: '#E8B34B', fontWeight: 600 }}>+{cbkFmt(lm.confirmedPoints)} backing points</span> — saved to your Mythic Spellbook account.</div>
+                <div style={{ fontSize: 14, color: '#C6CAD1', lineHeight: 1.6, maxWidth: 340 }}>You're now backing <strong>{lmProfile.name}</strong> with {cbkFmt(lm.confirmedAmount)} {lmUnit}, taken from your {lmIsMt ? 'Mythic Token wallet balance' : 'game account'}. You earned <span style={{ color: '#E8B34B', fontWeight: 600 }}>+{cbkFmt(lm.confirmedPoints)} backing points</span> — saved to your Mythic Spellbook account.</div>
                 <button onClick={() => setModal(null)} style={{ background: '#FF6A2B', color: '#14060A', border: 'none', borderRadius: 12, padding: '13px 32px', fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>Done</button>
               </div>
             )}
@@ -10188,7 +10286,8 @@ const HubBackingPanel = ({ client, session, onShowBacking }) => {
     ]).then(([b, o]) => { if (!dead) { setBackings(b.data || []); setMyNodes(o.data || []); } });
     return () => { dead = true; };
   }, [client, session]);
-  const locked = backings.reduce((s, b) => s + Number(b.amount), 0);
+  const locked = backings.filter(b => b.currency !== 'MT').reduce((s, b) => s + Number(b.amount), 0);
+  const lockedMt = backings.filter(b => b.currency === 'MT').reduce((s, b) => s + Number(b.amount), 0);
   const pts = backings.reduce((s, b) => s + (b.points || 0), 0);
   const rank = CBK_RANKS.reduce((acc, r) => (pts >= r[1] ? r[0] : acc), 'Spark');
   return (
@@ -10205,7 +10304,7 @@ const HubBackingPanel = ({ client, session, onShowBacking }) => {
         <div className="grid grid-cols-3 gap-3 mb-4">
           <div className="bg-black/50 border border-stone-700/50 rounded p-3 text-center">
             <div className="text-xl font-bold text-orange-300 font-mono">{locked.toLocaleString()}</div>
-            <div className="text-stone-500 text-[10px] tracking-widest uppercase mt-1">🔥 Locked</div>
+            <div className="text-stone-500 text-[10px] tracking-widest uppercase mt-1">🔥 Locked{lockedMt > 0 ? ` · ${lockedMt.toLocaleString()} ⬢` : ''}</div>
           </div>
           <div className="bg-black/50 border border-stone-700/50 rounded p-3 text-center">
             <div className="text-xl font-bold text-amber-300 font-mono">{pts.toLocaleString()}</div>
@@ -10221,7 +10320,7 @@ const HubBackingPanel = ({ client, session, onShowBacking }) => {
             {backings.slice(0, 3).map(b => (
               <div key={b.id} className="flex items-center justify-between gap-3 bg-black/40 border border-stone-700/40 rounded px-3 py-2 text-sm">
                 <span className="text-stone-200 truncate">{b.profile_name}</span>
-                <span className="text-stone-400 font-mono whitespace-nowrap">{Number(b.amount).toLocaleString()} 🔥 · unlocks {new Date(b.unlock_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                <span className="text-stone-400 font-mono whitespace-nowrap">{Number(b.amount).toLocaleString()} {b.currency === 'MT' ? '⬢' : '🔥'} · unlocks {new Date(b.unlock_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
               </div>
             ))}
             {backings.length > 3 && <div className="text-stone-500 text-xs">+ {backings.length - 3} more in the platform</div>}
