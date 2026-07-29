@@ -40,7 +40,7 @@
 <script src="https://unpkg.com/@babel/standalone@7.26.4/babel.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Crimson+Text:ital,wght@0,400;0,600;1,400&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Merriweather+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Crimson+Text:ital,wght@0,400;0,600;1,400&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Merriweather+Sans:wght@300;400;600;700&family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   body { margin: 0; padding: 0; background: #050506; color: white; font-family: 'Merriweather Sans', system-ui, sans-serif; min-height: 100vh; }
   /* Site serif — GATCG-style elegant old-style serif (was distressed Cinzel).
@@ -75,6 +75,11 @@
   .ga-article { transition: transform 0.25s ease, box-shadow 0.25s ease; }
   .ga-article:hover { transform: translateY(-4px); box-shadow: 0 14px 40px rgba(0,0,0,0.55); }
   html { scroll-behavior: smooth; }
+  /* ── Cinder Backing platform (design-handoff tokens) ── */
+  @keyframes emberPulse { 0%,100% { opacity: .7; } 50% { opacity: 1; } }
+  .cbk { font-family: 'IBM Plex Sans', sans-serif; color: #F2F3F5; }
+  .cbk ::selection { background: rgba(255,106,43,.35); }
+  .cbk input, .cbk textarea { font-family: 'IBM Plex Sans', sans-serif; }
   /* Animations used by the TSX */
   @keyframes flicker { 0%,100% { opacity: 1; } 30% { opacity: 0.85; } 50% { opacity: 1; } 70% { opacity: 0.9; } }
   @keyframes pulse-red { 0%,100% { opacity: 1; box-shadow: 0 0 0 0 rgba(220,38,38,0.7); } 50% { opacity: 0.7; box-shadow: 0 0 0 8px rgba(220,38,38,0); } }
@@ -724,7 +729,7 @@ const Card = ({ card: _cardIn, onClick, size = 'md', floating = true, intensity 
 };
 
 // ===== NAVBAR =====
-const Navbar = ({ onNavigate, deckCount, survivors, loyalFaction, isSignedIn, displayName, onShowHub, onShowHome, onShowCommunity, onShowRMT, onShowSurvivor, onShowDeckBuilder, onShowNews, onShowPledge, onShowCardList, onSignIn, currentPage }) => {
+const Navbar = ({ onNavigate, deckCount, survivors, loyalFaction, isSignedIn, displayName, onShowHub, onShowHome, onShowCommunity, onShowRMT, onShowSurvivor, onShowDeckBuilder, onShowNews, onShowPledge, onShowCardList, onShowBacking, onSignIn, currentPage }) => {
   // GATCG-style navbar: single slim fixed bar, black/80 + heavy blur, logo
   // left, quiet text links, minimal buttons. Emergency-broadcast banner retired.
   // Hamburger menu — only used below lg breakpoint. Auto-closes after any
@@ -783,6 +788,8 @@ const Navbar = ({ onNavigate, deckCount, survivors, loyalFaction, isSignedIn, di
           <button onClick={() => { if (onShowSurvivor) onShowSurvivor(); }} className={`whitespace-nowrap hover:text-white transition tracking-wide font-medium ${currentPage === 'survivor' ? 'text-white' : ''}`}>Survivor</button>
           {/* Card List — browsable catalog + Coming Drops. */}
           <button onClick={() => { if (onShowCardList) onShowCardList(); }} className={`whitespace-nowrap hover:text-white transition tracking-wide font-medium ${currentPage === 'cardlist' ? 'text-white' : ''}`}>Card List</button>
+          {/* Backing — Cinder Backing staking platform (account-connected). */}
+          <button onClick={() => { if (onShowBacking) onShowBacking(); }} className="whitespace-nowrap transition tracking-wide font-medium hover:text-white" style={{ color: currentPage === 'backing' ? '#e8d5a8' : '#c9a86a' }}>Backing</button>
           {/* 🪙 RMT — Real Money Trading manifesto + Build a Career economy. Gold accent when active. */}
           <button onClick={() => { if (onShowRMT) onShowRMT(); }} className="whitespace-nowrap transition tracking-wide font-medium hover:text-white" style={{ color: currentPage === 'rmt' ? '#e8d5a8' : '#c9a86a' }}>RMT</button>
           {/* Pledge — ownership manifesto + tier scaffold. Gold so it groups with RMT. */}
@@ -842,6 +849,7 @@ const Navbar = ({ onNavigate, deckCount, survivors, loyalFaction, isSignedIn, di
             <button onClick={mAction(onShowNews)}     className={`text-left py-2.5 px-3 rounded hover:bg-white/5 tracking-wide font-medium ${currentPage === 'news' ? 'text-white' : 'text-neutral-200'}`}>News</button>
             <button onClick={mAction(onShowSurvivor)} className={`text-left py-2.5 px-3 rounded hover:bg-white/5 tracking-wide font-medium ${currentPage === 'survivor' ? 'text-white' : 'text-neutral-200'}`}>Survivor</button>
             <button onClick={mAction(onShowCardList)} className={`text-left py-2.5 px-3 rounded hover:bg-white/5 tracking-wide font-medium ${currentPage === 'cardlist' ? 'text-white' : 'text-neutral-200'}`}>Card List</button>
+            <button onClick={mAction(onShowBacking)} className="text-left py-2.5 px-3 rounded hover:bg-white/5 tracking-wide font-medium" style={{ color: currentPage === 'backing' ? '#e8d5a8' : '#c9a86a' }}>Backing</button>
             <button onClick={mAction(onShowRMT)}      className="text-left py-2.5 px-3 rounded hover:bg-white/5 tracking-wide font-medium" style={{ color: currentPage === 'rmt' ? '#e8d5a8' : '#c9a86a' }}>RMT</button>
             <button onClick={mAction(onShowPledge)}   className="text-left py-2.5 px-3 rounded hover:bg-white/5 tracking-wide font-medium" style={{ color: currentPage === 'pledge' ? '#e8d5a8' : '#c9a86a' }}>Pledge</button>
             <button onClick={mAction(onShowCommunity)} className={`text-left py-2.5 px-3 rounded hover:bg-white/5 tracking-wide font-medium ${currentPage === 'community' ? 'text-white' : 'text-neutral-200'}`}>Community</button>
@@ -3693,7 +3701,7 @@ const AZA_COIN_PACKAGES = [
   { id: 'aza_huge',   name: 'Sovereign Vault',   usd: 149.99, aza: 5500, bonus: 20, accent: '#ffd166' },
 ];
 
-const PlayerHub = ({ client, session, profile, refreshProfile, onSignedOut }) => {
+const PlayerHub = ({ client, session, profile, refreshProfile, onSignedOut, onShowBacking }) => {
   const [buyingId, setBuyingId] = useState(null);
   const [buyMsg, setBuyMsg] = useState('');
   const [storeTab, setStoreTab] = useState('packs'); // 'packs' | 'aza'
@@ -4118,6 +4126,9 @@ const PlayerHub = ({ client, session, profile, refreshProfile, onSignedOut }) =>
                 </div>
               </div>
             </div>
+
+            {/* ===== Cinder Backing — account-connected staking summary ===== */}
+            <HubBackingPanel client={client} session={session} onShowBacking={onShowBacking} />
 
             {/* ===== Favorite Hero + Strongest Unit ===== */}
             {/* Two side-by-side cards mirroring the in-game profile page so
@@ -8202,6 +8213,1042 @@ const GaSignup = () => {
   );
 };
 
+// ═══════════════════════════════════════════════════════════════════════
+// CINDER BACKING — staking/backing platform (design_handoff_node_telemetry)
+// Platform chrome: neutral dark slate + ember accent. Game telemetry panels
+// (Node Power / Node Bank / Vital Signs) use the game's violet/amber palette
+// per the handoff so they read as embedded game readouts.
+// Account = the SAME Supabase session as the rest of the site, so backing
+// state lives on the player's Mythic Spellbook account (cinder_backings
+// table; Cinders = user_profiles.gems). District-node telemetry is read live
+// from the game's tw_node_owners / tw_node_recon / node_power tables.
+// Token buys are a PREVIEW loop (local, marked as such) until on-chain
+// settlement goes live; the contract link is real.
+// ═══════════════════════════════════════════════════════════════════════
+const CBK_CONTRACT = '0x2915FdB0f04c4452c60a1B7f5174004513196c76';
+const CBK_TOKEN_PRICE = 0.12;
+const CBK_XP_PER_LEVEL = 1000;
+const CBK_LEVEL_MAX = 10;
+const CBK_DUR = [{ days: 30, mult: 1 }, { days: 90, mult: 1.5 }, { days: 180, mult: 2 }, { days: 365, mult: 3 }];
+const CBK_RANKS = [['Spark', 0], ['Kindler', 500], ['Flamebearer', 2000], ['Mythic Patron', 5000]];
+const CBK_TIERS = { GOLD: { bg: 'rgba(232,179,75,.14)', color: '#E8B34B' }, SILVER: { bg: 'rgba(160,170,185,.14)', color: '#B9C0CC' }, BRONZE: { bg: 'rgba(199,116,66,.14)', color: '#C77442' } };
+const CBK_TYPE_LABELS = { Node: 'Mythic Spellbook Node', Vendor: 'Venra Vendor', Worker: 'Venra Builder', Mentor: 'Mentor', Guild: 'Guild', Creator: 'Content Creator', Program: 'Program' };
+const CBK_ACH = [
+  { id: 'first_spark', icon: '🔥', title: 'First Spark', desc: 'Back your first verified Builder.' },
+  { id: 'trailblazer', icon: '⚑', title: 'Trailblazer', desc: 'A Node you back reaches Level 2 or higher.' },
+  { id: 'kindler', icon: '✦', title: 'Kindler', desc: 'Back 3 different verified Builders.' },
+  { id: 'flamekeeper', icon: '🛡', title: 'Flamekeeper', desc: 'Hold 10,000+ Cinder committed at once.' },
+  { id: 'patron', icon: '👑', title: 'Mythic Patron', desc: 'Back a Node that reaches Gold tier.' },
+  { id: 'scholar', icon: '📜', title: 'Ecosystem Scholar', desc: 'Back a Mentor and a Program in the same season.' },
+];
+// Showcase (non-node) builder profiles from the handoff prototype — the
+// Vendor/Worker/Mentor/Guild/Creator/Program half of the ecosystem, kept as
+// a preview of where the platform goes. District Nodes are REAL (from the
+// game DB) and replace the prototype's fake node profiles entirely.
+const CBK_DEMO_PROFILES = [
+  { id: 'forgeline', name: 'Forgeline Supply Co.', type: 'Vendor', demo: true, hue: 12, tier: 'SILVER', backers: 194, points: 8130, tagline: 'Venra marketplace vendor crafting physical playmats, tokens, and deck gear.', perks: ['10% backer discount storewide', 'First access to limited drops', 'Backer-only product votes'], milestones: [{ title: 'Ship 1,000 verified orders', desc: 'Completed with 4.9★ average rating.', status: 'done' }, { title: 'Launch faction playmat line', desc: '12 of 39 faction designs released.', status: 'active' }, { title: 'Open second fulfillment hub', desc: 'Requires Gold tier standing.', status: 'locked' }] },
+  { id: 'runestone', name: 'Runestone Market', type: 'Vendor', demo: true, hue: 150, tier: 'BRONZE', backers: 88, points: 3420, tagline: 'Curated singles marketplace with verified card grading for collectors.', perks: ['Free grading on 5 cards per season', 'Backer-only auction previews', 'Discounted escrow trades'], milestones: [{ title: 'Verified vendor onboarding', desc: 'Completed marketplace verification.', status: 'done' }, { title: 'Grade 500 cards', desc: '210 of 500 graded and verified.', status: 'active' }, { title: 'Launch collector vault service', desc: 'Requires 150 backers.', status: 'locked' }] },
+  { id: 'kael', name: 'Kael Draven', type: 'Worker', demo: true, hue: 195, tier: 'GOLD', backers: 322, points: 14560, tagline: 'Venra builder shipping open tooling: deck analytics, replay parsing, node dashboards.', perks: ['Early builds of every tool', 'Backer credit in release notes', 'Vote on the next tool roadmap'], milestones: [{ title: 'Ship replay analyzer v1', desc: 'Released and verified by platform review.', status: 'done' }, { title: 'Node health dashboard beta', desc: 'In verified testing with 12 Nodes.', status: 'active' }, { title: 'Open-source the analytics core', desc: 'Unlocks builder grant allocation.', status: 'locked' }] },
+  { id: 'sera', name: 'Sera Voss', type: 'Worker', demo: true, hue: 330, tier: 'BRONZE', backers: 76, points: 5210, tagline: 'Node engineer specializing in matchmaking infrastructure and latency tuning.', perks: ['Monthly infra office hours', 'Backer badge on your profile', 'Early access to matchmaking patch notes'], milestones: [{ title: 'Verified worker onboarding', desc: 'Completed skills verification.', status: 'done' }, { title: 'Cut region latency 20%', desc: 'Currently at 13% verified improvement.', status: 'active' }, { title: 'Certify 5 partner Nodes', desc: 'Requires Silver tier standing.', status: 'locked' }] },
+  { id: 'orlan', name: 'Magister Orlan', type: 'Mentor', demo: true, hue: 45, tier: 'SILVER', backers: 240, points: 9870, tagline: 'Top-100 Colosseum veteran mentoring competitive players across 39 factions.', perks: ['Backer-only strategy library', 'Priority booking for coaching sessions', 'Monthly deck-tech AMA'], milestones: [{ title: 'Mentor 100 verified students', desc: 'Completed — 71% climbed a rank tier.', status: 'done' }, { title: 'Publish faction mastery guides', desc: '24 of 39 guides verified.', status: 'active' }, { title: 'Coach a team to top-8 finish', desc: 'Unlocks mentor excellence reward.', status: 'locked' }] },
+  { id: 'ironwood', name: 'Ironwood Guild', type: 'Guild', demo: true, hue: 100, tier: 'SILVER', backers: 158, points: 7810, tagline: 'Player guild running charity drives, world-boss raids, and new-member training.', perks: ['Guild raid invitations', 'Backer badge on your profile', 'Charity drive co-sponsor credits'], milestones: [{ title: 'Verified guild onboarding', desc: 'Completed platform verification.', status: 'done' }, { title: 'Complete 10 charity drives', desc: '7 of 10 verified drives complete.', status: 'active' }, { title: 'Reach 5,000 guild members', desc: 'Unlocks guild hall expansion.', status: 'locked' }] },
+  { id: 'lyra_ash', name: 'Lyra Ashwood', type: 'Creator', demo: true, hue: 320, tier: 'GOLD', backers: 298, points: 13120, tagline: 'Full-time Mythic Spellbook creator — daily streams, deck guides, and tournament casts.', perks: ['Backer shout-outs on stream', 'Early access to guide videos + VODs', 'Monthly backer-only watch party'], milestones: [{ title: 'Reach 100K followers', desc: 'Verified across streaming platforms.', status: 'done' }, { title: 'Faction spotlight series', desc: '22 of 39 faction videos published.', status: 'active' }, { title: 'Host a creator-run tournament', desc: 'Unlocks creator event allocation.', status: 'locked' }] },
+  { id: 'bootcamp', name: 'New Builder Bootcamp', type: 'Program', demo: true, hue: 260, tier: 'SILVER', backers: 176, points: 7350, tagline: 'Six-week program turning Venra newcomers into verified ecosystem builders.', perks: ['Nominate candidates for each cohort', 'Backer showcase at demo day', 'Access to cohort project previews'], milestones: [{ title: 'Graduate first cohort', desc: '18 builders verified and placed.', status: 'done' }, { title: 'Cohort 2 — 30 builders', desc: 'Week 4 of 6 in progress.', status: 'active' }, { title: 'Launch alumni grant track', desc: 'Requires 250 program backers.', status: 'locked' }] },
+];
+
+const cbkFmt = (n) => Math.round(n || 0).toLocaleString('en-US');
+const cbkInitials = (name) => (name || '?').split(' ').filter(w => /[A-Za-z0-9]/.test(w[0])).slice(0, 2).map(w => w[0].toUpperCase()).join('') || '?';
+const cbkAvatarBg = (hue) => `linear-gradient(140deg, oklch(0.55 0.16 ${hue}), oklch(0.35 0.12 ${hue}))`;
+const cbkHue = (s) => { let h = 0; for (let i = 0; i < (s || '').length; i++) h = (h * 31 + s.charCodeAt(i)) % 360; return h; };
+const cbkAgo = (ts) => {
+  if (!ts) return null;
+  const mins = Math.floor((Date.now() - new Date(ts).getTime()) / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return mins + 'm ago';
+  const h = Math.floor(mins / 60);
+  if (h < 48) return h + 'h ago';
+  return Math.floor(h / 24) + 'd ago';
+};
+
+// Build a Builder profile from a REAL claimed district node (tw_node_owners
+// row + its tw_node_recon telemetry + node_power level row).
+const cbkNodeProfile = (own, recon, power) => {
+  const lvl = Math.min(CBK_LEVEL_MAX, (power && power.level) || 1);
+  return {
+    id: 'node-' + own.node_id,
+    real: true,
+    nodeDbId: own.node_id,
+    ownerUserId: own.user_id,
+    type: 'Node',
+    name: (power && power.node_name) || `District ${own.node_id}`,
+    ownerName: own.display_name || 'Unknown',
+    hue: cbkHue(own.node_id),
+    tier: lvl >= 8 ? 'GOLD' : lvl >= 4 ? 'SILVER' : 'BRONZE',
+    backers: (recon && recon.residents) || 0,
+    points: (power && power.power) || 0,
+    tagline: `Claimed district node ${own.node_id} on the Mythic Spellbook war map, operated by ${own.display_name || 'a Survivor'}.`,
+    perks: ['Priority queue on node-hosted events', 'Backer badge on your Mythic Spellbook profile', 'Early access to node season tournaments'],
+    recon: recon || null,
+    power: power || null,
+  };
+};
+
+// Telemetry payload for a node profile. localPower = preview Power credited
+// by the buy-tokens preview loop (client-side only until settlement lands).
+const cbkTelemetry = (p, localPower) => {
+  const recon = p.recon;
+  const basePower = (p.power && p.power.power) || 0;
+  const totalPower = basePower + (localPower || 0);
+  const baseLevel = (p.power && p.power.level) || 1;
+  const level = Math.min(CBK_LEVEL_MAX, baseLevel + Math.floor((localPower || 0) / CBK_XP_PER_LEVEL));
+  const atMax = level >= CBK_LEVEL_MAX;
+  const xp = atMax ? CBK_XP_PER_LEVEL : totalPower % CBK_XP_PER_LEVEL;
+  // Cinder-per-cycle curve mirrors the in-game readout (LV1 = 25 → next 50).
+  const cinderCycle = 25 * level;
+  const nextCinder = 25 * (level + 1);
+  const mins = recon && recon.updated_at ? Math.floor((Date.now() - new Date(recon.updated_at).getTime()) / 60000) : null;
+  const sync = mins === null ? 'never' : mins <= 15 ? 'fresh' : 'stale';
+  const pct = (a, b) => (b > 0 ? Math.min(100, Math.round((a / b) * 100)) : 0);
+  const capK = recon && recon.civilians_total ? (recon.civilians_total / 1000).toFixed(1) + 'K' : '10.0K';
+  const civPct = recon ? Math.round((pct(recon.buildings_restored, recon.buildings_total) + pct(recon.roads_repaired, recon.roads_total) + pct(recon.civilians_saved, recon.civilians_total)) / 3) : 0;
+  const vitals = recon ? [
+    { label: 'NPC POPULATION', value: cbkFmt(recon.population), unit: '/ ' + capK, pct: pct(recon.population, recon.civilians_total) + '%', barColor: '#3ECF8E', trend: `${cbkFmt(recon.residents)} RESIDENTS`, trendColor: '#8A7F6A' },
+    { label: 'CORRUPTION', value: String(recon.corruption || 0), unit: '%', pct: (recon.corruption || 0) + '%', barColor: (recon.corruption || 0) > 30 ? '#F0655A' : '#E8B34B', trend: (recon.corruption || 0) > 30 ? 'HIGH — RUN CAMPAIGNS' : 'CONTAINED', trendColor: (recon.corruption || 0) > 30 ? '#F0655A' : '#3ECF8E' },
+    { label: 'CIVILIZATION', value: String(civPct), unit: '%', pct: civPct + '%', barColor: '#4BA3E8', trend: `${cbkFmt(recon.buildings_restored)} / ${cbkFmt(recon.buildings_total)} BUILDINGS`, trendColor: '#8A7F6A' },
+    { label: 'TRADE STABILITY', value: String(recon.commerce || 0), unit: '%', pct: (recon.commerce || 0) + '%', barColor: '#E8B34B', trend: `${cbkFmt(recon.shops_registered)} SHOPS ACTIVE`, trendColor: '#8A7F6A' },
+  ] : [
+    { label: 'NPC POPULATION', value: '0', unit: '/ 10.0K', pct: '0%', barColor: '#3ECF8E', trend: 'AWAITING GAME LINK', trendColor: '#8A7F6A' },
+    { label: 'CORRUPTION', value: '0', unit: '%', pct: '0%', barColor: '#E8B34B', trend: 'AWAITING GAME LINK', trendColor: '#8A7F6A' },
+    { label: 'CIVILIZATION', value: '0', unit: '%', pct: '0%', barColor: '#4BA3E8', trend: 'AWAITING GAME LINK', trendColor: '#8A7F6A' },
+    { label: 'TRADE STABILITY', value: '0', unit: '%', pct: '0%', barColor: '#E8B34B', trend: 'NO ROUTES', trendColor: '#8A7F6A' },
+  ];
+  return {
+    level, atMax, xp, xpMax: CBK_XP_PER_LEVEL, cinderCycle, nextCinder,
+    xpPct: Math.round((atMax ? 1 : xp / CBK_XP_PER_LEVEL) * 100) + '%',
+    xpLabel: atMax ? 'MAX LEVEL' : `${cbkFmt(xp)} / ${cbkFmt(CBK_XP_PER_LEVEL)} XP`,
+    sync, syncAgo: mins === null ? 'never' : cbkAgo(recon.updated_at),
+    payout: (recon && recon.cinder_bank) || 0,
+    lifetime: (recon && recon.cinder_total) || 0,
+    totalPower, vitals,
+    ownerPower: 100, playerPower: 25,
+  };
+};
+
+const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, onSignIn }) => {
+  const [screen, setScreen] = useState('dashboard');
+  const [selectedId, setSelectedId] = useState(null);
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState('All');
+  const [owners, setOwners] = useState([]);
+  const [recons, setRecons] = useState({});
+  const [powers, setPowers] = useState({});
+  const [backings, setBackings] = useState([]);
+  const [reloadN, setReloadN] = useState(0);
+  const [modal, setModal] = useState(null);      // lock-Cinder backing modal
+  const [buyModal, setBuyModal] = useState(null); // buy-tokens preview modal
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState(null);
+  // Local PREVIEW overlay for the token-sale loop (per-account).
+  const uid = session && session.user ? session.user.id : 'anon';
+  const [prev, setPrev] = useState(() => { try { return JSON.parse(localStorage.getItem('ms_cbk_prev_' + uid) || '{}'); } catch (e) { return {}; } });
+  const savePrev = (next) => { setPrev(next); try { localStorage.setItem('ms_cbk_prev_' + uid, JSON.stringify(next)); } catch (e) {} };
+  const prevPower = (id) => (prev.power && prev.power[id]) || 0;
+  const prevSold = (id) => (prev.sold && prev.sold[id]) || 0;
+  const prevPosts = prev.posts || [];
+
+  const gems = (profile && profile.gems) || 0;
+  const displayName = profile && profile.display_name ? profile.display_name : (session && session.user && session.user.email ? session.user.email.split('@')[0] : 'Survivor');
+
+  // ── Live game data: district-node owners + recon + power, own backings.
+  useEffect(() => {
+    if (!client || !session) { setOwners([]); setRecons({}); setPowers({}); setBackings([]); return; }
+    let dead = false;
+    Promise.all([
+      client.from('tw_node_owners').select('*'),
+      client.from('tw_node_recon').select('*'),
+      client.from('node_power').select('*'),
+      client.from('cinder_backings').select('*').eq('user_id', session.user.id).order('started_at', { ascending: false }),
+    ]).then(([o, r, pw, b]) => {
+      if (dead) return;
+      setOwners(o.data || []);
+      const rm = {}; (r.data || []).forEach(row => { rm[row.node_id] = row; }); setRecons(rm);
+      const pm = {}; (pw.data || []).forEach(row => { pm[row.node_id] = row; }); setPowers(pm);
+      setBackings(b.data || []);
+    });
+    return () => { dead = true; };
+  }, [client, session, reloadN]);
+  // Poll telemetry every 45s so the panels stay fresh (handoff: 30–60s).
+  useEffect(() => {
+    if (!client || !session) return;
+    const t = setInterval(() => setReloadN(n => n + 1), 45000);
+    return () => clearInterval(t);
+  }, [client, session]);
+
+  const realNodes = owners.map(o => cbkNodeProfile(o, recons[o.node_id], powers[o.node_id]));
+  const allProfiles = [...realNodes, ...CBK_DEMO_PROFILES];
+  const findProfile = (id) => allProfiles.find(p => p.id === id);
+  const myNodes = session ? realNodes.filter(n => n.ownerUserId === session.user.id) : [];
+  const ownsNode = (p) => !!(p && p.real && session && p.ownerUserId === session.user.id);
+
+  const active = backings.filter(b => !b.released);
+  const locked = active.reduce((s, b) => s + Number(b.amount), 0);
+  const myPoints = backings.reduce((s, b) => s + (b.points || 0), 0);
+  let rankIdx = CBK_RANKS.reduce((acc, r, i) => (myPoints >= r[1] ? i : acc), 0);
+  const nextRank = CBK_RANKS[rankIdx + 1];
+  const rankPct = nextRank ? Math.min(100, Math.round((myPoints - CBK_RANKS[rankIdx][1]) / (nextRank[1] - CBK_RANKS[rankIdx][1]) * 100)) + '%' : '100%';
+  const rankLabel = nextRank ? `${cbkFmt(nextRank[1] - myPoints)} pts to ${nextRank[0]}` : 'Top rank achieved';
+
+  // Achievements derived from real account state.
+  const distinct = new Set(active.map(b => b.profile_id)).size;
+  const backedProfiles = backings.map(b => findProfile(b.profile_id)).filter(Boolean);
+  const earned = [];
+  if (backings.length >= 1) earned.push('first_spark');
+  if (backedProfiles.some(p => p.real && cbkTelemetry(p, prevPower(p.id)).level >= 2)) earned.push('trailblazer');
+  if (distinct >= 3) earned.push('kindler');
+  if (locked >= 10000) earned.push('flamekeeper');
+  if (backedProfiles.some(p => p.type === 'Node' && p.tier === 'GOLD')) earned.push('patron');
+  if (backedProfiles.some(p => p.type === 'Mentor') && backedProfiles.some(p => p.type === 'Program')) earned.push('scholar');
+
+  const pushPost = (text) => savePrev({ ...prev, posts: [{ text, when: new Date().toISOString() }, ...prevPosts].slice(0, 30) });
+
+  // ── Lock Cinder behind a Builder (real: deducts gems + writes the row).
+  const confirmLock = async () => {
+    const m = modal;
+    const amt = parseInt((m.amountStr || '').replace(/[^0-9]/g, '') || '0', 10);
+    if (!amt || amt > gems || busy) return;
+    setBusy(true);
+    const p = findProfile(m.profileId);
+    const mult = CBK_DUR.find(d => d.days === m.days).mult;
+    const pts = Math.round(amt * mult / 10);
+    const unlockAt = new Date(Date.now() + m.days * 864e5);
+    const { error: e1 } = await client.from('user_profiles').update({ gems: gems - amt, updated_at: new Date().toISOString() }).eq('user_id', session.user.id);
+    if (e1) { setBusy(false); setNotice('Could not reach your account balance — try again.'); return; }
+    const { error: e2 } = await client.from('cinder_backings').insert({
+      user_id: session.user.id, profile_id: p.id, profile_name: p.name, profile_type: p.type,
+      amount: amt, days: m.days, points: pts, unlock_at: unlockAt.toISOString(),
+    });
+    if (e2) {
+      await client.from('user_profiles').update({ gems, updated_at: new Date().toISOString() }).eq('user_id', session.user.id);
+      setBusy(false); setNotice('Backing failed to save — your Cinder was returned.'); return;
+    }
+    pushPost(`You staked ${cbkFmt(amt)} CINDER behind ${p.name} (${m.days}-day commitment) — +${cbkFmt(pts)} backing points.`);
+    refreshProfile(); setReloadN(n => n + 1); setBusy(false);
+    setModal({ ...m, step: 3, confirmedAmount: amt, confirmedPoints: pts });
+  };
+
+  // ── Release a matured lock (idempotent: guarded update, then credit back).
+  const releaseLock = async (b) => {
+    if (busy) return;
+    setBusy(true);
+    const { data, error } = await client.from('cinder_backings')
+      .update({ released: true, released_at: new Date().toISOString() })
+      .eq('id', b.id).eq('released', false).select();
+    if (!error && data && data.length) {
+      await client.from('user_profiles').update({ gems: gems + Number(b.amount), updated_at: new Date().toISOString() }).eq('user_id', session.user.id);
+      pushPost(`Unlocked ${cbkFmt(b.amount)} CINDER from ${b.profile_name} — returned to your wallet.`);
+      refreshProfile();
+    }
+    setReloadN(n => n + 1); setBusy(false);
+  };
+
+  // ── Buy-tokens PREVIEW settlement (local only, clearly labeled).
+  const confirmBuy = () => {
+    const bm = buyModal;
+    const amt = parseInt((bm.amountStr || '').replace(/[^0-9]/g, '') || '0', 10);
+    if (!amt) return;
+    const p = findProfile(bm.profileId);
+    const rate = bm.mode === 'owner' ? 100 : 25;
+    const power = amt * rate;
+    const before = prevPower(p.id);
+    const t = cbkTelemetry(p, before);
+    const leveled = !t.atMax && Math.floor((t.totalPower + power) / CBK_XP_PER_LEVEL) > Math.floor(t.totalPower / CBK_XP_PER_LEVEL);
+    savePrev({
+      ...prev,
+      power: { ...(prev.power || {}), [p.id]: before + power },
+      sold: { ...(prev.sold || {}), [p.id]: prevSold(p.id) + amt },
+      posts: [{ text: `${bm.mode === 'owner' ? 'The Node owner' : 'A token holder'} bought ${cbkFmt(amt)} CINDER through ${p.name} — +${cbkFmt(power)} Node Power credited${leveled ? ', Node leveled up! 🎉' : '.'}`, when: new Date().toISOString() }, ...prevPosts].slice(0, 30),
+    });
+    setBuyModal({ ...bm, step: 2, confirmedAmount: amt, confirmedPower: power, leveledUp: leveled });
+  };
+
+  const openProfile = (id) => { setSelectedId(id); setScreen('profile'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+  const go = (s) => { setScreen(s); if (s !== 'profile') setSelectedId(null); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+
+  // ── shared bits ──
+  const card = { background: '#14161B', border: '1px solid #262A32', borderRadius: '14px' };
+  const mono = { fontFamily: "'IBM Plex Mono', monospace" };
+  const grotesk = { fontFamily: "'Space Grotesk', sans-serif" };
+  const decorate = (p) => ({ ...p, typeLabel: CBK_TYPE_LABELS[p.type], initials: cbkInitials(p.name), avatarBg: cbkAvatarBg(p.hue), tierBg: CBK_TIERS[p.tier].bg, tierColor: CBK_TIERS[p.tier].color, pointsShown: p.points + prevPower(p.id) });
+
+  const ProfileCard = ({ p }) => {
+    const d = decorate(p);
+    return (
+      <div onClick={() => openProfile(p.id)} style={{ ...card, padding: '18px', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '12px' }}
+        onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#FF6A2B'; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#262A32'; }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ width: 46, height: 46, borderRadius: 12, background: d.avatarBg, display: 'flex', alignItems: 'center', justifyContent: 'center', ...grotesk, fontWeight: 700, fontSize: 16 }}>{d.initials}</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontWeight: 600, fontSize: 15 }}>{d.name}</span>
+              <span title={p.real ? 'Live game node' : 'Showcase profile'} style={{ color: p.real ? '#3ECF8E' : '#9BA1AB', fontSize: 13 }}>{p.real ? '✓' : '◌'}</span>
+            </div>
+            <div style={{ fontSize: 12, color: '#9BA1AB' }}>{d.typeLabel}{p.real ? ` · ${p.ownerName}` : ' · showcase'}</div>
+          </div>
+          <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.06em', padding: '4px 9px', borderRadius: 99, background: d.tierBg, color: d.tierColor }}>{p.tier}</span>
+        </div>
+        <div style={{ fontSize: 13, color: '#C6CAD1', lineHeight: 1.5 }}>{p.tagline}</div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #1E222A', paddingTop: 12 }}>
+          <div style={{ fontSize: 12, color: '#9BA1AB' }}><span style={{ color: '#F2F3F5', fontWeight: 600 }}>{cbkFmt(p.backers)}</span> backers · <span style={{ color: '#E8B34B', fontWeight: 600 }}>{cbkFmt(d.pointsShown)}</span> pts</div>
+          {session && (
+            <button onClick={(e) => { e.stopPropagation(); setModal({ profileId: p.id, step: 1, amountStr: '', days: 90 }); }}
+              style={{ background: 'rgba(255,106,43,.12)', color: '#FF8A55', border: '1px solid rgba(255,106,43,.3)', borderRadius: 8, padding: '6px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>Back</button>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // ── The five telemetry pieces for a Node profile (handoff §1–5). ──
+  const NodeTelemetry = ({ p }) => {
+    const t = cbkTelemetry(p, prevPower(p.id));
+    const isOwner = ownsNode(p);
+    const soldTotal = prevSold(p.id);
+    const syncStyles = t.sync === 'fresh'
+      ? { text: 'SYNCED ' + t.syncAgo, color: '#3ECF8E', bg: 'rgba(62,207,142,.12)', border: 'rgba(62,207,142,.3)', anim: 'emberPulse 1.8s infinite' }
+      : t.sync === 'stale'
+        ? { text: 'STALE ' + t.syncAgo, color: '#E8B34B', bg: 'rgba(232,179,75,.12)', border: 'rgba(232,179,75,.3)', anim: 'none' }
+        : { text: 'NOT LINKED', color: '#5C626C', bg: 'rgba(92,98,108,.12)', border: 'rgba(92,98,108,.35)', anim: 'none' };
+    const claimable = isOwner && t.payout > 0;
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {/* 1 · Live sync header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ ...mono, fontSize: 11, letterSpacing: '.16em', color: '#9BA1AB' }}>LIVE FROM MYTHIC SPELLBOOK</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 5, ...mono, fontSize: 10, fontWeight: 600, letterSpacing: '.08em', padding: '3px 9px', borderRadius: 99, background: syncStyles.bg, color: syncStyles.color, border: '1px solid ' + syncStyles.border }}>
+              <span style={{ width: 6, height: 6, borderRadius: 99, background: syncStyles.color, animation: syncStyles.anim }}></span>{syncStyles.text}
+            </span>
+          </div>
+          <span style={{ ...mono, fontSize: 11, color: '#5C626C' }}>NODE ID {p.nodeDbId}</span>
+        </div>
+
+        {/* 2 · Node Power / Cinder Level */}
+        <div style={{ background: 'linear-gradient(160deg,#1C1530,#150F22 70%)', border: '1px solid #33265C', borderRadius: 14, padding: 20, ...mono }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 14, flexWrap: 'wrap' }}>
+            <div>
+              <div style={{ fontSize: 19, fontWeight: 700, color: '#F2F3F5', letterSpacing: '.01em' }}>{p.name}</div>
+              <div style={{ fontSize: 11, letterSpacing: '.12em', color: '#E8B34B', marginTop: 5 }}>{p.nodeDbId} · OWNER: {(p.ownerName || '').toUpperCase()}</div>
+            </div>
+            <span style={{ ...mono, fontSize: 13, fontWeight: 700, color: '#B9A8E8', border: '1px solid #4A3A7A', borderRadius: 99, padding: '6px 15px', background: 'rgba(122,90,200,.12)' }}>LV {t.level} <span style={{ fontSize: 10, color: '#7E6BA8', fontWeight: 500 }}>/ {CBK_LEVEL_MAX}</span></span>
+          </div>
+          <div style={{ marginTop: 16, background: '#0E0A18', border: '1px solid #33265C', borderRadius: 9, height: 30, position: 'relative', overflow: 'hidden' }}>
+            <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: t.xpPct, background: 'linear-gradient(90deg,#5B3FA8,#7C6BFF)', transition: 'width 400ms ease-out' }}></div>
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600, color: '#F2F3F5', letterSpacing: '.04em' }}>{t.xpLabel}</div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 14 }}>
+            <div style={{ background: '#150F26', border: '1px solid #33265C', borderRadius: 11, padding: '13px 15px' }}>
+              <div style={{ fontSize: 10, letterSpacing: '.14em', color: '#9B8FD0' }}>CINDER / CYCLE</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 7 }}><span style={{ fontSize: 15 }}>🔥</span><span style={{ fontSize: 20, fontWeight: 700, color: '#E8B34B' }}>{t.cinderCycle}</span></div>
+            </div>
+            <div style={{ background: '#150F26', border: '1px solid #33265C', borderRadius: 11, padding: '13px 15px' }}>
+              <div style={{ fontSize: 10, letterSpacing: '.14em', color: '#9B8FD0' }}>NEXT LEVEL</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 7 }}><span style={{ fontSize: 15 }}>🔥</span><span style={{ fontSize: 20, fontWeight: 700, color: '#E8B34B' }}>{t.nextCinder}</span><span style={{ fontSize: 12, color: '#3ECF8E', fontWeight: 600 }}>(+{t.nextCinder - t.cinderCycle})</span></div>
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
+            <button onClick={() => { if (isOwner) setBuyModal({ profileId: p.id, step: 1, amountStr: '', mode: 'owner' }); }}
+              title={isOwner ? 'Buy Cinder as the node owner' : 'Only the node owner can use the owner rate'}
+              style={{ background: 'linear-gradient(160deg,#241705,#1A1206)', border: '1px solid ' + (isOwner ? '#E8B34B' : '#3A2E14'), borderRadius: 11, padding: 14, textAlign: 'center', cursor: isOwner ? 'pointer' : 'not-allowed', opacity: isOwner ? 1 : 0.45, ...mono, display: 'flex', flexDirection: 'column', gap: 5, alignItems: 'center' }}>
+              <span style={{ fontSize: 15 }}>👑</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#F2F3F5' }}>Owner Buys Token</span>
+              <span style={{ fontSize: 11, color: '#E8B34B' }}>+100 Power / token</span>
+              <span style={{ fontSize: 9, letterSpacing: '.1em', color: isOwner ? '#E8B34B' : '#6B5A3A' }}>{isOwner ? 'YOU OWN THIS NODE' : '🔒 NODE OWNER ONLY'}</span>
+            </button>
+            <button onClick={() => { if (session) setBuyModal({ profileId: p.id, step: 1, amountStr: '', mode: 'player' }); else if (onSignIn) onSignIn(); }}
+              style={{ background: 'linear-gradient(160deg,#1C1530,#150F22)', border: '1px solid #4A3A7A', borderRadius: 11, padding: 14, textAlign: 'center', cursor: 'pointer', ...mono, display: 'flex', flexDirection: 'column', gap: 5, alignItems: 'center' }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#7C6BFF'; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#4A3A7A'; }}>
+              <span style={{ fontSize: 15 }}>⚡</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#F2F3F5' }}>Player Buys Token</span>
+              <span style={{ fontSize: 11, color: '#B9A8E8' }}>+25 Power / token</span>
+              <span style={{ fontSize: 9, letterSpacing: '.1em', color: '#7E6BA8' }}>OPEN TO ALL HOLDERS</span>
+            </button>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginTop: 14, paddingTop: 12, borderTop: '1px solid #33265C', flexWrap: 'wrap' }}>
+            <div style={{ fontSize: 10, letterSpacing: '.1em', color: '#9B8FD0' }}>NODE POWER<br /><span style={{ fontSize: 15, fontWeight: 700, color: '#B9A8E8', letterSpacing: 0 }}>{cbkFmt(t.totalPower)}</span></div>
+            <div style={{ fontSize: 10, letterSpacing: '.1em', color: '#9B8FD0', textAlign: 'right' }}>TOKENS SOLD VIA NODE<br /><span style={{ fontSize: 15, fontWeight: 700, color: '#E8B34B', letterSpacing: 0 }}>{cbkFmt(soldTotal)}</span></div>
+          </div>
+          <div style={{ fontSize: 11, color: '#7E6BA8', marginTop: 12, lineHeight: 1.6, textAlign: 'center' }}>Buying CINDER (Base mainnet) powers this node — the owner boosts it faster, players add a smaller share. Power is credited only when a purchase settles.</div>
+          <div style={{ fontSize: 10, color: '#5C4E7A', marginTop: 8, textAlign: 'center', wordBreak: 'break-all' }}>Contract <a href={'https://thirdweb.com/base/' + CBK_CONTRACT} target="_blank" rel="noreferrer" style={{ color: '#B9A8E8' }}>{CBK_CONTRACT}</a></div>
+        </div>
+
+        {/* 3 · Node Bank */}
+        <div style={{ background: 'linear-gradient(160deg,#141008,#0D0A05 70%)', border: '1px solid #3A2E14', borderRadius: 14, padding: 20, ...mono }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 14 }}>
+            <span style={{ fontSize: 11, letterSpacing: '.18em', color: '#E8B34B', fontWeight: 700 }}>NODE BANK</span>
+            <span style={{ fontSize: 10, letterSpacing: '.14em', color: '#6B5A3A' }}>· {isOwner ? 'ADMIN VIEW' : 'PUBLIC VIEW'}</span>
+          </div>
+          <div style={{ background: 'linear-gradient(150deg,#1E1608,#120D06)', border: '1px solid #4A3A18', borderRadius: 11, padding: '16px 18px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+              <div>
+                <div style={{ fontSize: 10, letterSpacing: '.16em', color: '#B9A88A' }}>UNCOLLECTED PAYOUT</div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 9, marginTop: 9 }}>
+                  <span style={{ fontSize: 27, fontWeight: 700, color: '#E8B34B' }}>{cbkFmt(t.payout)}</span>
+                  <span style={{ fontSize: 11, letterSpacing: '.14em', color: '#8A7F6A' }}>CINDER</span>
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
+                {claimable ? (
+                  <a href={GAME_URL} target="_blank" rel="noreferrer"
+                    style={{ background: 'linear-gradient(160deg,#E8B34B,#C08F2E)', color: '#150F06', border: '1px solid #F0C464', borderRadius: 9, padding: '11px 22px', fontSize: 12, fontWeight: 700, letterSpacing: '.06em', cursor: 'pointer', ...mono, textDecoration: 'none' }}>COLLECT IN-GAME</a>
+                ) : (
+                  <button disabled style={{ background: 'transparent', color: '#6B5A3A', border: '1px solid #3A2E14', borderRadius: 9, padding: '11px 22px', fontSize: 12, fontWeight: 700, letterSpacing: '.06em', cursor: 'not-allowed', opacity: 0.5, ...mono }}>{t.payout > 0 ? 'CLAIM CINDER' : 'NOTHING TO CLAIM'}</button>
+                )}
+                <span style={{ fontSize: 10, color: '#6B5A3A', textAlign: 'right', maxWidth: 150, lineHeight: 1.5 }}>{isOwner ? 'Collected from your Node Bank inside the game.' : 'Only the node owner can collect.'}</span>
+              </div>
+            </div>
+            <div style={{ fontSize: 11, color: '#8A7F6A', marginTop: 14, lineHeight: 1.6 }}>Payouts land here every 24-hour cycle while the node is healthy and staffed.</div>
+          </div>
+          {t.lifetime > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginTop: 12, paddingTop: 12, borderTop: '1px solid #2A2110', fontSize: 10, letterSpacing: '.1em', color: '#8A7F6A' }}>
+              <span>LIFETIME GENERATED<br /><span style={{ fontSize: 14, fontWeight: 700, color: '#E8B34B', letterSpacing: 0 }}>{cbkFmt(t.lifetime)}</span></span>
+              <span style={{ textAlign: 'right' }}>LAST SYNC<br /><span style={{ fontSize: 14, fontWeight: 700, color: '#B9A88A', letterSpacing: 0 }}>{t.syncAgo}</span></span>
+            </div>
+          )}
+        </div>
+
+        {/* 4 · Vital Signs */}
+        <div style={{ background: '#100D08', border: '1px solid #3A2E14', borderRadius: 14, padding: 20, ...mono }}>
+          <div style={{ fontSize: 11, letterSpacing: '.18em', color: '#E8B34B', marginBottom: 14 }}>VITAL SIGNS</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 12 }}>
+            {t.vitals.map((vt, i) => (
+              <div key={i} style={{ background: '#0A0806', border: '1px solid #3A2E14', borderRadius: 11, padding: '14px 15px' }}>
+                <div style={{ fontSize: 10, letterSpacing: '.14em', color: '#B9A88A' }}>{vt.label}</div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 8 }}>
+                  <span style={{ fontSize: 23, fontWeight: 700, color: '#F2F3F5' }}>{vt.value}</span>
+                  <span style={{ fontSize: 12, color: '#8A7F6A' }}>{vt.unit}</span>
+                </div>
+                <div style={{ height: 3, background: '#241C0E', borderRadius: 99, marginTop: 11, overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: vt.pct, background: vt.barColor, transition: 'width 400ms ease-out' }}></div>
+                </div>
+                <div style={{ fontSize: 10, letterSpacing: '.08em', color: vt.trendColor, marginTop: 9 }}>{vt.trend}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Real-node milestones derived from live recon progress.
+  const nodeMilestones = (p) => {
+    const r = p.recon;
+    if (!r) return [{ title: 'Link the game node', desc: 'Awaiting first telemetry sync from the war map.', status: 'active' }];
+    const row = (title, cur, max, unit) => ({ title, desc: `${cbkFmt(cur)} of ${cbkFmt(max)} ${unit}.`, status: max > 0 && cur >= max ? 'done' : cur > 0 ? 'active' : 'locked' });
+    return [
+      row('Save the civilians', r.civilians_saved, r.civilians_total, 'civilians saved'),
+      row('Repair the road network', r.roads_repaired, r.roads_total, 'roads repaired'),
+      row('Restore every building', r.buildings_restored, r.buildings_total, 'buildings restored'),
+    ];
+  };
+
+  const msMap = {
+    done: { icon: '✓', iconBg: 'rgba(62,207,142,.15)', iconColor: '#3ECF8E', badgeBg: 'rgba(62,207,142,.12)', badgeColor: '#3ECF8E', status: 'Verified', titleColor: '#F2F3F5' },
+    active: { icon: '◉', iconBg: 'rgba(255,106,43,.15)', iconColor: '#FF8A55', badgeBg: 'rgba(255,106,43,.12)', badgeColor: '#FF8A55', status: 'In progress', titleColor: '#F2F3F5' },
+    locked: { icon: '🔒', iconBg: '#1B1E24', iconColor: '#9BA1AB', badgeBg: '#1B1E24', badgeColor: '#9BA1AB', status: 'Locked', titleColor: '#9BA1AB' },
+  };
+
+  // ─────────────── screens ───────────────
+  const sel = selectedId ? findProfile(selectedId) : null;
+
+  const navDefs = [
+    { key: 'dashboard', label: 'Dashboard', icon: '⌂' },
+    { key: 'discover', label: 'Discover', icon: '◈' },
+    { key: 'rewards', label: 'Rewards', icon: '✦' },
+    { key: 'leaderboard', label: 'Rankings', icon: '♛' },
+  ];
+  const activeKey = screen === 'profile' ? 'discover' : screen;
+
+  const filters = ['All', 'Node', 'Vendor', 'Worker', 'Mentor', 'Guild', 'Creator', 'Program'];
+  const chipLabels = { All: 'All', Node: 'Nodes', Vendor: 'Vendors', Worker: 'Builders', Mentor: 'Mentors', Guild: 'Guilds', Creator: 'Creators', Program: 'Programs' };
+  const q = search.toLowerCase();
+  const filtered = allProfiles.filter(p => (filter === 'All' || p.type === filter) && (!q || (p.name + p.tagline + (p.ownerName || '') + CBK_TYPE_LABELS[p.type]).toLowerCase().includes(q)));
+
+  const leaderboard = [...allProfiles].map(decorate).sort((a, b) => b.pointsShown - a.pointsShown);
+
+  const screenTitles = { dashboard: 'Backer dashboard', discover: 'Discover Builders', profile: 'Builder profile', rewards: 'Rewards & reputation', leaderboard: 'Builder rankings' };
+
+  // Buy modal derived values
+  const bm = buyModal;
+  const bmProfile = bm ? findProfile(bm.profileId) : null;
+  const bmAmt = bm ? parseInt((bm.amountStr || '').replace(/[^0-9]/g, '') || '0', 10) : 0;
+  const bmRate = bm && bm.mode === 'owner' ? 100 : 25;
+  const bmPower = bmAmt * bmRate;
+  const bmT = bmProfile ? cbkTelemetry(bmProfile, prevPower(bmProfile.id)) : null;
+  const bmLevelLine = bmT ? (bmT.atMax ? 'Max level reached' : (bmT.xp + bmPower >= CBK_XP_PER_LEVEL ? 'Level up! 🎉' : `${cbkFmt(CBK_XP_PER_LEVEL - bmT.xp - bmPower)} XP to next level`)) : '';
+
+  // Lock modal derived values
+  const lm = modal;
+  const lmProfile = lm ? findProfile(lm.profileId) : null;
+  const lmAmt = lm ? parseInt((lm.amountStr || '').replace(/[^0-9]/g, '') || '0', 10) : 0;
+  const lmOver = lmAmt > gems;
+  const lmValid = lmAmt > 0 && !lmOver;
+  const lmMult = lm ? CBK_DUR.find(d => d.days === lm.days).mult : 1;
+  const lmPts = Math.round(lmAmt * lmMult / 10);
+  const lmUnlock = lm ? new Date(Date.now() + lm.days * 864e5).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+
+  return (
+    <div className="cbk" style={{ display: 'flex', minHeight: '100vh', background: '#0C0D10' }}>
+      {/* ── Sidebar ── */}
+      <aside className="hidden lg:flex" style={{ width: 232, flexShrink: 0, background: '#0F1014', borderRight: '1px solid #1E222A', flexDirection: 'column', padding: '20px 14px', position: 'sticky', top: 56, height: 'calc(100vh - 56px)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 8px 14px' }}>
+          <img src="./assets/artwork/gameicons/Cinder.png" alt="Cinder" style={{ width: 34, height: 44, objectFit: 'contain' }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+          <div>
+            <div style={{ ...grotesk, fontWeight: 700, fontSize: 16, letterSpacing: '.06em' }}>CINDER</div>
+            <div style={{ fontSize: 10, letterSpacing: '.22em', color: '#9BA1AB' }}>BACKING</div>
+          </div>
+        </div>
+        <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 12px', padding: '9px 12px', borderRadius: 10, border: '1px solid #262A32', cursor: 'pointer', textAlign: 'left', fontFamily: "'IBM Plex Sans',sans-serif", fontSize: 13, fontWeight: 500, background: '#14161B', color: '#C6CAD1' }}>← Back to Mythic Spellbook</button>
+        <nav style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {navDefs.map(n => (
+            <button key={n.key} onClick={() => go(n.key)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 10, border: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: "'IBM Plex Sans',sans-serif", fontSize: 14, fontWeight: 500, background: n.key === activeKey ? 'rgba(255,106,43,.12)' : 'transparent', color: n.key === activeKey ? '#FF8A55' : '#C6CAD1' }}>
+              <span style={{ display: 'inline-flex', width: 18 }}>{n.icon}</span>{n.label}
+            </button>
+          ))}
+        </nav>
+        <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ background: 'linear-gradient(160deg,#1B1207,#14161B)', border: '1px solid #33261A', borderRadius: 12, padding: 14 }}>
+            <div style={{ fontSize: 11, letterSpacing: '.14em', color: '#E8B34B', fontWeight: 600 }}>YOUR RANK</div>
+            <div style={{ ...grotesk, fontWeight: 700, fontSize: 18, marginTop: 4 }}>{CBK_RANKS[rankIdx][0]}</div>
+            <div style={{ height: 5, background: '#262A32', borderRadius: 99, marginTop: 10, overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: rankPct, background: 'linear-gradient(90deg,#FF6A2B,#E8B34B)', borderRadius: 99 }}></div>
+            </div>
+            <div style={{ fontSize: 11, color: '#9BA1AB', marginTop: 6 }}>{rankLabel}</div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, opacity: 0.55, padding: '4px 0 2px' }}>
+            <img src="./assets/artwork/Mythic%20Spellbook.png" alt="Mythic Spellbook" style={{ height: 26, objectFit: 'contain' }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+            <img src="./assets/artwork/Venra%20Logo.webp" alt="Venra" style={{ height: 18, objectFit: 'contain' }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+          </div>
+        </div>
+      </aside>
+
+      {/* ── Main ── */}
+      <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+        <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '14px 22px', borderBottom: '1px solid #1E222A', position: 'sticky', top: 56, background: 'rgba(12,13,16,.92)', backdropFilter: 'blur(8px)', zIndex: 5, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <button onClick={onBack} className="lg:hidden" style={{ background: '#14161B', border: '1px solid #262A32', color: '#C6CAD1', borderRadius: 9, padding: '7px 12px', fontSize: 12, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>← Back</button>
+            <div style={{ ...grotesk, fontWeight: 600, fontSize: 18 }}>{screenTitles[screen]}</div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            {session ? (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#14161B', border: '1px solid #262A32', borderRadius: 99, padding: '7px 14px' }}>
+                  <span style={{ width: 8, height: 8, borderRadius: 99, background: '#3ECF8E' }}></span>
+                  <span style={{ fontSize: 13, fontWeight: 600 }}>{cbkFmt(gems)}</span>
+                  <span style={{ fontSize: 12, color: '#9BA1AB' }}>available 🔥</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#14161B', border: '1px solid #33261A', borderRadius: 99, padding: '7px 14px' }}>
+                  <span style={{ width: 8, height: 8, borderRadius: 99, background: '#FF6A2B', animation: 'emberPulse 2.4s infinite' }}></span>
+                  <span style={{ fontSize: 13, fontWeight: 600 }}>{cbkFmt(locked)}</span>
+                  <span style={{ fontSize: 12, color: '#9BA1AB' }}>locked</span>
+                </div>
+                <div title={displayName + ' — connected Mythic Spellbook account'} style={{ width: 36, height: 36, borderRadius: 99, background: 'linear-gradient(140deg,#FF6A2B,#B93A10)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: 13, ...grotesk }}>{cbkInitials(displayName)}</div>
+              </>
+            ) : (
+              <button onClick={onSignIn} style={{ background: '#FF6A2B', color: '#14060A', border: 'none', borderRadius: 10, padding: '10px 18px', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>Connect your Mythic Spellbook account</button>
+            )}
+          </div>
+        </header>
+
+        {/* Mobile nav tabs */}
+        <div className="lg:hidden" style={{ display: 'flex', gap: 6, padding: '10px 16px', borderBottom: '1px solid #1E222A', overflowX: 'auto' }}>
+          {navDefs.map(n => (
+            <button key={n.key} onClick={() => go(n.key)} style={{ borderRadius: 99, padding: '7px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: "'IBM Plex Sans',sans-serif", background: n.key === activeKey ? 'rgba(255,106,43,.14)' : '#14161B', color: n.key === activeKey ? '#FF8A55' : '#C6CAD1', border: '1px solid ' + (n.key === activeKey ? 'rgba(255,106,43,.4)' : '#262A32') }}>{n.label}</button>
+          ))}
+        </div>
+
+        <div style={{ padding: '24px 22px 48px', maxWidth: 1180, width: '100%', margin: '0 auto' }}>
+          {notice && (
+            <div style={{ background: 'rgba(240,101,90,.1)', border: '1px solid rgba(240,101,90,.4)', color: '#F0655A', borderRadius: 10, padding: '10px 14px', fontSize: 13, marginBottom: 16, display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+              <span>{notice}</span><button onClick={() => setNotice(null)} style={{ background: 'none', border: 'none', color: '#F0655A', cursor: 'pointer', fontWeight: 700 }}>×</button>
+            </div>
+          )}
+
+          {/* ═══ DASHBOARD ═══ */}
+          {screen === 'dashboard' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
+              {!session ? (
+                <div style={{ ...card, border: '1px solid #33261A', background: 'linear-gradient(160deg,#1A130C,#14161B 55%)', padding: 28, textAlign: 'center' }}>
+                  <img src="./assets/artwork/gameicons/Cinder.png" alt="" style={{ width: 46, height: 62, objectFit: 'contain', margin: '0 auto 12px', animation: 'emberPulse 2.4s infinite' }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                  <div style={{ ...grotesk, fontSize: 24, fontWeight: 700 }}>Back the Builders of the Sparta Ecosystem</div>
+                  <div style={{ color: '#9BA1AB', fontSize: 14, marginTop: 8, maxWidth: 520, margin: '8px auto 0', lineHeight: 1.6 }}>Lock Cinder behind verified Nodes, vendors, builders, and mentors — without ever giving up ownership. Sign in with your Mythic Spellbook account to connect your balance, your backings, and your claimed district nodes.</div>
+                  <button onClick={onSignIn} style={{ marginTop: 18, background: '#FF6A2B', color: '#14060A', border: 'none', borderRadius: 10, padding: '12px 26px', fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>Connect account</button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+                  <div>
+                    <div style={{ ...grotesk, fontSize: 26, fontWeight: 700 }}>Welcome back, {displayName}</div>
+                    <div style={{ color: '#9BA1AB', marginTop: 4, fontSize: 14 }}>Connected to your Mythic Spellbook account — your Cinder stays yours, every token you lock keeps your name on it.</div>
+                  </div>
+                  <button onClick={() => go('discover')} style={{ background: '#FF6A2B', color: '#14060A', border: 'none', borderRadius: 10, padding: '11px 20px', fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>+ Back a Builder</button>
+                </div>
+              )}
+
+              {session && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 14 }}>
+                  {[
+                    { label: 'Available Cinder', value: cbkFmt(gems), sub: 'Live game balance 🔥', color: '#F2F3F5' },
+                    { label: 'Locked backing', value: cbkFmt(locked), sub: `Across ${active.length} commitment${active.length === 1 ? '' : 's'}`, color: '#FF8A55' },
+                    { label: 'Backing points', value: cbkFmt(myPoints), sub: CBK_RANKS[rankIdx][0] + ' rank', color: '#E8B34B' },
+                    { label: 'Achievements', value: `${earned.length} / ${CBK_ACH.length}`, sub: 'Unlocked so far', color: '#3ECF8E' },
+                  ].map((s, i) => (
+                    <div key={i} style={{ ...card, padding: 18 }}>
+                      <div style={{ fontSize: 12, letterSpacing: '.1em', color: '#9BA1AB', textTransform: 'uppercase' }}>{s.label}</div>
+                      <div style={{ ...grotesk, fontSize: 26, fontWeight: 700, marginTop: 8, color: s.color }}>{s.value}</div>
+                      <div style={{ fontSize: 12, color: '#9BA1AB', marginTop: 4 }}>{s.sub}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* MY DISTRICT NODES — the owner's claimed nodes with live progress */}
+              {myNodes.length > 0 && (
+                <div style={{ ...card, border: '1px solid #33265C', background: 'linear-gradient(160deg,#171129,#14161B 65%)', padding: 20 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, flexWrap: 'wrap', gap: 8 }}>
+                    <div style={{ ...grotesk, fontWeight: 600, fontSize: 16 }}>🗼 My District Nodes</div>
+                    <span style={{ fontSize: 12, color: '#9B8FD0' }}>{myNodes.length} claimed on the war map</span>
+                  </div>
+                  <div style={{ fontSize: 12, color: '#9BA1AB', marginBottom: 14 }}>Live from Mythic Spellbook — the district nodes you have claimed in-game, with their reconstruction progress.</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {myNodes.map(n => {
+                      const t = cbkTelemetry(n, prevPower(n.id));
+                      return (
+                        <div key={n.id} onClick={() => openProfile(n.id)} style={{ display: 'flex', alignItems: 'center', gap: 14, background: '#1B1E24', border: '1px solid #262A32', borderRadius: 12, padding: 14, cursor: 'pointer', flexWrap: 'wrap' }}
+                          onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#7C6BFF'; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#262A32'; }}>
+                          <div style={{ width: 42, height: 42, borderRadius: 11, background: cbkAvatarBg(n.hue), display: 'flex', alignItems: 'center', justifyContent: 'center', ...grotesk, fontWeight: 700, fontSize: 14, flexShrink: 0 }}>{n.nodeDbId.replace('N-', '')}</div>
+                          <div style={{ flex: 1, minWidth: 160 }}>
+                            <div style={{ fontWeight: 600, fontSize: 14 }}>{n.name}</div>
+                            <div style={{ fontSize: 12, color: '#9BA1AB', marginTop: 2 }}>{n.recon ? `${cbkFmt(n.recon.population)} NPCs · ${n.recon.corruption}% corruption · ${cbkFmt(t.payout)} 🔥 banked` : 'Awaiting first telemetry sync'}</div>
+                          </div>
+                          <span style={{ ...mono, fontSize: 12, fontWeight: 700, color: '#B9A8E8', border: '1px solid #4A3A7A', borderRadius: 99, padding: '5px 13px', background: 'rgba(122,90,200,.12)', whiteSpace: 'nowrap' }}>LV {t.level} / {CBK_LEVEL_MAX}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {session && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(320px,1fr))', gap: 18, alignItems: 'start' }}>
+                  <div style={{ ...card, padding: 20 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                      <div style={{ ...grotesk, fontWeight: 600, fontSize: 16 }}>My backings</div>
+                      <span style={{ fontSize: 12, color: '#9BA1AB' }}>{active.length} active</span>
+                    </div>
+                    {active.length === 0 ? (
+                      <div style={{ fontSize: 13, color: '#9BA1AB', lineHeight: 1.6 }}>You haven't backed anyone yet. Open <span style={{ color: '#FF8A55', cursor: 'pointer' }} onClick={() => go('discover')}>Discover</span> to find live district nodes and showcase Builders.</div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        {active.map(b => {
+                          const p = findProfile(b.profile_id);
+                          const matured = new Date(b.unlock_at).getTime() <= Date.now();
+                          return (
+                            <div key={b.id} style={{ display: 'flex', alignItems: 'center', gap: 14, background: '#1B1E24', border: '1px solid #262A32', borderRadius: 12, padding: 14, flexWrap: 'wrap' }}>
+                              <div style={{ width: 42, height: 42, borderRadius: 11, background: cbkAvatarBg(p ? p.hue : 24), display: 'flex', alignItems: 'center', justifyContent: 'center', ...grotesk, fontWeight: 700, fontSize: 15, flexShrink: 0, cursor: p ? 'pointer' : 'default' }} onClick={() => p && openProfile(p.id)}>{cbkInitials(b.profile_name)}</div>
+                              <div style={{ flex: 1, minWidth: 140 }}>
+                                <div style={{ fontWeight: 600, fontSize: 14, cursor: p ? 'pointer' : 'default' }} onClick={() => p && openProfile(p.id)}>{b.profile_name}</div>
+                                <div style={{ fontSize: 12, color: '#9BA1AB', marginTop: 2 }}>{b.days}-day lock · unlocks {new Date(b.unlock_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+                              </div>
+                              <div style={{ textAlign: 'right' }}>
+                                <div style={{ fontWeight: 600, fontSize: 14 }}>{cbkFmt(b.amount)} 🔥</div>
+                                <div style={{ fontSize: 12, color: '#E8B34B' }}>+{cbkFmt(b.points)} pts</div>
+                              </div>
+                              {matured && (
+                                <button onClick={() => releaseLock(b)} disabled={busy} style={{ background: 'rgba(62,207,142,.12)', color: '#3ECF8E', border: '1px solid rgba(62,207,142,.35)', borderRadius: 8, padding: '7px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>Unlock</button>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ ...card, padding: 20 }}>
+                    <div style={{ ...grotesk, fontWeight: 600, fontSize: 16, marginBottom: 14 }}>Activity</div>
+                    {prevPosts.length === 0 ? (
+                      <div style={{ fontSize: 13, color: '#9BA1AB' }}>Backings, unlocks, and token buys will show up here.</div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                        {prevPosts.slice(0, 6).map((a, i) => (
+                          <div key={i} style={{ display: 'flex', gap: 10 }}>
+                            <div style={{ width: 8, height: 8, borderRadius: 99, background: '#FF6A2B', marginTop: 5, flexShrink: 0 }}></div>
+                            <div>
+                              <div style={{ fontSize: 13, lineHeight: 1.45 }}>{a.text}</div>
+                              <div style={{ fontSize: 11, color: '#9BA1AB', marginTop: 2 }}>{cbkAgo(a.when)}</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div style={{ marginTop: 16, padding: 12, background: '#101216', border: '1px solid #262A32', borderRadius: 10, fontSize: 12, color: '#9BA1AB', lineHeight: 1.5 }}>All rewards come from company-owned allocations. Your locked Cinder is never spent on development — it stays yours and returns to your game balance when the lock matures.</div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ═══ DISCOVER ═══ */}
+          {screen === 'discover' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search live district nodes, vendors, builders, mentors, programs…"
+                style={{ width: '100%', background: '#14161B', border: '1px solid #262A32', borderRadius: 12, padding: '13px 16px', color: '#F2F3F5', fontSize: 14, outline: 'none' }} />
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {filters.map(f => (
+                  <button key={f} onClick={() => setFilter(f)} style={{ borderRadius: 99, padding: '8px 16px', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif", background: filter === f ? 'rgba(255,106,43,.14)' : '#14161B', color: filter === f ? '#FF8A55' : '#C6CAD1', border: '1px solid ' + (filter === f ? 'rgba(255,106,43,.4)' : '#262A32') }}>{chipLabels[f]}</button>
+                ))}
+              </div>
+              {!session && (
+                <div style={{ fontSize: 13, color: '#9BA1AB', background: '#14161B', border: '1px solid #262A32', borderRadius: 10, padding: '12px 14px' }}>Sign in with your Mythic Spellbook account to see the LIVE claimed district nodes from the war map.</div>
+              )}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(300px,1fr))', gap: 16 }}>
+                {filtered.map(p => <ProfileCard key={p.id} p={p} />)}
+              </div>
+            </div>
+          )}
+
+          {/* ═══ PROFILE ═══ */}
+          {screen === 'profile' && sel && (() => {
+            const d = decorate(sel);
+            const myB = active.filter(b => b.profile_id === sel.id);
+            const myAmt = myB.reduce((s, b) => s + Number(b.amount), 0);
+            const milestones = (sel.real ? nodeMilestones(sel) : sel.milestones).map(m => ({ ...m, ...msMap[m.status] }));
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+                <button onClick={() => go('discover')} style={{ alignSelf: 'flex-start', background: 'none', border: 'none', color: '#9BA1AB', fontSize: 13, cursor: 'pointer', padding: 0, fontFamily: "'IBM Plex Sans',sans-serif" }}>← Back to discover</button>
+                <div style={{ background: 'linear-gradient(160deg,#1A130C,#14161B 55%)', border: '1px solid #33261A', borderRadius: 16, padding: 24, display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <div style={{ width: 72, height: 72, borderRadius: 18, background: d.avatarBg, display: 'flex', alignItems: 'center', justifyContent: 'center', ...grotesk, fontWeight: 700, fontSize: 26 }}>{d.initials}</div>
+                  <div style={{ flex: 1, minWidth: 220 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <span style={{ ...grotesk, fontSize: 24, fontWeight: 700 }}>{sel.name}</span>
+                      {sel.real && <span style={{ color: '#3ECF8E', fontSize: 16 }} title="Live game node">✓</span>}
+                      <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.06em', padding: '4px 10px', borderRadius: 99, background: d.tierBg, color: d.tierColor }}>{sel.tier}</span>
+                      {!sel.real && <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.1em', padding: '3px 9px', borderRadius: 99, background: 'rgba(160,170,185,.14)', color: '#9BA1AB' }}>SHOWCASE</span>}
+                    </div>
+                    <div style={{ color: '#9BA1AB', fontSize: 13, marginTop: 4 }}>{d.typeLabel}{sel.real ? ` · Operated by ${sel.ownerName}` : ''}</div>
+                    <div style={{ color: '#C6CAD1', fontSize: 14, marginTop: 8, maxWidth: 560, lineHeight: 1.5 }}>{sel.tagline}</div>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
+                    {session ? (
+                      <button onClick={() => setModal({ profileId: sel.id, step: 1, amountStr: '', days: 90 })} style={{ background: '#FF6A2B', color: '#14060A', border: 'none', borderRadius: 10, padding: '12px 24px', fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>Back this Builder</button>
+                    ) : (
+                      <button onClick={onSignIn} style={{ background: '#FF6A2B', color: '#14060A', border: 'none', borderRadius: 10, padding: '12px 24px', fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>Connect to back</button>
+                    )}
+                    <div style={{ fontSize: 12, color: '#9BA1AB' }}>{cbkFmt(sel.backers)} backers · {cbkFmt(d.pointsShown)} backing pts</div>
+                  </div>
+                </div>
+
+                {sel.real && <NodeTelemetry p={sel} />}
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 18, alignItems: 'start' }}>
+                  <div style={{ ...card, padding: 20 }}>
+                    <div style={{ ...grotesk, fontWeight: 600, fontSize: 16, marginBottom: 4 }}>Milestones</div>
+                    <div style={{ fontSize: 12, color: '#9BA1AB', marginBottom: 16 }}>{sel.real ? 'Live reconstruction progress from the war map.' : 'Verified milestones unlock rewards from company allocations.'}</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      {milestones.map((m, i) => (
+                        <div key={i} style={{ display: 'flex', gap: 14, alignItems: 'flex-start', background: '#1B1E24', border: '1px solid #262A32', borderRadius: 12, padding: 14 }}>
+                          <div style={{ width: 26, height: 26, borderRadius: 99, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0, background: m.iconBg, color: m.iconColor }}>{m.icon}</div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: 600, fontSize: 14, color: m.titleColor }}>{m.title}</div>
+                            <div style={{ fontSize: 12, color: '#9BA1AB', marginTop: 3, lineHeight: 1.45 }}>{m.desc}</div>
+                          </div>
+                          <span style={{ fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 99, background: m.badgeBg, color: m.badgeColor, whiteSpace: 'nowrap' }}>{m.status}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+                    <div style={{ ...card, padding: 20 }}>
+                      <div style={{ ...grotesk, fontWeight: 600, fontSize: 16, marginBottom: 14 }}>Backer benefits</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        {sel.perks.map((perk, i) => (
+                          <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 13, lineHeight: 1.5 }}><span style={{ color: '#FF6A2B' }}>◆</span><span>{perk}</span></div>
+                        ))}
+                      </div>
+                    </div>
+                    {myAmt > 0 && (
+                      <div style={{ background: 'linear-gradient(160deg,#0F1A14,#14161B)', border: '1px solid #1E3A2C', borderRadius: 14, padding: 20 }}>
+                        <div style={{ fontSize: 12, letterSpacing: '.1em', color: '#3ECF8E', fontWeight: 600 }}>YOUR POSITION</div>
+                        <div style={{ ...grotesk, fontSize: 24, fontWeight: 700, marginTop: 6 }}>{cbkFmt(myAmt)} CINDER</div>
+                        <div style={{ fontSize: 12, color: '#9BA1AB', marginTop: 4 }}>{myB[0].days}-day lock · earning points since {new Date(myB[0].started_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* ═══ REWARDS ═══ */}
+          {screen === 'rewards' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              <div style={{ background: 'linear-gradient(150deg,#1A130C,#14161B 60%)', border: '1px solid #33261A', borderRadius: 16, padding: 26, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
+                <div>
+                  <div style={{ fontSize: 12, letterSpacing: '.14em', color: '#E8B34B', fontWeight: 600 }}>CURRENT RANK</div>
+                  <div style={{ ...grotesk, fontSize: 32, fontWeight: 700, marginTop: 4 }}>{CBK_RANKS[rankIdx][0]}</div>
+                  <div style={{ color: '#9BA1AB', fontSize: 13, marginTop: 6 }}>{rankLabel} · Earn points by locking Cinder behind Builders.</div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ ...grotesk, fontSize: 28, fontWeight: 700, color: '#E8B34B' }}>{cbkFmt(myPoints)}</div>
+                  <div style={{ fontSize: 12, color: '#9BA1AB' }}>backing points</div>
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))', gap: 14 }}>
+                {CBK_ACH.map(a => {
+                  const on = earned.includes(a.id);
+                  return (
+                    <div key={a.id} style={{ background: '#14161B', border: '1px solid ' + (on ? '#33261A' : '#262A32'), borderRadius: 14, padding: 18, opacity: on ? 1 : 0.6 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ width: 38, height: 38, borderRadius: 11, background: on ? 'rgba(232,179,75,.14)' : '#1B1E24', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17 }}>{a.icon}</div>
+                        <span style={{ fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 99, background: on ? 'rgba(232,179,75,.14)' : '#1B1E24', color: on ? '#E8B34B' : '#9BA1AB' }}>{on ? 'Earned' : 'Locked'}</span>
+                      </div>
+                      <div style={{ fontWeight: 600, fontSize: 15, marginTop: 12 }}>{a.title}</div>
+                      <div style={{ fontSize: 12, color: '#9BA1AB', marginTop: 4, lineHeight: 1.5 }}>{a.desc}</div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{ background: '#101216', border: '1px solid #262A32', borderRadius: 12, padding: '16px 18px', fontSize: 13, color: '#9BA1AB', lineHeight: 1.6 }}>Rewards are funded exclusively by company-owned allocations and approved company resources. Locked Cinder belongs to backers at all times and is never used for company development.</div>
+            </div>
+          )}
+
+          {/* ═══ LEADERBOARD ═══ */}
+          {screen === 'leaderboard' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ color: '#9BA1AB', fontSize: 14 }}>Builders ranked by backing points + Node Power. Live district nodes carry a <span style={{ color: '#3ECF8E' }}>✓</span>.</div>
+              <div style={{ ...card, overflow: 'hidden' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '52px 1.8fr 1fr 1fr 90px', gap: 12, padding: '12px 18px', fontSize: 11, letterSpacing: '.1em', color: '#9BA1AB', textTransform: 'uppercase', borderBottom: '1px solid #1E222A' }}>
+                  <span>#</span><span>Builder</span><span>Type</span><span>Points</span><span>Tier</span>
+                </div>
+                {leaderboard.map((r, i) => (
+                  <div key={r.id} onClick={() => openProfile(r.id)} style={{ display: 'grid', gridTemplateColumns: '52px 1.8fr 1fr 1fr 90px', gap: 12, alignItems: 'center', padding: '13px 18px', borderBottom: '1px solid #16181D', cursor: 'pointer', background: i === 0 ? 'rgba(232,179,75,.04)' : 'transparent' }}>
+                    <span style={{ ...grotesk, fontWeight: 700, fontSize: 15, color: i === 0 ? '#E8B34B' : i < 3 ? '#FF8A55' : '#9BA1AB' }}>{i + 1}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                      <div style={{ width: 32, height: 32, borderRadius: 9, background: r.avatarBg, display: 'flex', alignItems: 'center', justifyContent: 'center', ...grotesk, fontWeight: 700, fontSize: 12, flexShrink: 0 }}>{r.initials}</div>
+                      <span style={{ fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}{r.real ? ' ✓' : ''}</span>
+                    </div>
+                    <span style={{ fontSize: 13, color: '#9BA1AB' }}>{r.typeLabel}</span>
+                    <span style={{ fontSize: 13, color: '#E8B34B', fontWeight: 600 }}>{cbkFmt(r.pointsShown)}</span>
+                    <span style={{ fontSize: 11, fontWeight: 600, padding: '4px 0', borderRadius: 99, textAlign: 'center', background: r.tierBg, color: r.tierColor }}>{r.tier}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </main>
+
+      {/* ═══ LOCK-CINDER MODAL ═══ */}
+      {lm && lmProfile && (
+        <div onClick={() => setModal(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(5,6,8,.72)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 60, padding: 20 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: '#14161B', border: '1px solid #33261A', borderRadius: 18, width: '100%', maxWidth: 480, padding: 26, boxShadow: '0 24px 80px rgba(0,0,0,.5)', maxHeight: '90vh', overflowY: 'auto' }}>
+            {lm.step === 1 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+                <div>
+                  <div style={{ ...grotesk, fontSize: 20, fontWeight: 700 }}>Back {lmProfile.name}</div>
+                  <div style={{ fontSize: 13, color: '#9BA1AB', marginTop: 4 }}>Lock Cinder from your Mythic Spellbook balance. You keep ownership — it returns when the lock matures.</div>
+                </div>
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#9BA1AB', marginBottom: 8 }}><span>Amount to lock</span><span>Available: {cbkFmt(gems)} 🔥</span></div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#101216', border: '1px solid ' + (lmOver ? '#F0655A' : '#262A32'), borderRadius: 12, padding: '4px 4px 4px 16px' }}>
+                    <input value={lm.amountStr} onChange={(e) => setModal({ ...lm, amountStr: e.target.value.replace(/[^0-9]/g, '') })} placeholder="0" inputMode="numeric"
+                      style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: '#F2F3F5', ...grotesk, fontSize: 22, fontWeight: 600, minWidth: 0 }} />
+                    <span style={{ fontSize: 13, color: '#9BA1AB', paddingRight: 8 }}>CINDER</span>
+                  </div>
+                  {lmOver && <div style={{ fontSize: 12, color: '#F0655A', marginTop: 6 }}>Exceeds your available balance</div>}
+                  <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                    {[25, 50, 75, 100].map(pc => (
+                      <button key={pc} onClick={() => setModal({ ...lm, amountStr: String(Math.floor(gems * pc / 100)) })}
+                        style={{ flex: 1, background: '#1B1E24', border: '1px solid #262A32', color: '#C6CAD1', borderRadius: 8, padding: '7px 0', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>{pc === 100 ? 'Max' : pc + '%'}</button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 12, color: '#9BA1AB', marginBottom: 8 }}>Lock duration · longer locks earn more points</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8 }}>
+                    {CBK_DUR.map(dd => (
+                      <button key={dd.days} onClick={() => setModal({ ...lm, days: dd.days })}
+                        style={{ background: dd.days === lm.days ? 'rgba(255,106,43,.14)' : '#101216', border: '1px solid ' + (dd.days === lm.days ? 'rgba(255,106,43,.5)' : '#262A32'), color: dd.days === lm.days ? '#FF8A55' : '#C6CAD1', borderRadius: 10, padding: '10px 0', cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif", display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'center' }}>
+                        <span style={{ fontWeight: 700, fontSize: 14 }}>{dd.days}d</span>
+                        <span style={{ fontSize: 11, opacity: 0.8 }}>×{dd.mult} pts</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div style={{ background: '#101216', border: '1px solid #262A32', borderRadius: 12, padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 13, color: '#9BA1AB' }}>You'll earn</span>
+                  <span style={{ ...grotesk, fontWeight: 700, fontSize: 18, color: '#E8B34B' }}>{cbkFmt(lmPts)} pts</span>
+                </div>
+                <button onClick={() => { if (lmValid) setModal({ ...lm, step: 2 }); }}
+                  style={{ background: lmValid ? '#FF6A2B' : '#1B1E24', color: lmValid ? '#14060A' : '#5C626C', border: 'none', borderRadius: 12, padding: 14, fontWeight: 600, fontSize: 15, cursor: lmValid ? 'pointer' : 'default', fontFamily: "'IBM Plex Sans',sans-serif" }}>Review backing</button>
+              </div>
+            )}
+            {lm.step === 2 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+                <div style={{ ...grotesk, fontSize: 20, fontWeight: 700 }}>Confirm backing</div>
+                <div style={{ display: 'flex', flexDirection: 'column', background: '#101216', border: '1px solid #262A32', borderRadius: 12, overflow: 'hidden' }}>
+                  {[
+                    ['Builder', lmProfile.name, '#F2F3F5'],
+                    ['Amount locked', cbkFmt(lmAmt) + ' CINDER', '#F2F3F5'],
+                    ['Lock duration', lm.days + ' days · unlocks ' + lmUnlock, '#F2F3F5'],
+                    ['Backing points', '+' + cbkFmt(lmPts), '#E8B34B'],
+                    ['Ownership', 'Stays with you', '#3ECF8E'],
+                  ].map((rr, i) => (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '13px 16px', borderBottom: '1px solid #16181D', fontSize: 13 }}>
+                      <span style={{ color: '#9BA1AB' }}>{rr[0]}</span><span style={{ fontWeight: 600, color: rr[2] }}>{rr[1]}</span>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ fontSize: 12, color: '#9BA1AB', lineHeight: 1.6, background: '#101216', border: '1px solid #262A32', borderRadius: 10, padding: '12px 14px' }}>Your Cinder moves out of your game balance into the backing lock until the unlock date, then you can return it to your wallet with one click. It is never spent, transferred, or used for company development.</div>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button onClick={() => setModal({ ...lm, step: 1 })} style={{ flex: 1, background: '#1B1E24', border: '1px solid #262A32', color: '#C6CAD1', borderRadius: 12, padding: 13, fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>Edit</button>
+                  <button onClick={confirmLock} disabled={busy} style={{ flex: 2, background: '#FF6A2B', color: '#14060A', border: 'none', borderRadius: 12, padding: 13, fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif", opacity: busy ? 0.6 : 1 }}>{busy ? 'Locking…' : 'Lock & back'}</button>
+                </div>
+              </div>
+            )}
+            {lm.step === 3 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'center', textAlign: 'center', padding: '10px 0' }}>
+                <img src="./assets/artwork/gameicons/Cinder.png" alt="" style={{ width: 64, height: 86, objectFit: 'contain', animation: 'emberPulse 2s infinite' }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                <div style={{ ...grotesk, fontSize: 22, fontWeight: 700 }}>Backing confirmed</div>
+                <div style={{ fontSize: 14, color: '#C6CAD1', lineHeight: 1.6, maxWidth: 340 }}>You're now backing <strong>{lmProfile.name}</strong> with {cbkFmt(lm.confirmedAmount)} CINDER. You earned <span style={{ color: '#E8B34B', fontWeight: 600 }}>+{cbkFmt(lm.confirmedPoints)} backing points</span> — saved to your Mythic Spellbook account.</div>
+                <button onClick={() => setModal(null)} style={{ background: '#FF6A2B', color: '#14060A', border: 'none', borderRadius: 12, padding: '13px 32px', fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>Done</button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ═══ BUY-TOKENS MODAL (PREVIEW) ═══ */}
+      {bm && bmProfile && (
+        <div onClick={() => setBuyModal(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(5,6,8,.72)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 60, padding: 20 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: '#14161B', border: '1px solid #1E3A2C', borderRadius: 18, width: '100%', maxWidth: 460, padding: 26, boxShadow: '0 24px 80px rgba(0,0,0,.5)', maxHeight: '90vh', overflowY: 'auto' }}>
+            {bm.step === 1 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                    <div style={{ ...grotesk, fontSize: 20, fontWeight: 700 }}>Buy tokens from {bmProfile.name}</div>
+                    <span style={{ ...mono, fontSize: 10, fontWeight: 700, letterSpacing: '.08em', padding: '3px 9px', borderRadius: 99, background: bm.mode === 'owner' ? 'rgba(232,179,75,.12)' : 'rgba(185,168,232,.12)', color: bm.mode === 'owner' ? '#E8B34B' : '#B9A8E8', border: '1px solid ' + (bm.mode === 'owner' ? '#6B4A15' : '#4A3A7A') }}>{bm.mode === 'owner' ? '👑 OWNER PURCHASE' : '⚡ PLAYER PURCHASE'}</span>
+                    <span style={{ ...mono, fontSize: 10, fontWeight: 700, letterSpacing: '.08em', padding: '3px 9px', borderRadius: 99, background: 'rgba(62,207,142,.1)', color: '#3ECF8E', border: '1px solid rgba(62,207,142,.3)' }}>PREVIEW</span>
+                  </div>
+                  <div style={{ fontSize: 13, color: '#9BA1AB', marginTop: 6, lineHeight: 1.5 }}>Every settled purchase credits <strong style={{ color: bm.mode === 'owner' ? '#E8B34B' : '#B9A8E8' }}>{bmRate} Power per token</strong> to the Node and raises its backing points. On-chain settlement arrives with the token launch — this preview shows exactly how your buy will land.</div>
+                </div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#101216', border: '1px solid #262A32', borderRadius: 12, padding: '4px 4px 4px 16px' }}>
+                    <input value={bm.amountStr} onChange={(e) => setBuyModal({ ...bm, amountStr: e.target.value.replace(/[^0-9]/g, '') })} placeholder="0" inputMode="numeric"
+                      style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: '#F2F3F5', ...grotesk, fontSize: 22, fontWeight: 600, minWidth: 0 }} />
+                    <span style={{ fontSize: 13, color: '#9BA1AB', paddingRight: 8 }}>CINDER</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                    {[500, 1000, 2500, 5000].map(v => (
+                      <button key={v} onClick={() => setBuyModal({ ...bm, amountStr: String(v) })}
+                        style={{ flex: 1, background: '#1B1E24', border: '1px solid #262A32', color: '#C6CAD1', borderRadius: 8, padding: '7px 0', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>{cbkFmt(v)}</button>
+                    ))}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', background: '#101216', border: '1px solid #262A32', borderRadius: 12, overflow: 'hidden' }}>
+                  {[
+                    ['Total cost', '$' + (bmAmt * CBK_TOKEN_PRICE).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), '#F2F3F5'],
+                    ['Node Power credited', '+' + cbkFmt(bmPower), '#B9A8E8'],
+                    ['Node backing points', '+' + cbkFmt(bmPower), '#E8B34B'],
+                    ['Node level progress', bmLevelLine, '#3ECF8E'],
+                  ].map((rr, i) => (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid #16181D', fontSize: 13 }}>
+                      <span style={{ color: '#9BA1AB' }}>{rr[0]}</span><span style={{ fontWeight: 600, color: rr[2] }}>{rr[1]}</span>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ ...mono, fontSize: 10, color: '#5C626C', textAlign: 'center', wordBreak: 'break-all' }}>Settles on Base mainnet · {CBK_CONTRACT}</div>
+                <button onClick={() => { if (bmAmt > 0) confirmBuy(); }}
+                  style={{ background: bmAmt > 0 ? '#3ECF8E' : '#1B1E24', color: bmAmt > 0 ? '#07130D' : '#5C626C', border: 'none', borderRadius: 12, padding: 14, fontWeight: 600, fontSize: 15, cursor: bmAmt > 0 ? 'pointer' : 'default', fontFamily: "'IBM Plex Sans',sans-serif" }}>Buy tokens</button>
+              </div>
+            )}
+            {bm.step === 2 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'center', textAlign: 'center', padding: '10px 0' }}>
+                <img src="./assets/artwork/gameicons/Cinder.png" alt="" style={{ width: 64, height: 86, objectFit: 'contain', animation: 'emberPulse 2s infinite' }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                <div style={{ ...grotesk, fontSize: 22, fontWeight: 700 }}>Purchase preview complete</div>
+                <div style={{ fontSize: 14, color: '#C6CAD1', lineHeight: 1.6, maxWidth: 360 }}><span style={{ color: '#3ECF8E', fontWeight: 600 }}>{cbkFmt(bm.confirmedAmount)} CINDER</span> would be added to your wallet, crediting <span style={{ color: '#B9A8E8', fontWeight: 600 }}>+{cbkFmt(bm.confirmedPower)} Node Power</span> and <span style={{ color: '#E8B34B', fontWeight: 600 }}>+{cbkFmt(bm.confirmedPower)} backing points</span>{bm.leveledUp ? ' — and the Node leveled up! 🎉' : '.'}</div>
+                <button onClick={() => setBuyModal(null)} style={{ background: '#3ECF8E', color: '#07130D', border: 'none', borderRadius: 12, padding: '13px 32px', fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>Done</button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Compact Cinder Backing summary panel for the Player Hub — the "shows in
+// Your Account, Your Inventory" hook. Reads the same cinder_backings table
+// + the player's claimed district nodes.
+const HubBackingPanel = ({ client, session, onShowBacking }) => {
+  const [backings, setBackings] = useState([]);
+  const [myNodes, setMyNodes] = useState([]);
+  useEffect(() => {
+    if (!client || !session) return;
+    let dead = false;
+    Promise.all([
+      client.from('cinder_backings').select('*').eq('user_id', session.user.id).eq('released', false).order('started_at', { ascending: false }),
+      client.from('tw_node_owners').select('*').eq('user_id', session.user.id),
+    ]).then(([b, o]) => { if (!dead) { setBackings(b.data || []); setMyNodes(o.data || []); } });
+    return () => { dead = true; };
+  }, [client, session]);
+  const locked = backings.reduce((s, b) => s + Number(b.amount), 0);
+  const pts = backings.reduce((s, b) => s + (b.points || 0), 0);
+  const rank = CBK_RANKS.reduce((acc, r) => (pts >= r[1] ? r[0] : acc), 'Spark');
+  return (
+    <div className="bg-gradient-to-br from-stone-900/85 to-black/80 border border-amber-500/35 rounded-lg overflow-hidden mb-8" style={{ boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
+      <div className="flex items-center justify-between gap-2 px-5 py-3 border-b border-stone-700/50 bg-black/30 flex-wrap">
+        <div className="flex items-center gap-2">
+          <CinderIcon size={18} />
+          <span className="text-amber-300 text-xs tracking-[0.3em] uppercase font-bold">Cinder Backing</span>
+          <span className="text-[10px] text-emerald-300 border border-emerald-500/40 bg-emerald-500/10 rounded-full px-2 py-0.5 tracking-widest uppercase">Connected</span>
+        </div>
+        <button onClick={onShowBacking} className="text-[11px] tracking-widest uppercase font-bold text-amber-200 border border-amber-400/50 rounded px-3 py-1.5 hover:bg-amber-500/15 transition">Open Platform →</button>
+      </div>
+      <div className="p-5">
+        <div className="grid grid-cols-3 gap-3 mb-4">
+          <div className="bg-black/50 border border-stone-700/50 rounded p-3 text-center">
+            <div className="text-xl font-bold text-orange-300 font-mono">{locked.toLocaleString()}</div>
+            <div className="text-stone-500 text-[10px] tracking-widest uppercase mt-1">🔥 Locked</div>
+          </div>
+          <div className="bg-black/50 border border-stone-700/50 rounded p-3 text-center">
+            <div className="text-xl font-bold text-amber-300 font-mono">{pts.toLocaleString()}</div>
+            <div className="text-stone-500 text-[10px] tracking-widest uppercase mt-1">Points · {rank}</div>
+          </div>
+          <div className="bg-black/50 border border-stone-700/50 rounded p-3 text-center">
+            <div className="text-xl font-bold text-purple-300 font-mono">{myNodes.length}</div>
+            <div className="text-stone-500 text-[10px] tracking-widest uppercase mt-1">District Nodes</div>
+          </div>
+        </div>
+        {backings.length > 0 ? (
+          <div className="space-y-2">
+            {backings.slice(0, 3).map(b => (
+              <div key={b.id} className="flex items-center justify-between gap-3 bg-black/40 border border-stone-700/40 rounded px-3 py-2 text-sm">
+                <span className="text-stone-200 truncate">{b.profile_name}</span>
+                <span className="text-stone-400 font-mono whitespace-nowrap">{Number(b.amount).toLocaleString()} 🔥 · unlocks {new Date(b.unlock_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+              </div>
+            ))}
+            {backings.length > 3 && <div className="text-stone-500 text-xs">+ {backings.length - 3} more in the platform</div>}
+          </div>
+        ) : (
+          <div className="text-stone-400 text-sm">
+            {myNodes.length > 0
+              ? `You own ${myNodes.length} district node${myNodes.length === 1 ? '' : 's'} — open the platform to see live progress, Node Power, and your Node Bank.`
+              : 'Back verified Nodes and Builders with your Cinder — locked tokens stay yours and earn backing points.'}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 function App() {
   const [selectedCard, setSelectedCard] = useState(null);
   const [selectedHero, setSelectedHero] = useState(null);
@@ -8309,6 +9356,8 @@ function App() {
   const showPledge = () => { setCurrentPage('pledge'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
   // Card List page — Palworld-inspired browsable catalog + Coming Drops.
   const showCardList = () => { setCurrentPage('cardlist'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+  // Cinder Backing platform — account-connected staking/backing page.
+  const showBacking = () => { setCurrentPage('backing'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
 
   const isSignedIn = !!session;
   const displayName = profile && profile.display_name
@@ -8336,6 +9385,7 @@ function App() {
         onShowNews={showNews}
         onShowPledge={showPledge}
         onShowCardList={showCardList}
+        onShowBacking={showBacking}
         onSignIn={showHub}  // Login button routes to the hub page where the sign-in form lives
       />
 
@@ -8348,6 +9398,7 @@ function App() {
             profile={profile}
             refreshProfile={refreshProfile}
             onSignedOut={() => { /* stay on hub; the page rerenders to the sign-in form */ }}
+            onShowBacking={showBacking}
           />
           <Footer />
         </div>
@@ -8376,6 +9427,18 @@ function App() {
       ) : currentPage === 'pledge' ? (
         /* ===== PLEDGE PAGE — ownership manifesto + tier scaffold (edit PLEDGE_TIERS at top of file) ===== */
         <PledgePage />
+      ) : currentPage === 'backing' ? (
+        /* ===== CINDER BACKING — account-connected staking/backing platform ===== */
+        <div className="pt-14">
+          <CinderBackingPage
+            client={client}
+            session={session}
+            profile={profile}
+            refreshProfile={refreshProfile}
+            onBack={showHome}
+            onSignIn={showHub}
+          />
+        </div>
       ) : currentPage === 'cardlist' ? (
         /* ===== CARD LIST PAGE — Palworld-inspired catalog + Coming Drops (admin adds cards via Admin → Card Manager) ===== */
         <CardListPage client={client} />
