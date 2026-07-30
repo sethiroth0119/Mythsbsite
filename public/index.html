@@ -8649,8 +8649,12 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
     let dead = false;
     const load = async () => {
       try {
-        if (mmAddr) {
-          const bal = await cbkEthCall(CBK_CONTRACT, CBK_SEL.balanceOf + cbkPad(mmAddr));
+        // TRUE on-chain MT balance — the connected MetaMask account first,
+        // else the account-linked wallet, read straight from the token
+        // contract on Base. This is the number users should see as "their MT".
+        const balTarget = mmAddr || (wallet && wallet.wallet_address) || null;
+        if (balTarget) {
+          const bal = await cbkEthCall(CBK_CONTRACT, CBK_SEL.balanceOf + cbkPad(balTarget));
           if (!dead) setMmBal(BigInt(bal));
         } else setMmBal(null);
         if (CBK_STAKING_ADDRESS) {
@@ -8680,7 +8684,7 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
     load();
     const t = setInterval(load, 30000);
     return () => { dead = true; clearInterval(t); };
-  }, [mmAddr, reloadN]);
+  }, [mmAddr, wallet, reloadN]);
 
   // Send a MetaMask transaction and wait for it to land on Base.
   const mmSend = async (to, data, label) => {
@@ -8948,6 +8952,10 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
   const locked = active.reduce((s, b) => s + Number(b.amount), 0);
   const lockedCinder = active.filter(b => b.currency !== 'MT').reduce((s, b) => s + Number(b.amount), 0);
   const lockedMt = active.filter(b => b.currency === 'MT').reduce((s, b) => s + Number(b.amount), 0);
+  // TRUE MT = on-chain wallet balance (connected or linked). The DB mirror
+  // (mtBal) is the in-game balance that DB locks draw from.
+  const mtChain = mmBal != null ? cbkFromWei(mmBal) : null;
+  const mtTrue = mtChain != null ? mtChain : mtBal;
   const myPoints = backings.reduce((s, b) => s + (b.points || 0), 0);
   let rankIdx = CBK_RANKS.reduce((acc, r, i) => (myPoints >= r[1] ? i : acc), 0);
   const nextRank = CBK_RANKS[rankIdx + 1];
@@ -9418,9 +9426,9 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
                     <span>🦊</span> Connect MetaMask
                   </button>
                 )}
-                <div title="Mythic Token — on-chain balance" style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#14161B', border: '1px solid #2A2438', borderRadius: 99, padding: '7px 14px' }}>
+                <div title={'Mythic Token — on-chain wallet: ' + (mtChain != null ? cbkFmt(mtChain) : '—') + ' · in-game balance: ' + cbkFmt(mtBal)} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#14161B', border: '1px solid #2A2438', borderRadius: 99, padding: '7px 14px' }}>
                   <span style={{ fontSize: 12, color: '#B9A8E8' }}>⬢</span>
-                  <span style={{ fontSize: 13, fontWeight: 600 }}>{cbkFmt(mtBal)}</span>
+                  <span style={{ fontSize: 13, fontWeight: 600 }}>{cbkFmt(mtTrue)}</span>
                   <span style={{ fontSize: 12, color: '#9BA1AB' }}>MT</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#14161B', border: '1px solid #33261A', borderRadius: 99, padding: '7px 14px' }}>
@@ -9515,7 +9523,7 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 14 }}>
                 {[
                   { label: 'Available Cinder', value: cbkFmt(gems), sub: session ? 'Live game balance 🔥' : 'Sign in to connect', color: '#F2F3F5' },
-                  { label: 'Mythic Token', value: cbkFmt(mtBal), sub: session ? (wallet && wallet.wallet_address ? 'Wallet ' + wallet.wallet_address.slice(0, 6) + '…' + wallet.wallet_address.slice(-4) : 'No wallet linked yet') : 'Sign in to connect', color: '#B9A8E8' },
+                  { label: 'Mythic Token', value: cbkFmt(mtTrue), sub: session ? ((mmAddr || (wallet && wallet.wallet_address)) ? 'On-chain · ' + cbkShortAddr(mmAddr || wallet.wallet_address) + ' · game ' + cbkFmt(mtBal) : 'No wallet connected yet') : 'Sign in to connect', color: '#B9A8E8' },
                   { label: 'Locked backing', value: cbkFmt(locked), sub: session ? `${cbkFmt(lockedCinder)} 🔥 · ${cbkFmt(lockedMt)} ⬢ across ${active.length}` : 'Sign in to connect', color: '#FF8A55' },
                   { label: 'Backing points', value: cbkFmt(myPoints), sub: CBK_RANKS[rankIdx][0] + ' rank', color: '#E8B34B' },
                   { label: 'Achievements', value: `${earned.length} / ${CBK_ACH.length}`, sub: 'Unlocked so far', color: '#3ECF8E' },
@@ -10652,7 +10660,7 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                   {[
                     { key: 'CINDER', icon: '🔥', label: 'Cinder', sub: 'From your game account', bal: gems, on: '#FF6A2B' },
-                    { key: 'MT', icon: '⬢', label: 'Mythic Token', sub: 'From your crypto wallet', bal: mtBal, on: '#B9A8E8' },
+                    { key: 'MT', icon: '⬢', label: 'Mythic Token', sub: 'From your crypto wallet', bal: mtTrue, on: '#B9A8E8' },
                   ].map(c => {
                     const sel2 = (lm.cur || 'CINDER') === c.key;
                     return (
@@ -10668,22 +10676,32 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
                     );
                   })}
                 </div>
-                {lmIsMt && (
-                  <div style={{ ...mono, fontSize: 11, color: wallet ? '#7E6BA8' : '#E8B34B', background: '#101216', border: '1px solid ' + (wallet ? '#2A2438' : '#33261A'), borderRadius: 10, padding: '10px 12px', lineHeight: 1.6, wordBreak: 'break-all' }}>
-                    {wallet && wallet.wallet_address
-                      ? <>WALLET {wallet.wallet_address.slice(0, 6)}…{wallet.wallet_address.slice(-4)} · BASE MAINNET · MT balance {cbkFmt(mtBal)}</>
-                      : <>No wallet linked yet — open the Bank of Ethos in-game to link one and buy MT. You can still back with Cinder now.</>}
-                  </div>
-                )}
+                {lmIsMt && (() => {
+                  const linkedAddr = wallet && wallet.wallet_address ? wallet.wallet_address.toLowerCase() : null;
+                  const activeAddr = mmAddr || linkedAddr;
+                  return (
+                    <div style={{ ...mono, fontSize: 11, color: activeAddr ? '#7E6BA8' : '#E8B34B', background: '#101216', border: '1px solid ' + (activeAddr ? '#2A2438' : '#33261A'), borderRadius: 10, padding: '10px 12px', lineHeight: 1.6, wordBreak: 'break-all' }}>
+                      {activeAddr ? (
+                        <>
+                          🦊 WALLET {cbkShortAddr(activeAddr)} · BASE MAINNET · on-chain MT {mtChain != null ? cbkFmt(mtChain) : '…'}
+                          {mmAddr && linkedAddr && mmAddr.toLowerCase() === linkedAddr ? ' · LINKED ✓' : mmAddr && !linkedAddr ? ' · not linked to your account yet — link on the Stake MT page' : ''}
+                          {mtBal > 0 ? <><br />In-game MT balance: {cbkFmt(mtBal)} (this is what locks here)</> : null}
+                        </>
+                      ) : (
+                        <>No wallet connected — connect MetaMask on the Stake MT page or in the Bank of Ethos. You can still back with Cinder now.</>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#9BA1AB', marginBottom: 8 }}><span>Amount to commit</span><span>Available: {cbkFmt(lmFunds)} {lmIsMt ? '⬢' : '🔥'}</span></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#9BA1AB', marginBottom: 8 }}><span>Amount to commit</span><span>{lmIsMt ? 'Lockable (in-game): ' + cbkFmt(lmFunds) + ' ⬢' : 'Available: ' + cbkFmt(lmFunds) + ' 🔥'}</span></div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#101216', border: '1px solid ' + (lmOver ? '#F0655A' : '#262A32'), borderRadius: 12, padding: '4px 4px 4px 16px' }}>
                     <input value={lm.amountStr} onChange={(e) => setModal({ ...lm, amountStr: e.target.value.replace(/[^0-9]/g, '') })} placeholder="0" inputMode="numeric"
                       style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: '#F2F3F5', ...grotesk, fontSize: 22, fontWeight: 600, minWidth: 0 }} />
                     <span style={{ fontSize: 13, color: '#9BA1AB', paddingRight: 8 }}>{lmUnit}</span>
                   </div>
-                  {lmOver && <div style={{ fontSize: 12, color: '#F0655A', marginTop: 6 }}>Exceeds your available {lmIsMt ? 'Mythic Token' : 'Cinder'} balance</div>}
+                  {lmOver && <div style={{ fontSize: 12, color: '#F0655A', marginTop: 6 }}>{lmIsMt ? 'Exceeds your lockable in-game MT. Wallet MT stakes on-chain from the Stake MT screen instead.' : 'Exceeds your available Cinder balance'}</div>}
                   <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
                     {[25, 50, 75, 100].map(pc => (
                       <button key={pc} onClick={() => setModal({ ...lm, amountStr: String(Math.floor(lmFunds * pc / 100)) })}
@@ -10718,7 +10736,7 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
                   {[
                     ['Builder', lmProfile.name, '#F2F3F5'],
                     ['Amount committed', cbkFmt(lmAmt) + ' ' + lmUnit, lmIsMt ? '#B9A8E8' : '#F2F3F5'],
-                    ['Taken from', lmIsMt ? 'Your Mythic Token wallet balance' : 'Your Mythic Spellbook game account', '#C6CAD1'],
+                    ['Taken from', lmIsMt ? 'Your in-game Mythic Token balance' : 'Your Mythic Spellbook game account', '#C6CAD1'],
                     ['Lock duration', lm.days + ' days · unlocks ' + lmUnlock, '#F2F3F5'],
                     ['Backing points', '+' + cbkFmt(lmPts), '#E8B34B'],
                     ['Ownership', 'Stays with you', '#3ECF8E'],
