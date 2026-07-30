@@ -8272,6 +8272,83 @@ const CBK_STAKE_PREVIEW = [
   { label: '365 days', apr: '47.50%', cap: '35% of tranche' },
 ];
 
+// ═══ TOKEN & BLOCKCHAIN DISCLAIMER (Hidn Studios) ═══
+// Shown ONCE before the first MetaMask interaction on this device, then the
+// wallet flows run seamlessly. Re-readable from the Stake screen footer.
+const CBK_DISCLAIMER_KEY = 'ms_mt_disclaimer_v1';
+const CBK_DISCLAIMER = [
+  { h: 'Our Position on Blockchain & Digital Assets', p: [
+    'Hidn Studios is not a cryptocurrency project. We are a game studio building a long-term gaming ecosystem where blockchain technology is used only to provide players with verifiable ownership of certain in-game assets and to power gameplay features.',
+    "Our token exists to enhance the player experience, reward participation, and support the game's economy—not to encourage speculation or short-term trading.",
+  ] },
+  { h: 'Our Philosophy', p: ['Our priority has always been simple:'], strong: 'Build first. Deliver first. Earn trust first.', p2: [
+    'We believe too many projects focus on marketing campaigns, token hype, and price speculation before delivering a real product. We refuse to build our community that way.',
+    'Instead, our development philosophy is:',
+  ], b: ['Build a great game.', 'Deliver meaningful updates.', 'Create long-term utility.', 'Reward players for participating.', 'Let value come from the strength of the ecosystem—not artificial hype.'] },
+  { h: 'Utility First', p: ['The Mythic Token is designed to support gameplay and ecosystem functionality, including features such as:'], b: [
+    'Player rewards', 'Marketplace functionality', 'Guilds, businesses, land, and other in-game systems', 'Governance features where applicable', 'Future gameplay mechanics introduced by the development team',
+  ], p2: ['The token is intended to serve as a utility within the Mythic Spellbook ecosystem.'] },
+  { h: 'Not an Investment Product', p: [
+    'The Mythic Token is not intended to represent an investment, security, equity interest, ownership stake in the company, profit-sharing agreement, or financial instrument.',
+    'Purchasing, earning, or holding the token should not be interpreted as an expectation of profits or financial returns.',
+    "Users should participate because they enjoy the game and wish to engage with its ecosystem—not because they expect the token's market value to increase.",
+  ] },
+  { h: 'No Price Promises', p: ['We make no promises or guarantees regarding:'], b: [
+    'Token price', 'Appreciation in value', 'Liquidity', 'Secondary market availability', 'Future exchange listings', 'Financial returns',
+  ], p2: ['Token prices, if traded on third-party platforms, are determined entirely by independent market participants, and not by Mythic Spellbook or its developers.'] },
+  { h: 'Sustainable Development Over Hype', p: ['Our resources will always prioritize:'], b: [
+    'Game development', 'Server infrastructure', 'New content', 'Player experience', 'Security', 'Community support', 'Long-term ecosystem growth',
+  ], p2: ['We will never sacrifice product quality simply to generate temporary excitement around a token.'] },
+  { h: 'Community Before Speculation', p: [
+    'We believe blockchain should solve real problems inside games—not become the game itself.',
+    'Our goal is to create one of the best strategy card games in the world. If blockchain technology helps improve ownership, persistence, rewards, or player freedom, we will use it responsibly. If traditional technology provides a better solution, we will use that instead.',
+  ], strong: 'Technology is a tool—not our identity.' },
+  { h: 'Our Commitment', p: [
+    'At Hidn Studios, we are building a gaming company first and a blockchain-enabled ecosystem second.',
+  ], b: ['Players come before token holders.', 'Gameplay comes before speculation.', 'Utility comes before hype.'], p2: [
+    'Our success will be measured by the quality of the worlds we build, the communities we create, and the experiences players enjoy—not by short-term market movements.',
+  ] },
+];
+const cbkDisclaimerAccepted = () => { try { return !!localStorage.getItem(CBK_DISCLAIMER_KEY); } catch (e) { return false; } };
+const cbkAcceptDisclaimer = () => { try { localStorage.setItem(CBK_DISCLAIMER_KEY, new Date().toISOString()); } catch (e) {} };
+
+const TokenDisclaimerModal = ({ onAccept, onClose, readOnly }) => (
+  <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(5,6,8,.78)', backdropFilter: 'blur(5px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 80, padding: 18 }}>
+    <div onClick={(e) => e.stopPropagation()} style={{ background: '#14161B', border: '1px solid #33261A', borderRadius: 18, width: '100%', maxWidth: 640, maxHeight: '88vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 80px rgba(0,0,0,.6)', fontFamily: "'IBM Plex Sans',sans-serif", color: '#F2F3F5' }}>
+      <div style={{ padding: '22px 26px 14px', borderBottom: '1px solid #1E222A' }}>
+        <div style={{ fontSize: 11, letterSpacing: '.16em', color: '#E8B34B', fontWeight: 600 }}>HIDN STUDIOS · MYTHIC SPELLBOOK</div>
+        <div style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: 22, fontWeight: 700, marginTop: 4 }}>Token &amp; Blockchain Disclaimer</div>
+        <div style={{ fontSize: 12, color: '#9BA1AB', marginTop: 4 }}>Please read before connecting a wallet or interacting with the Mythic Token.</div>
+      </div>
+      <div style={{ overflowY: 'auto', padding: '18px 26px', display: 'flex', flexDirection: 'column', gap: 18 }}>
+        {CBK_DISCLAIMER.map((s, i) => (
+          <div key={i}>
+            <div style={{ fontFamily: "'Space Grotesk',sans-serif", fontWeight: 600, fontSize: 15, color: '#FF8A55', marginBottom: 6 }}>{s.h}</div>
+            {(s.p || []).map((t, j) => <p key={'p' + j} style={{ fontSize: 13, color: '#C6CAD1', lineHeight: 1.65, margin: '0 0 8px' }}>{t}</p>)}
+            {s.strong && <p style={{ fontSize: 14, color: '#F2F3F5', fontWeight: 700, lineHeight: 1.6, margin: '0 0 8px' }}>{s.strong}</p>}
+            {s.b && (
+              <ul style={{ margin: '0 0 8px', paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {s.b.map((t, j) => <li key={j} style={{ fontSize: 13, color: '#C6CAD1', lineHeight: 1.55 }}>{t}</li>)}
+              </ul>
+            )}
+            {(s.p2 || []).map((t, j) => <p key={'q' + j} style={{ fontSize: 13, color: '#C6CAD1', lineHeight: 1.65, margin: '0 0 8px' }}>{t}</p>)}
+          </div>
+        ))}
+      </div>
+      <div style={{ padding: '14px 26px 20px', borderTop: '1px solid #1E222A', display: 'flex', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+        {readOnly ? (
+          <button onClick={onClose} style={{ background: '#1B1E24', border: '1px solid #262A32', color: '#C6CAD1', borderRadius: 12, padding: '12px 26px', fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>Close</button>
+        ) : (
+          <>
+            <button onClick={onClose} style={{ background: '#1B1E24', border: '1px solid #262A32', color: '#C6CAD1', borderRadius: 12, padding: '12px 22px', fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>Not now</button>
+            <button onClick={onAccept} style={{ background: '#FF6A2B', color: '#14060A', border: 'none', borderRadius: 12, padding: '12px 26px', fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>I understand — continue</button>
+          </>
+        )}
+      </div>
+    </div>
+  </div>
+);
+
 /* ── minimal ABI helpers (no web3 library; MetaMask signs, RPC reads) ── */
 const cbkPad = (hex) => hex.replace(/^0x/, '').padStart(64, '0');
 const cbkPadN = (n) => BigInt(n).toString(16).padStart(64, '0');
@@ -8523,8 +8600,16 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
   const [stakeTier, setStakeTier] = useState(0);
   const [stakeAmt, setStakeAmt] = useState('');
   const hasMM = typeof window !== 'undefined' && !!window.ethereum;
+  // Disclaimer gate: first wallet interaction on this device shows the Token
+  // & Blockchain Disclaimer; accepting continues straight into MetaMask.
+  const [discOpen, setDiscOpen] = useState(false);       // gating (accept/decline)
+  const [discRead, setDiscRead] = useState(false);       // read-only re-open
 
   const mmConnect = async () => {
+    if (!cbkDisclaimerAccepted()) { setDiscOpen(true); return; }
+    return mmConnectNow();
+  };
+  const mmConnectNow = async () => {
     if (!hasMM) { window.open('https://metamask.io/download/', '_blank'); return; }
     try {
       const accts = await window.ethereum.request({ method: 'eth_requestAccounts' });
@@ -10107,6 +10192,8 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
                 <div style={{ ...mono, fontSize: 10, color: '#5C4E7A', textAlign: 'center', wordBreak: 'break-all' }}>
                   Token <a href={'https://thirdweb.com/base/' + CBK_CONTRACT} target="_blank" rel="noreferrer" style={{ color: '#B9A8E8' }}>{CBK_CONTRACT}</a>
                   {live && <> · Staking <a href={'https://basescan.org/address/' + CBK_STAKING_ADDRESS} target="_blank" rel="noreferrer" style={{ color: '#B9A8E8' }}>{CBK_STAKING_ADDRESS}</a></>}
+                  {' · '}
+                  <button onClick={() => setDiscRead(true)} style={{ background: 'none', border: 'none', color: '#E8B34B', cursor: 'pointer', fontSize: 10, padding: 0, fontFamily: 'inherit', textDecoration: 'underline' }}>Token &amp; Blockchain Disclaimer</button>
                 </div>
               </div>
             );
@@ -10540,6 +10627,15 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
           )}
         </div>
       </main>
+
+      {/* ═══ TOKEN & BLOCKCHAIN DISCLAIMER ═══ */}
+      {discOpen && (
+        <TokenDisclaimerModal
+          onClose={() => setDiscOpen(false)}
+          onAccept={() => { cbkAcceptDisclaimer(); setDiscOpen(false); mmConnectNow(); }}
+        />
+      )}
+      {discRead && <TokenDisclaimerModal readOnly onClose={() => setDiscRead(false)} onAccept={() => setDiscRead(false)} />}
 
       {/* ═══ LOCK-CINDER MODAL ═══ */}
       {lm && lmProfile && (
