@@ -8604,10 +8604,19 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
   // & Blockchain Disclaimer; accepting continues straight into MetaMask.
   const [discOpen, setDiscOpen] = useState(false);       // gating (accept/decline)
   const [discRead, setDiscRead] = useState(false);       // read-only re-open
+  const discNextRef = useRef(null);                      // action to run after accept
+  // Acquire Mythic Token — Bank of Ethos buy modal (iframe). {p, mode}
+  const [ethosBuy, setEthosBuy] = useState(null);
 
   const mmConnect = async () => {
-    if (!cbkDisclaimerAccepted()) { setDiscOpen(true); return; }
+    if (!cbkDisclaimerAccepted()) { discNextRef.current = mmConnectNow; setDiscOpen(true); return; }
     return mmConnectNow();
+  };
+  // Buying the token is a token surface too — same disclaimer gate.
+  const openEthosBuy = (p, mode) => {
+    const go = () => setEthosBuy({ p, mode });
+    if (!cbkDisclaimerAccepted()) { discNextRef.current = go; setDiscOpen(true); return; }
+    go();
   };
   const mmConnectNow = async () => {
     if (!hasMM) { window.open('https://metamask.io/download/', '_blank'); return; }
@@ -8828,6 +8837,33 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
     const t = setInterval(load, 300000); // refresh every 5 minutes
     return () => { dead = true; clearInterval(t); };
   }, []);
+
+  // Bridge to the Acquire-MT iframe: send node context on its ready ping,
+  // close the overlay on its close ping.
+  useEffect(() => {
+    if (!ethosBuy) return;
+    const onMsg = (e) => {
+      const d = e && e.data;
+      if (!d) return;
+      if (d.type === 'ethosbuy:close') { setEthosBuy(null); return; }
+      if (d.type === 'ethosbuy:ready') {
+        const fr = document.getElementById('cbk-ethos-frame');
+        if (!fr || !fr.contentWindow) return;
+        const t = cbkTelemetry(ethosBuy.p, prevPower(ethosBuy.p.id));
+        fr.contentWindow.postMessage({
+          type: 'ethosbuy:init',
+          node: { id: ethosBuy.p.nodeDbId || ethosBuy.p.id, name: ethosBuy.p.name, level: t.level, xp: t.atMax ? t.xpMax : t.xp, xpMax: t.xpMax, levelMax: CBK_LEVEL_MAX },
+          mode: ethosBuy.mode,
+          powerRate: ethosBuy.mode === 'owner' ? 100 : 25,
+          // '' = pre-launch: the modal routes the purchase to thirdweb. Set the
+          // ownership API base here when it goes live to enable in-flow x402.
+          apiBase: '',
+        }, '*');
+      }
+    };
+    window.addEventListener('message', onMsg);
+    return () => window.removeEventListener('message', onMsg);
+  }, [ethosBuy]);
 
   // Poll telemetry every 45s so the panels stay fresh (handoff: 30–60s).
   useEffect(() => {
@@ -9179,15 +9215,15 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
             </div>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
-            <button onClick={() => { if (isOwner) setBuyModal({ profileId: p.id, step: 1, amountStr: '', mode: 'owner' }); }}
-              title={isOwner ? 'Buy Cinder as the node owner' : 'Only the node owner can use the owner rate'}
+            <button onClick={() => { if (isOwner) openEthosBuy(p, 'owner'); }}
+              title={isOwner ? 'Buy Mythic Token as the node owner (+100 Power per token)' : 'Only the node owner can use the owner rate'}
               style={{ background: 'linear-gradient(160deg,#241705,#1A1206)', border: '1px solid ' + (isOwner ? '#E8B34B' : '#3A2E14'), borderRadius: 11, padding: 14, textAlign: 'center', cursor: isOwner ? 'pointer' : 'not-allowed', opacity: isOwner ? 1 : 0.45, ...mono, display: 'flex', flexDirection: 'column', gap: 5, alignItems: 'center' }}>
               <span style={{ fontSize: 15 }}>👑</span>
               <span style={{ fontSize: 12, fontWeight: 700, color: '#F2F3F5' }}>Owner Buys Token</span>
               <span style={{ fontSize: 11, color: '#E8B34B' }}>+100 Power / token</span>
               <span style={{ fontSize: 9, letterSpacing: '.1em', color: isOwner ? '#E8B34B' : '#6B5A3A' }}>{isOwner ? 'YOU OWN THIS NODE' : '🔒 NODE OWNER ONLY'}</span>
             </button>
-            <button onClick={() => { if (session) setBuyModal({ profileId: p.id, step: 1, amountStr: '', mode: 'player' }); else if (onSignIn) onSignIn(); }}
+            <button onClick={() => { if (session) openEthosBuy(p, 'player'); else if (onSignIn) onSignIn(); }}
               style={{ background: 'linear-gradient(160deg,#1C1530,#150F22)', border: '1px solid #4A3A7A', borderRadius: 11, padding: 14, textAlign: 'center', cursor: 'pointer', ...mono, display: 'flex', flexDirection: 'column', gap: 5, alignItems: 'center' }}
               onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#7C6BFF'; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#4A3A7A'; }}>
               <span style={{ fontSize: 15 }}>⚡</span>
@@ -9200,7 +9236,7 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
             <div style={{ fontSize: 10, letterSpacing: '.1em', color: '#9B8FD0' }}>NODE POWER<br /><span style={{ fontSize: 15, fontWeight: 700, color: '#B9A8E8', letterSpacing: 0 }}>{cbkFmt(t.totalPower)}</span></div>
             <div style={{ fontSize: 10, letterSpacing: '.1em', color: '#9B8FD0', textAlign: 'right' }}>TOKENS SOLD VIA NODE<br /><span style={{ fontSize: 15, fontWeight: 700, color: '#E8B34B', letterSpacing: 0 }}>{cbkFmt(soldTotal)}</span></div>
           </div>
-          <div style={{ fontSize: 11, color: '#7E6BA8', marginTop: 12, lineHeight: 1.6, textAlign: 'center' }}>Buying CINDER (Base mainnet) powers this node — the owner boosts it faster, players add a smaller share. Power is credited only when a purchase settles.</div>
+          <div style={{ fontSize: 11, color: '#7E6BA8', marginTop: 12, lineHeight: 1.6, textAlign: 'center' }}>Buying MYTHIC TOKEN (MT · Base mainnet) powers this node — the owner boosts it faster, players add a smaller share. Power is credited only when a purchase settles.</div>
           <div style={{ fontSize: 10, color: '#5C4E7A', marginTop: 8, textAlign: 'center', wordBreak: 'break-all' }}>Contract <a href={'https://thirdweb.com/base/' + CBK_CONTRACT} target="_blank" rel="noreferrer" style={{ color: '#B9A8E8' }}>{CBK_CONTRACT}</a></div>
         </div>
 
@@ -10636,11 +10672,22 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
         </div>
       </main>
 
+      {/* ═══ ACQUIRE MYTHIC TOKEN — Bank of Ethos buy modal (iframe) ═══ */}
+      {ethosBuy && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 75 }}>
+          <iframe id="cbk-ethos-frame" title="Acquire Mythic Token" src="/ethos-buy.html" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 0 }} />
+        </div>
+      )}
+
       {/* ═══ TOKEN & BLOCKCHAIN DISCLAIMER ═══ */}
       {discOpen && (
         <TokenDisclaimerModal
-          onClose={() => setDiscOpen(false)}
-          onAccept={() => { cbkAcceptDisclaimer(); setDiscOpen(false); mmConnectNow(); }}
+          onClose={() => { discNextRef.current = null; setDiscOpen(false); }}
+          onAccept={() => {
+            cbkAcceptDisclaimer(); setDiscOpen(false);
+            const fn = discNextRef.current; discNextRef.current = null;
+            (fn || mmConnectNow)();
+          }}
         />
       )}
       {discRead && <TokenDisclaimerModal readOnly onClose={() => setDiscRead(false)} onAccept={() => setDiscRead(false)} />}
