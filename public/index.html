@@ -9917,8 +9917,20 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
             </div>
           )}
 
-          {/* ═══ STAKE MT (MetaMask · LockedStaking on Base) ═══ */}
-          {screen === 'stake' && (() => {
+          {/* ═══ STAKE MT (MetaMask · LockedStaking on Base) ═══
+              Wallet features live BEHIND the account: signed-out visitors see
+              only a sign-in gate — no MetaMask UI anywhere public. This page
+              is also the one official place a wallet gets linked to the game
+              account (link_game_wallet RPC → ownership_accounts). */}
+          {screen === 'stake' && !session && (
+            <div style={{ ...card, border: '1px solid #33261A', background: 'linear-gradient(160deg,#1A130C,#14161B 55%)', padding: 28, textAlign: 'center' }}>
+              <div style={{ fontSize: 26, marginBottom: 10 }}>🔐</div>
+              <div style={{ ...grotesk, fontSize: 22, fontWeight: 700 }}>Wallet features are tied to your account</div>
+              <div style={{ color: '#9BA1AB', fontSize: 14, marginTop: 8, maxWidth: 520, margin: '8px auto 0', lineHeight: 1.6 }}>Sign in with your Mythic Spellbook account first. Connecting MetaMask, staking MT, and linking a wallet to the game all happen here — and only for signed-in players.</div>
+              <button onClick={onSignIn} style={{ marginTop: 18, background: '#FF6A2B', color: '#14060A', border: 'none', borderRadius: 10, padding: '12px 26px', fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>Sign in to continue</button>
+            </div>
+          )}
+          {screen === 'stake' && session && (() => {
             const live = !!CBK_STAKING_ADDRESS;
             const selTier = mmTiers ? mmTiers.find(t => t.id === stakeTier) : null;
             const amtWei = (() => { try { return cbkToWei(stakeAmt || '0'); } catch (e) { return 0n; } })();
@@ -9953,6 +9965,49 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
                     )}
                   </div>
                 </div>
+
+                {/* Game-account link — THE official place a wallet gets bound to
+                    the player's Mythic Spellbook account (ownership_accounts). */}
+                {mmAddr && (() => {
+                  const linkedAddr = wallet && wallet.wallet_address ? wallet.wallet_address.toLowerCase() : null;
+                  const thisLinked = linkedAddr === mmAddr.toLowerCase();
+                  const doLink = async () => {
+                    if (busy) return;
+                    setBusy(true);
+                    const { data, error } = await client.rpc('link_game_wallet', { p_address: mmAddr, p_terms_version: 'web-1' });
+                    setBusy(false);
+                    const res2 = data || {};
+                    if (error || !res2.ok) {
+                      setNotice(res2.error === 'wallet_taken'
+                        ? 'That wallet is already linked to a different Mythic Spellbook account.'
+                        : 'Could not link the wallet — try again.');
+                      return;
+                    }
+                    pushPost(`Linked wallet ${cbkShortAddr(mmAddr)} to your game account.`);
+                    setReloadN(n => n + 1);
+                  };
+                  return (
+                    <div style={{ ...card, border: '1px solid ' + (thisLinked ? 'rgba(62,207,142,.35)' : '#33261A'), padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 18 }}>{thisLinked ? '✅' : '🔗'}</span>
+                      <div style={{ flex: 1, minWidth: 220 }}>
+                        <div style={{ fontWeight: 600, fontSize: 14 }}>{thisLinked ? 'This wallet is linked to your game account' : linkedAddr ? 'Your game account is linked to a different wallet' : 'Link this wallet to your game account'}</div>
+                        <div style={{ fontSize: 12, color: '#9BA1AB', marginTop: 3, lineHeight: 1.5 }}>
+                          {thisLinked
+                            ? <span style={{ ...mono }}>{cbkShortAddr(mmAddr)} · Base mainnet · used by the game for MT purchases, node payouts, and airdrops.</span>
+                            : linkedAddr
+                              ? <span>Currently linked: <span style={{ ...mono }}>{cbkShortAddr(linkedAddr)}</span>. Linking the connected wallet replaces it for everything on-chain in the game.</span>
+                              : 'Wallet linking happens here on the website — the game reads the linked wallet for MT purchases, node payouts, and airdrops.'}
+                        </div>
+                      </div>
+                      {!thisLinked && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
+                          <button onClick={doLink} disabled={busy} style={{ background: '#E8B34B', color: '#150F06', border: 'none', borderRadius: 10, padding: '10px 20px', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif", opacity: busy ? 0.6 : 1 }}>{busy ? 'Linking…' : linkedAddr ? 'Replace linked wallet' : 'Link wallet to game'}</button>
+                          <span style={{ fontSize: 10, color: '#6B5A3A' }}>Linking accepts the Ownership Network terms (web-1)</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {!live && (
                   <div style={{ ...card, border: '1px solid #33261A', padding: '14px 18px', fontSize: 13, color: '#C6CAD1', lineHeight: 1.6 }}>
@@ -10665,13 +10720,15 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
 const HubBackingPanel = ({ client, session, onShowBacking }) => {
   const [backings, setBackings] = useState([]);
   const [myNodes, setMyNodes] = useState([]);
+  const [hubWallet, setHubWallet] = useState(null);
   useEffect(() => {
     if (!client || !session) return;
     let dead = false;
     Promise.all([
       client.from('cinder_backings').select('*').eq('user_id', session.user.id).eq('released', false).order('started_at', { ascending: false }),
       client.from('tw_node_owners').select('*').eq('user_id', session.user.id),
-    ]).then(([b, o]) => { if (!dead) { setBackings(b.data || []); setMyNodes(o.data || []); } });
+      client.from('ownership_accounts').select('wallet_address, status').eq('player_id', session.user.id).maybeSingle(),
+    ]).then(([b, o, w]) => { if (!dead) { setBackings(b.data || []); setMyNodes(o.data || []); setHubWallet(w.data || null); } });
     return () => { dead = true; };
   }, [client, session]);
   const locked = backings.filter(b => b.currency !== 'MT').reduce((s, b) => s + Number(b.amount), 0);
@@ -10689,6 +10746,15 @@ const HubBackingPanel = ({ client, session, onShowBacking }) => {
         <button onClick={onShowBacking} className="text-[11px] tracking-widest uppercase font-bold text-amber-200 border border-amber-400/50 rounded px-3 py-1.5 hover:bg-amber-500/15 transition">Open Platform →</button>
       </div>
       <div className="p-5">
+        {/* Game-linked wallet — linking itself lives on the Backing → Stake MT screen. */}
+        <div className="flex items-center justify-between gap-3 bg-black/40 border border-stone-700/40 rounded px-3 py-2 mb-4 text-sm flex-wrap">
+          <span className="text-stone-400 text-xs tracking-widest uppercase">🦊 Game Wallet</span>
+          {hubWallet && hubWallet.wallet_address ? (
+            <span className="font-mono text-emerald-300">{hubWallet.wallet_address.slice(0, 6)}…{hubWallet.wallet_address.slice(-4)} <span className="text-emerald-500 text-xs">✓ linked</span></span>
+          ) : (
+            <button onClick={onShowBacking} className="text-amber-200 text-xs tracking-wide hover:text-amber-100 underline decoration-amber-500/50">No wallet linked — connect MetaMask on the Stake MT page →</button>
+          )}
+        </div>
         <div className="grid grid-cols-3 gap-3 mb-4">
           <div className="bg-black/50 border border-stone-700/50 rounded p-3 text-center">
             <div className="text-xl font-bold text-orange-300 font-mono">{locked.toLocaleString()}</div>
