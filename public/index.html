@@ -8250,6 +8250,55 @@ const CBK_ACH = [
 // "no milestones reached" instead of crashing the page.
 const CBK_MARKET_CAP = 0;
 const CBK_MT_PRICE_USD = 0.10; // in-game MT sale price (Bank of Ethos buy flow)
+
+// ═══ ON-CHAIN STAKING (LockedStaking, mythic-staking repo) ═══
+// Paste the deployed contract address here to switch the Stake screen from
+// preview to LIVE. Everything else is already wired.
+const CBK_STAKING_ADDRESS = '';
+const CBK_BASE_CHAIN_HEX = '0x2105'; // Base mainnet (8453)
+const CBK_RPC = 'https://mainnet.base.org';
+// Selectors computed with `cast sig` against src/LockedStaking.sol.
+const CBK_SEL = {
+  tierCount: '0x96b55f7d', getTier: '0x4f062c5a', stake: '0x7ec6840f',
+  unstake: '0x2e17de78', earlyExit: '0xb8af3d3e', unstakeAll: '0x8815150e',
+  getPositions: '0x3eeb530e', maxStakeInTier: '0x9a435054', rewardPool: '0x66666aa9',
+  balanceOf: '0x70a08231', allowance: '0xdd62ed3e', approve: '0x095ea7b3',
+};
+// The confirmed ladder (README) — shown as a preview until the contract is live.
+const CBK_STAKE_PREVIEW = [
+  { label: '30 days', apr: '8.00%', cap: 'uncapped' },
+  { label: '90 days', apr: '16.00%', cap: 'uncapped' },
+  { label: '180 days', apr: '28.50%', cap: '40% of tranche' },
+  { label: '365 days', apr: '47.50%', cap: '35% of tranche' },
+];
+
+/* ── minimal ABI helpers (no web3 library; MetaMask signs, RPC reads) ── */
+const cbkPad = (hex) => hex.replace(/^0x/, '').padStart(64, '0');
+const cbkPadN = (n) => BigInt(n).toString(16).padStart(64, '0');
+const cbkWord = (data, i) => BigInt('0x' + data.replace(/^0x/, '').slice(i * 64, i * 64 + 64));
+const CBK_WEI = 1000000000000000000n; // MT has 18 decimals (verified on-chain)
+const cbkFromWei = (v) => Number(v / 10000000000000000n) / 100; // 2dp, safe range
+const cbkToWei = (s) => { const [a, b = ''] = String(s).split('.'); return BigInt(a || 0) * CBK_WEI + BigInt((b + '000000000000000000').slice(0, 18)); };
+const cbkShortAddr = (a) => (a ? a.slice(0, 6) + '…' + a.slice(-4) : '');
+const cbkEthCall = async (to, data) => {
+  const r = await fetch(CBK_RPC, {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_call', params: [{ to, data }, 'latest'] }),
+  }).then(x => x.json());
+  if (r.error) throw new Error(r.error.message || 'rpc error');
+  return r.result;
+};
+const cbkWaitReceipt = async (hash) => {
+  for (let i = 0; i < 120; i++) {
+    const r = await fetch(CBK_RPC, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_getTransactionReceipt', params: [hash] }),
+    }).then(x => x.json());
+    if (r.result) return r.result;
+    await new Promise(res => setTimeout(res, 2500));
+  }
+  throw new Error('timed out waiting for confirmation');
+};
 const CBK_MCAPS = [
   { cap: 1000000, label: '$1M', vip: 'Cinder airdrop + Founding VIP badge', builder: 'Cinder airdrop + capacity boost' },
   { cap: 2000000, label: '$2M', vip: 'Cinder airdrop + exclusive card back', builder: 'Cinder airdrop + grant pool unlocked' },
@@ -8464,6 +8513,121 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
   // only; every debit/credit runs through the server-side RPCs.
   const [mtBal, setMtBal] = useState(0);
   const [wallet, setWallet] = useState(null);
+  // ── MetaMask wallet (on-chain staking) ──
+  const [mmAddr, setMmAddr] = useState(null);       // connected account
+  const [mmChainOk, setMmChainOk] = useState(true); // on Base mainnet?
+  const [mmBal, setMmBal] = useState(null);         // on-chain MT balance (wei)
+  const [mmTiers, setMmTiers] = useState(null);     // live tiers from the contract
+  const [mmPositions, setMmPositions] = useState([]);
+  const [mmTx, setMmTx] = useState(null);           // {label} while a tx is pending
+  const [stakeTier, setStakeTier] = useState(0);
+  const [stakeAmt, setStakeAmt] = useState('');
+  const hasMM = typeof window !== 'undefined' && !!window.ethereum;
+
+  const mmConnect = async () => {
+    if (!hasMM) { window.open('https://metamask.io/download/', '_blank'); return; }
+    try {
+      const accts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+      if (!accts || !accts.length) return;
+      setMmAddr(accts[0]);
+      const chain = await window.ethereum.request({ method: 'eth_chainId' });
+      if (chain !== CBK_BASE_CHAIN_HEX) {
+        setMmChainOk(false);
+        try {
+          await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: CBK_BASE_CHAIN_HEX }] });
+          setMmChainOk(true);
+        } catch (sw) {
+          if (sw && sw.code === 4902) {
+            try {
+              await window.ethereum.request({ method: 'wallet_addEthereumChain', params: [{ chainId: CBK_BASE_CHAIN_HEX, chainName: 'Base', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: [CBK_RPC], blockExplorerUrls: ['https://basescan.org'] }] });
+              setMmChainOk(true);
+            } catch (e2) {}
+          }
+        }
+      } else setMmChainOk(true);
+    } catch (e) { /* user rejected — fine */ }
+  };
+  // React to account/chain switches in the extension.
+  useEffect(() => {
+    if (!hasMM) return;
+    const onAccts = (a) => setMmAddr(a && a.length ? a[0] : null);
+    const onChain = (c) => setMmChainOk(c === CBK_BASE_CHAIN_HEX);
+    window.ethereum.on && window.ethereum.on('accountsChanged', onAccts);
+    window.ethereum.on && window.ethereum.on('chainChanged', onChain);
+    return () => {
+      window.ethereum.removeListener && window.ethereum.removeListener('accountsChanged', onAccts);
+      window.ethereum.removeListener && window.ethereum.removeListener('chainChanged', onChain);
+    };
+  }, [hasMM]);
+  // On-chain reads: wallet MT balance + live tiers + the wallet's positions.
+  useEffect(() => {
+    let dead = false;
+    const load = async () => {
+      try {
+        if (mmAddr) {
+          const bal = await cbkEthCall(CBK_CONTRACT, CBK_SEL.balanceOf + cbkPad(mmAddr));
+          if (!dead) setMmBal(BigInt(bal));
+        } else setMmBal(null);
+        if (CBK_STAKING_ADDRESS) {
+          const nHex = await cbkEthCall(CBK_STAKING_ADDRESS, CBK_SEL.tierCount);
+          const n = Number(BigInt(nHex));
+          const tiers = [];
+          for (let i = 0; i < n; i++) {
+            const t = await cbkEthCall(CBK_STAKING_ADDRESS, CBK_SEL.getTier + cbkPadN(i));
+            const [lock, apr, active, cap, reserved] = [cbkWord(t, 0), cbkWord(t, 1), cbkWord(t, 2), cbkWord(t, 3), cbkWord(t, 4)];
+            const maxHex = await cbkEthCall(CBK_STAKING_ADDRESS, CBK_SEL.maxStakeInTier + cbkPadN(i));
+            tiers.push({ id: i, days: Number(lock / 86400n), aprBps: Number(apr), active: active === 1n, cap, reserved, maxStake: BigInt(maxHex) });
+          }
+          if (!dead) setMmTiers(tiers);
+          if (mmAddr) {
+            const p = await cbkEthCall(CBK_STAKING_ADDRESS, CBK_SEL.getPositions + cbkPad(mmAddr));
+            const len = Number(cbkWord(p, 1));
+            const rows = [];
+            for (let i = 0; i < len; i++) {
+              const o = 2 + i * 6;
+              rows.push({ id: i, principal: cbkWord(p, o), reward: cbkWord(p, o + 1), start: Number(cbkWord(p, o + 2)), unlock: Number(cbkWord(p, o + 3)), tierId: Number(cbkWord(p, o + 4)), closed: cbkWord(p, o + 5) === 1n });
+            }
+            if (!dead) setMmPositions(rows);
+          }
+        }
+      } catch (e) { /* RPC hiccup — next tick retries */ }
+    };
+    load();
+    const t = setInterval(load, 30000);
+    return () => { dead = true; clearInterval(t); };
+  }, [mmAddr, reloadN]);
+
+  // Send a MetaMask transaction and wait for it to land on Base.
+  const mmSend = async (to, data, label) => {
+    if (!mmAddr) { await mmConnect(); return null; }
+    setMmTx({ label });
+    try {
+      const hash = await window.ethereum.request({ method: 'eth_sendTransaction', params: [{ from: mmAddr, to, data }] });
+      const rec = await cbkWaitReceipt(hash);
+      setMmTx(null);
+      if (rec.status !== '0x1') { setNotice(label + ' reverted on-chain.'); return null; }
+      setReloadN(n => n + 1);
+      return rec;
+    } catch (e) {
+      setMmTx(null);
+      if (!(e && (e.code === 4001 || e.code === 'ACTION_REJECTED'))) setNotice(label + ' failed: ' + ((e && e.message) || 'unknown error').slice(0, 120));
+      return null;
+    }
+  };
+  const mmStake = async () => {
+    if (!CBK_STAKING_ADDRESS || !mmTiers) return;
+    const amt = cbkToWei(stakeAmt || '0');
+    if (amt <= 0n) return;
+    if (mmBal != null && amt > mmBal) { setNotice('Amount exceeds your wallet MT balance.'); return; }
+    const allowHex = await cbkEthCall(CBK_CONTRACT, CBK_SEL.allowance + cbkPad(mmAddr) + cbkPad(CBK_STAKING_ADDRESS));
+    if (BigInt(allowHex) < amt) {
+      const ok = await mmSend(CBK_CONTRACT, CBK_SEL.approve + cbkPad(CBK_STAKING_ADDRESS) + cbkPadN(amt), 'Approve MT');
+      if (!ok) return;
+    }
+    const rec = await mmSend(CBK_STAKING_ADDRESS, CBK_SEL.stake + cbkPadN(stakeTier) + cbkPadN(amt), 'Stake');
+    if (rec) { setStakeAmt(''); pushPost(`You staked ${cbkFmt(cbkFromWei(amt))} MT on-chain (${(mmTiers.find(t => t.id === stakeTier) || {}).days || '?'}-day lock) from ${cbkShortAddr(mmAddr)}.`); }
+  };
+
   // LIVE Mythic Token market cap — {v, src:'dex'|'chain', t}. null = no data
   // yet (renders N/A, matching thirdweb). Last good reading cached locally.
   const [mcapLive, setMcapLive] = useState(() => {
@@ -9029,6 +9193,7 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
   const navDefs = [
     { key: 'dashboard', label: 'Dashboard', icon: '⌂' },
     { key: 'discover', label: 'Discover', icon: '◈' },
+    { key: 'stake', label: 'Stake MT', icon: '⛓' },
     { key: 'create', label: 'Become a Builder', icon: '✎' },
     { key: 'campaigns', label: 'Campaigns', icon: '⚑' },
     { key: 'governance', label: 'Governance', icon: '⚖' },
@@ -9052,7 +9217,7 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
     backers: 'Ranked by backer count against each Builder’s capacity.',
   }[leaderTab];
 
-  const screenTitles = { dashboard: 'Backer dashboard', discover: 'Discover Builders', profile: 'Builder profile', create: 'Become a Builder', campaigns: 'Campaigns & events', governance: 'Community governance', rewards: 'Rewards & reputation', vip: 'VIP Room', leaderboard: 'Builder rankings' };
+  const screenTitles = { dashboard: 'Backer dashboard', discover: 'Discover Builders', stake: 'Stake Mythic Token', profile: 'Builder profile', create: 'Become a Builder', campaigns: 'Campaigns & events', governance: 'Community governance', rewards: 'Rewards & reputation', vip: 'VIP Room', leaderboard: 'Builder rankings' };
 
   // ── Market-cap airdrop milestones (dashboard + VIP room) ──
   // mcap = the token's REAL market cap (see the fetch effect above). null
@@ -9157,6 +9322,17 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
                   <span style={{ fontSize: 13, fontWeight: 600 }}>{cbkFmt(gems)}</span>
                   <span style={{ fontSize: 12, color: '#9BA1AB' }}>available 🔥</span>
                 </div>
+                {mmAddr ? (
+                  <button onClick={() => go('stake')} title={'MetaMask connected: ' + mmAddr} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#14161B', border: '1px solid rgba(246,133,27,.45)', borderRadius: 99, padding: '7px 14px', cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>
+                    <span style={{ fontSize: 12 }}>🦊</span>
+                    <span style={{ ...mono, fontSize: 12, color: '#F2F3F5' }}>{cbkShortAddr(mmAddr)}</span>
+                    {!mmChainOk && <span style={{ fontSize: 10, color: '#F0655A', fontWeight: 700 }}>WRONG CHAIN</span>}
+                  </button>
+                ) : (
+                  <button onClick={mmConnect} style={{ display: 'flex', alignItems: 'center', gap: 7, background: 'rgba(246,133,27,.1)', border: '1px solid rgba(246,133,27,.4)', color: '#F6851B', borderRadius: 99, padding: '7px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>
+                    <span>🦊</span> Connect MetaMask
+                  </button>
+                )}
                 <div title="Mythic Token — on-chain balance" style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#14161B', border: '1px solid #2A2438', borderRadius: 99, padding: '7px 14px' }}>
                   <span style={{ fontSize: 12, color: '#B9A8E8' }}>⬢</span>
                   <span style={{ fontSize: 13, fontWeight: 600 }}>{cbkFmt(mtBal)}</span>
@@ -9740,6 +9916,146 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
               <div style={{ background: '#101216', border: '1px solid #262A32', borderRadius: 12, padding: '16px 18px', fontSize: 13, color: '#9BA1AB', lineHeight: 1.6 }}>Rewards are funded exclusively by company-owned allocations and published ecosystem programs. Committed Cinder belongs to Backers at all times — it is never spent, sold, borrowed, or lent. The platform monitors fake backing, bots, self-backing, reward farming, and related-wallet abuse; violations reduce Builder Score and program eligibility.</div>
             </div>
           )}
+
+          {/* ═══ STAKE MT (MetaMask · LockedStaking on Base) ═══ */}
+          {screen === 'stake' && (() => {
+            const live = !!CBK_STAKING_ADDRESS;
+            const selTier = mmTiers ? mmTiers.find(t => t.id === stakeTier) : null;
+            const amtWei = (() => { try { return cbkToWei(stakeAmt || '0'); } catch (e) { return 0n; } })();
+            const previewRw = selTier ? (amtWei * BigInt(selTier.aprBps) * BigInt(selTier.days * 86400)) / (10000n * 31536000n) : 0n;
+            const maxUsable = selTier && mmBal != null ? (mmBal < selTier.maxStake ? mmBal : selTier.maxStake) : (mmBal || 0n);
+            const openPos = mmPositions.filter(p => !p.closed);
+            const nowS = Math.floor(Date.now() / 1000);
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                {mmTx && (
+                  <div style={{ background: 'rgba(246,133,27,.08)', border: '1px solid rgba(246,133,27,.4)', color: '#F6851B', borderRadius: 10, padding: '10px 14px', fontSize: 13, display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ animation: 'emberPulse 1.2s infinite' }}>🦊</span> {mmTx.label} — confirm in MetaMask, then waiting for Base…
+                  </div>
+                )}
+
+                {/* Wallet card */}
+                <div style={{ background: 'linear-gradient(150deg,#1A130C,#14161B 60%)', border: '1px solid #33261A', borderRadius: 16, padding: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
+                  <div>
+                    <div style={{ fontSize: 12, letterSpacing: '.14em', color: '#E8B34B', fontWeight: 600 }}>⛓ ON-CHAIN STAKING · BASE MAINNET</div>
+                    <div style={{ ...grotesk, fontSize: 26, fontWeight: 700, marginTop: 4 }}>Stake Mythic Token from your wallet</div>
+                    <div style={{ color: '#9BA1AB', fontSize: 13, marginTop: 6, maxWidth: 560, lineHeight: 1.6 }}>Lock MT in the LockedStaking contract with MetaMask. Rewards are reserved the moment you stake — later APR changes can never touch an open position, and the contract always holds what it owes.</div>
+                  </div>
+                  <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
+                    {mmAddr ? (
+                      <>
+                        <a href={'https://basescan.org/address/' + mmAddr} target="_blank" rel="noreferrer" style={{ ...mono, fontSize: 13, color: '#F2F3F5', textDecoration: 'none', border: '1px solid rgba(246,133,27,.45)', borderRadius: 99, padding: '7px 14px' }}>🦊 {cbkShortAddr(mmAddr)}</a>
+                        {!mmChainOk && <button onClick={mmConnect} style={{ background: 'rgba(240,101,90,.12)', color: '#F0655A', border: '1px solid rgba(240,101,90,.4)', borderRadius: 8, padding: '6px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>Switch to Base</button>}
+                        <div style={{ ...grotesk, fontSize: 22, fontWeight: 700, color: '#B9A8E8' }}>{mmBal == null ? '…' : cbkFmt(cbkFromWei(mmBal))} <span style={{ fontSize: 12, color: '#9BA1AB' }}>MT in wallet</span></div>
+                      </>
+                    ) : (
+                      <button onClick={mmConnect} style={{ background: '#F6851B', color: '#1A0E00', border: 'none', borderRadius: 10, padding: '12px 24px', fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>🦊 {hasMM ? 'Connect MetaMask' : 'Install MetaMask'}</button>
+                    )}
+                  </div>
+                </div>
+
+                {!live && (
+                  <div style={{ ...card, border: '1px solid #33261A', padding: '14px 18px', fontSize: 13, color: '#C6CAD1', lineHeight: 1.6 }}>
+                    <span style={{ color: '#E8B34B', fontWeight: 700 }}>PREVIEW —</span> the LockedStaking contract is built and fully tested (31/31 tests, 5 invariants) but not deployed yet. Connect your wallet now; staking opens the moment the contract goes live. The ladder below is the confirmed launch configuration.
+                  </div>
+                )}
+
+                {/* Tier cards */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 14 }}>
+                  {live && mmTiers ? mmTiers.map(t => {
+                    const full = !t.active || t.maxStake < CBK_WEI;
+                    const on = stakeTier === t.id;
+                    return (
+                      <button key={t.id} onClick={() => { if (!full) setStakeTier(t.id); }} disabled={full}
+                        style={{ textAlign: 'left', background: on ? 'rgba(124,107,255,.10)' : '#14161B', border: '1px solid ' + (on ? '#7C6BFF' : full ? '#262A32' : '#33265C'), borderRadius: 14, padding: 18, cursor: full ? 'not-allowed' : 'pointer', opacity: full ? 0.5 : 1, fontFamily: "'IBM Plex Sans',sans-serif" }}>
+                        <div style={{ ...grotesk, fontSize: 22, fontWeight: 700, color: '#B9A8E8' }}>{(t.aprBps / 100).toFixed(2)}%</div>
+                        <div style={{ fontSize: 13, color: '#F2F3F5', fontWeight: 600, marginTop: 4 }}>{t.days}-day lock</div>
+                        <div style={{ fontSize: 11, color: '#9BA1AB', marginTop: 6 }}>{full ? (t.active ? 'TIER FULL — capacity recycles as positions close' : 'INACTIVE') : 'max ' + cbkFmt(cbkFromWei(t.maxStake)) + ' MT right now'}</div>
+                      </button>
+                    );
+                  }) : CBK_STAKE_PREVIEW.map((t, i) => (
+                    <div key={i} style={{ background: '#14161B', border: '1px solid #262A32', borderRadius: 14, padding: 18, opacity: 0.65 }}>
+                      <div style={{ ...grotesk, fontSize: 22, fontWeight: 700, color: '#B9A8E8' }}>{t.apr}</div>
+                      <div style={{ fontSize: 13, color: '#F2F3F5', fontWeight: 600, marginTop: 4 }}>{t.label} lock</div>
+                      <div style={{ fontSize: 11, color: '#9BA1AB', marginTop: 6 }}>cap: {t.cap} · OPENS AT LAUNCH</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Stake form */}
+                {live && (
+                  <div style={{ ...card, padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    <div style={{ ...grotesk, fontWeight: 600, fontSize: 16 }}>Stake into the {selTier ? selTier.days + '-day' : '…'} tier</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#101216', border: '1px solid #262A32', borderRadius: 12, padding: '4px 4px 4px 16px' }}>
+                      <input value={stakeAmt} onChange={(e) => setStakeAmt(e.target.value.replace(/[^0-9.]/g, ''))} placeholder="0.0" inputMode="decimal"
+                        style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: '#F2F3F5', ...grotesk, fontSize: 22, fontWeight: 600, minWidth: 0 }} />
+                      <button onClick={() => setStakeAmt(String(cbkFromWei(maxUsable)))} style={{ background: '#1B1E24', border: '1px solid #262A32', color: '#C6CAD1', borderRadius: 8, padding: '7px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>MAX</button>
+                      <span style={{ fontSize: 13, color: '#9BA1AB', paddingRight: 8 }}>MT</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 13, flexWrap: 'wrap' }}>
+                      <span style={{ color: '#9BA1AB' }}>Reward reserved at stake time</span>
+                      <span style={{ color: '#3ECF8E', fontWeight: 700 }}>+{cbkFmt(cbkFromWei(previewRw))} MT at unlock</span>
+                    </div>
+                    <button onClick={mmStake} disabled={!!mmTx || amtWei <= 0n}
+                      style={{ background: amtWei > 0n && !mmTx ? '#7C6BFF' : '#1B1E24', color: amtWei > 0n && !mmTx ? '#0B0818' : '#5C626C', border: 'none', borderRadius: 12, padding: 14, fontWeight: 700, fontSize: 15, cursor: amtWei > 0n && !mmTx ? 'pointer' : 'default', fontFamily: "'IBM Plex Sans',sans-serif" }}>
+                      {mmTx ? mmTx.label + '…' : mmAddr ? 'Approve & Stake' : 'Connect wallet to stake'}
+                    </button>
+                    <div style={{ fontSize: 11, color: '#9BA1AB', lineHeight: 1.6 }}>Two MetaMask confirmations the first time (token approval, then the stake). Principal plus the full reserved reward pays out at unlock; early exit forfeits the reward and takes a 10% principal penalty.</div>
+                  </div>
+                )}
+
+                {/* Positions */}
+                {live && mmAddr && (
+                  <div style={{ ...card, padding: 20 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
+                      <div style={{ ...grotesk, fontWeight: 600, fontSize: 16 }}>My staked positions</div>
+                      {openPos.filter(p => p.unlock <= nowS).length > 1 && (
+                        <button onClick={() => mmSend(CBK_STAKING_ADDRESS, CBK_SEL.unstakeAll, 'Claim all unlocked')} disabled={!!mmTx}
+                          style={{ background: 'rgba(62,207,142,.12)', color: '#3ECF8E', border: '1px solid rgba(62,207,142,.35)', borderRadius: 8, padding: '7px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>Claim all unlocked</button>
+                      )}
+                    </div>
+                    {openPos.length === 0 ? (
+                      <div style={{ fontSize: 13, color: '#9BA1AB' }}>No open positions from this wallet yet.</div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        {openPos.map(p => {
+                          const unlocked = p.unlock <= nowS;
+                          const prog = unlocked ? 1 : Math.max(0, Math.min(1, (nowS - p.start) / Math.max(1, p.unlock - p.start)));
+                          const secs = p.unlock - nowS;
+                          const cd = unlocked ? 'Unlocked' : (secs >= 86400 ? Math.floor(secs / 86400) + 'd ' + Math.floor((secs % 86400) / 3600) + 'h' : Math.floor(secs / 3600) + 'h ' + Math.floor((secs % 3600) / 60) + 'm');
+                          return (
+                            <div key={p.id} style={{ background: '#1B1E24', border: '1px solid ' + (unlocked ? 'rgba(62,207,142,.35)' : '#262A32'), borderRadius: 12, padding: 14 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+                                <div style={{ flex: 1, minWidth: 160 }}>
+                                  <div style={{ fontWeight: 600, fontSize: 14 }}>{cbkFmt(cbkFromWei(p.principal))} MT <span style={{ color: '#3ECF8E', fontSize: 12 }}>+{cbkFmt(cbkFromWei(p.reward))} reward</span></div>
+                                  <div style={{ fontSize: 12, color: '#9BA1AB', marginTop: 2 }}>{(mmTiers && (mmTiers.find(t => t.id === p.tierId) || {}).days) || '?'}-day tier · {cd}</div>
+                                </div>
+                                {unlocked ? (
+                                  <button onClick={() => mmSend(CBK_STAKING_ADDRESS, CBK_SEL.unstake + cbkPadN(p.id), 'Unstake')} disabled={!!mmTx}
+                                    style={{ background: '#3ECF8E', color: '#07130D', border: 'none', borderRadius: 8, padding: '8px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>Unstake</button>
+                                ) : (
+                                  <button onClick={() => { if (window.confirm('Early exit forfeits the reserved reward and takes a 10% penalty on principal. Continue?')) mmSend(CBK_STAKING_ADDRESS, CBK_SEL.earlyExit + cbkPadN(p.id), 'Early exit'); }} disabled={!!mmTx}
+                                    style={{ background: 'rgba(240,101,90,.1)', color: '#F0655A', border: '1px solid rgba(240,101,90,.35)', borderRadius: 8, padding: '8px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>Early exit</button>
+                                )}
+                              </div>
+                              <div style={{ height: 4, background: '#262A32', borderRadius: 99, marginTop: 10, overflow: 'hidden' }}>
+                                <div style={{ height: '100%', width: Math.round(prog * 100) + '%', background: unlocked ? '#3ECF8E' : 'linear-gradient(90deg,#5B3FA8,#7C6BFF)', transition: 'width 400ms ease-out' }}></div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div style={{ ...mono, fontSize: 10, color: '#5C4E7A', textAlign: 'center', wordBreak: 'break-all' }}>
+                  Token <a href={'https://thirdweb.com/base/' + CBK_CONTRACT} target="_blank" rel="noreferrer" style={{ color: '#B9A8E8' }}>{CBK_CONTRACT}</a>
+                  {live && <> · Staking <a href={'https://basescan.org/address/' + CBK_STAKING_ADDRESS} target="_blank" rel="noreferrer" style={{ color: '#B9A8E8' }}>{CBK_STAKING_ADDRESS}</a></>}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* ═══ BECOME A BUILDER ═══ */}
           {screen === 'create' && (
