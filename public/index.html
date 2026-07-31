@@ -8902,6 +8902,46 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
     await client.from('vip_members').update({ tier }).eq('user_id', v.user_id);
     setReloadN(n => n + 1);
   };
+  // Admin edits to a member's token figures (holdings / airdropped).
+  const saveVipNumbers = async (v, patch) => {
+    if (!isAdmin) return;
+    const { error } = await client.from('vip_members').update(patch).eq('user_id', v.user_id);
+    if (error) setNotice('Could not save — try again.');
+    setReloadN(n => n + 1);
+  };
+  // Type-ahead: player names pop up from user management as the admin types.
+  useEffect(() => {
+    if (!isAdmin) return;
+    const q2 = vipQ.trim();
+    if (q2.length < 2) { setVipResults(null); return; }
+    const t = setTimeout(() => { vipSearch(); }, 300);
+    return () => clearTimeout(t);
+  }, [vipQ, isAdmin]);
+  // Linked wallets + LIVE on-chain MT for every roster member (balanceOf
+  // straight from the token contract — the "from our thirdweb" number).
+  const [vipWallets, setVipWallets] = useState({});
+  useEffect(() => {
+    if (!client || !session || vips.length === 0) { setVipWallets({}); return; }
+    let dead = false;
+    (async () => {
+      try {
+        const ids = vips.map(v => v.user_id);
+        const { data } = await client.from('ownership_accounts').select('player_id, wallet_address').in('player_id', ids);
+        const map = {};
+        (data || []).forEach(row => { if (row.wallet_address) map[row.player_id] = { addr: row.wallet_address, bal: null }; });
+        if (dead) return;
+        setVipWallets(Object.assign({}, map));
+        for (const uid2 of Object.keys(map)) {
+          try {
+            const balHex = await cbkEthCall(CBK_CONTRACT, CBK_SEL.balanceOf + cbkPad(map[uid2].addr));
+            map[uid2] = { addr: map[uid2].addr, bal: cbkFromWei(BigInt(balHex)) };
+          } catch (e) {}
+        }
+        if (!dead) setVipWallets(Object.assign({}, map));
+      } catch (e) {}
+    })();
+    return () => { dead = true; };
+  }, [client, session, vips]);
 
   // ── Become a Builder: submit the wizard as a real profile row ──
   const submitBuilder = async () => {
@@ -10494,7 +10534,7 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
                       {[
                         { label: 'Your VIP tier', value: tier, sub: mult + '× allocation', color: '#B9A8E8', border: '#2A2438' },
                         { label: 'Total allocation', value: cbkFmt(total), sub: 'Cinder across all milestones', color: '#E8B34B', border: '#33261A' },
-                        { label: 'Airdropped', value: cbkFmt(received), sub: rows.filter(r => r.hit).length + ' of ' + rows.length + ' milestones', color: '#3ECF8E', border: '#1E3A2C' },
+                        { label: 'Airdropped', value: cbkFmt(me && Number(me.airdropped) > 0 ? Number(me.airdropped) : received), sub: me && Number(me.airdropped) > 0 ? 'Delivered to you via thirdweb' : rows.filter(r => r.hit).length + ' of ' + rows.length + ' milestones', color: '#3ECF8E', border: '#1E3A2C' },
                         { label: 'Room members', value: cbkFmt(vips.length), sub: 'Admin-managed roster', color: '#F2F3F5', border: '#262A32' },
                       ].map((s, i) => (
                         <div key={i} style={{ background: '#14161B', border: '1px solid ' + s.border, borderRadius: 14, padding: 18 }}>
@@ -10575,13 +10615,44 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
                     <div style={{ fontSize: 13, color: '#9BA1AB' }}>No members yet{isAdmin ? ' — add the first one below.' : '.'}</div>
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                      {vips.map(v => (
+                      {vips.map(v => {
+                        const w = vipWallets[v.user_id];
+                        return (
                         <div key={v.user_id} style={{ display: 'flex', alignItems: 'center', gap: 14, background: '#1B1E24', border: '1px solid #262A32', borderRadius: 12, padding: '12px 14px', flexWrap: 'wrap' }}>
                           <div style={{ width: 38, height: 38, borderRadius: 10, background: cbkAvatarBg(cbkHue(v.user_id)), display: 'flex', alignItems: 'center', justifyContent: 'center', ...grotesk, fontWeight: 700, fontSize: 13, flexShrink: 0 }}>{cbkInitials(v.display_name)}</div>
-                          <div style={{ flex: 1, minWidth: 140 }}>
+                          <div style={{ flex: 1, minWidth: 160 }}>
                             <div style={{ fontWeight: 600, fontSize: 14 }}>{v.display_name}{session && v.user_id === session.user.id ? ' (you)' : ''}</div>
-                            <div style={{ fontSize: 11, color: '#9BA1AB', marginTop: 2 }}>Member since {new Date(v.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+                            <div style={{ fontSize: 11, color: '#9BA1AB', marginTop: 2 }}>
+                              {cbkFmt(v.holdings)} MT held · <span style={{ color: '#3ECF8E' }}>{cbkFmt(v.airdropped)} airdropped</span>
+                              {w && <span style={{ ...mono }}> · ⛓ {w.bal == null ? '…' : cbkFmt(w.bal)} on-chain ({cbkShortAddr(w.addr)})</span>}
+                              {!w && <span> · no wallet linked</span>}
+                            </div>
+                            <div style={{ fontSize: 10, color: '#5C626C', marginTop: 2 }}>Member since {new Date(v.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
                           </div>
+                          {isAdmin && (
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                              {[['holdings', 'HOLDINGS'], ['airdropped', 'AIRDROPPED ⬢']].map(([field, label]) => (
+                                <div key={field}>
+                                  <div style={{ fontSize: 8, letterSpacing: '.12em', color: '#9BA1AB', marginBottom: 3 }}>{label}</div>
+                                  <input
+                                    key={v.user_id + '-' + field + '-' + v[field]}
+                                    defaultValue={Number(v[field]) || 0}
+                                    inputMode="numeric"
+                                    onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+                                    onBlur={(e) => {
+                                      const n = parseInt(String(e.currentTarget.value).replace(/[^0-9]/g, '') || '0', 10);
+                                      if (n !== (Number(v[field]) || 0)) saveVipNumbers(v, { [field]: n });
+                                    }}
+                                    style={{ width: 92, background: '#101216', border: '1px solid #262A32', borderRadius: 8, padding: '6px 9px', color: field === 'airdropped' ? '#3ECF8E' : '#F2F3F5', fontSize: 12, fontWeight: 600, outline: 'none', fontFamily: "'IBM Plex Mono',monospace" }}
+                                  />
+                                </div>
+                              ))}
+                              {w && w.bal != null && (
+                                <button title={'Set holdings to the live on-chain balance (' + cbkFmt(w.bal) + ' MT)'} onClick={() => saveVipNumbers(v, { holdings: Math.round(w.bal) })}
+                                  style={{ background: 'rgba(124,107,255,.12)', color: '#B9A8E8', border: '1px solid #4A3A7A', borderRadius: 8, padding: '6px 10px', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>⛓ use chain</button>
+                              )}
+                            </div>
+                          )}
                           {isAdmin ? (
                             <select value={v.tier} onChange={(e) => setVipMemberTier(v, e.target.value)} style={{ background: '#101216', border: '1px solid #33261A', color: '#E8B34B', borderRadius: 8, padding: '6px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>
                               {CBK_VIP_TIERS.map(t => <option key={t} value={t}>{t}</option>)}
@@ -10593,7 +10664,7 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
                             <button onClick={() => removeVip(v)} disabled={busy} style={{ background: 'rgba(240,101,90,.1)', color: '#F0655A', border: '1px solid rgba(240,101,90,.35)', borderRadius: 8, padding: '6px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>Remove</button>
                           )}
                         </div>
-                      ))}
+                      ); })}
                     </div>
                   )}
                 </div>
@@ -10605,7 +10676,7 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
                   <div style={{ ...grotesk, fontWeight: 600, fontSize: 16, marginBottom: 4 }}>Grant VIP access</div>
                   <div style={{ fontSize: 12, color: '#9BA1AB', marginBottom: 14 }}>Search players by their in-game display name and add them to the room. Only admins can change the roster.</div>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    <input value={vipQ} onChange={(e) => setVipQ(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') vipSearch(); }} placeholder="Player display name…"
+                    <input value={vipQ} onChange={(e) => setVipQ(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') vipSearch(); }} placeholder="Start typing a player name — matches pop up from user management…"
                       style={{ flex: 1, minWidth: 200, background: '#101216', border: '1px solid #262A32', borderRadius: 10, padding: '11px 14px', color: '#F2F3F5', fontSize: 13, outline: 'none' }} />
                     <select value={vipTier} onChange={(e) => setVipTier(e.target.value)} style={{ background: '#101216', border: '1px solid #33261A', color: '#E8B34B', borderRadius: 10, padding: '10px 12px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>
                       {CBK_VIP_TIERS.map(t => <option key={t} value={t}>{t}</option>)}
