@@ -8367,39 +8367,61 @@ const cbkInsightGet = async (path) => {
   if (!r.ok) throw new Error('insight ' + r.status);
   return r.json();
 };
+// Full transfer history of the token, fetched ONCE per session (the API
+// ignores from/to filters, so filtering happens client-side — one fetch
+// serves the whole roster). Verified live: /v1/tokens/transfers returns
+// { data: [{ from_address, to_address, amount, token_type, transfer_type }] }.
+let _cbkTransfersP = null;
+const cbkAllTransfers = () => {
+  if (!_cbkTransfersP) {
+    _cbkTransfersP = (async () => {
+      const all = [];
+      for (let page = 0; page < 10; page++) {
+        const j = await cbkInsightGet('/tokens/transfers?contract_address=' + CBK_CONTRACT + '&limit=500&page=' + page);
+        const rows = (j && j.data) || [];
+        all.push(...rows);
+        if (rows.length < 500) break;
+      }
+      return all;
+    })().catch(e => { _cbkTransfersP = null; throw e; });
+  }
+  return _cbkTransfersP;
+};
+// Airdrop senders: the pinned list, or auto-derived = the token's TOP HOLDER
+// (treasury) plus the original mint recipient (deployer) — the wallets
+// company distributions realistically come from today.
 const cbkAirdropSenders = () => {
   if (CBK_AIRDROP_SENDERS.length) return Promise.resolve(CBK_AIRDROP_SENDERS.map(a => a.toLowerCase()));
   if (!_cbkSendersP) {
-    _cbkSendersP = cbkInsightGet('/tokens/owners?token_address=' + CBK_CONTRACT + '&limit=1')
-      .then(j => {
-        const rows = (j && (j.data || j.result || j.owners)) || [];
-        const top = rows[0] && (rows[0].owner_address || rows[0].address || rows[0].owner);
-        return top ? [String(top).toLowerCase()] : [];
-      })
-      .catch(e => { _cbkSendersP = null; throw e; });
+    _cbkSendersP = Promise.all([
+      cbkInsightGet('/tokens/owners?contract_address=' + CBK_CONTRACT + '&limit=1'),
+      cbkAllTransfers(),
+    ]).then(([own, rows]) => {
+      const set = new Set();
+      const top = own && own.data && own.data[0] && own.data[0].owner_address;
+      if (top) set.add(String(top).toLowerCase());
+      (rows || []).forEach(t => { if (t && t.transfer_type === 'mint' && t.to_address) set.add(String(t.to_address).toLowerCase()); });
+      return Array.from(set);
+    }).catch(e => { _cbkSendersP = null; throw e; });
   }
   return _cbkSendersP;
 };
 // Total MT ever transferred from the treasury sender(s) to `wallet`, in
-// whole tokens — or null when Insight is unavailable (domain not allowed,
-// offline, API change). Callers must treat null as "no live data".
+// whole tokens — or null when Insight is unavailable. Callers must treat
+// null as "no live data".
 const cbkFetchAirdropped = async (wallet) => {
   if (_cbkInsightDown || !wallet) return null;
   try {
-    const senders = await cbkAirdropSenders();
+    const [senders, rows] = await Promise.all([cbkAirdropSenders(), cbkAllTransfers()]);
     if (!senders.length) return null;
+    const w = wallet.toLowerCase();
+    if (senders.includes(w)) return 0; // the treasury itself isn't airdropped-to
     let total = 0n;
-    for (const from of senders) {
-      if (from === wallet.toLowerCase()) continue; // treasury's own wallet
-      const j = await cbkInsightGet('/events/' + CBK_CONTRACT + '/Transfer(address,address,uint256)?decode=true&limit=200'
-        + '&filter_topic_1=' + from + '&filter_topic_2=' + wallet.toLowerCase());
-      const rows = (j && (j.data || j.result)) || [];
-      for (const ev of rows) {
-        const d = (ev && ev.decoded) || ev || {};
-        const v = (d.non_indexed_params && (d.non_indexed_params.value != null ? d.non_indexed_params.value : d.non_indexed_params.amount))
-          ?? (d.params && d.params.value) ?? d.value;
-        if (v != null) { try { total += BigInt(String(v)); } catch (e) {} }
-      }
+    for (const t of rows) {
+      if (!t || t.token_type !== 'erc20') continue;
+      if (String(t.to_address || '').toLowerCase() !== w) continue;
+      if (!senders.includes(String(t.from_address || '').toLowerCase())) continue;
+      try { total += BigInt(String(t.amount || '0')); } catch (e) {}
     }
     return cbkFromWei(total);
   } catch (e) {
