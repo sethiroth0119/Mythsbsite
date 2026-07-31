@@ -614,7 +614,7 @@ function paintNode(){
     $('nodeBar').style.width = Math.min(100, (n.xp / Math.max(1, n.xpMax)) * 100) + '%';
   });
   const owner = CONFIG.MODE === 'owner';
-  $('modeChip').textContent = (owner ? '👑 Owner purchase' : '⚡ Player purchase') + ' · +' + fmt(CONFIG.POWER_PER_TOKEN) + ' Node Power / token';
+  $('modeChip').textContent = (owner ? '👑 Owner purchase' : '⚡ Player purchase') + ' · +' + fmt(CONFIG.POWER_PER_TOKEN) + ' Node Power per $10';
 }
 paintNode();
 
@@ -655,7 +655,9 @@ $('customUsd').addEventListener('input', e => {
 $('toReview').addEventListener('click', () => {
   if (!(state.usd > 0)) { $('customUsd').focus(); return; }
   state.tokens = state.usd / CONFIG.PRICE_USD_PER_TOKEN;
-  state.points = Math.floor(state.tokens * CONFIG.POWER_PER_TOKEN);
+  // Power scales with the amount: +rate per $10, floor, min 1 — the exact
+  // formula the game's settlement (mythic_power_from_purchase) applies.
+  state.points = Math.max(1, Math.floor(state.usd / 10 * CONFIG.POWER_PER_TOKEN));
   $('qUsd').textContent    = '$' + state.usd.toFixed(2);
   $('qRate').textContent   = '$' + CONFIG.PRICE_USD_PER_TOKEN.toFixed(2) + ' / ' + CONFIG.TOKEN.symbol;
   $('qPoints').textContent = fmt(state.points);
