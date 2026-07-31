@@ -8349,6 +8349,65 @@ const TokenDisclaimerModal = ({ onAccept, onClose, readOnly }) => (
   </div>
 );
 
+/* ── thirdweb Insight — LIVE airdrop tracking ──
+   Sums decoded Transfer events (treasury → member wallet) so "airdropped"
+   is read from the chain instead of hand-recorded. Uses the project's PUBLIC
+   clientId; Insight enforces the project's allowed-domain list, so this
+   silently no-ops (falls back to admin-recorded figures) until
+   mythicspellbook.xyz is added to the thirdweb project settings. */
+const CBK_INSIGHT = 'https://insight.thirdweb.com/v1';
+const CBK_INSIGHT_CID = 'b7af98162904c056669420a761f64c8e';
+// Company wallets that send airdrops. Leave empty to auto-resolve to the
+// token's current TOP HOLDER (the treasury holds the supply pre-distribution).
+const CBK_AIRDROP_SENDERS = [];
+let _cbkInsightDown = false;
+let _cbkSendersP = null;
+const cbkInsightGet = async (path) => {
+  const r = await fetch(CBK_INSIGHT + path + (path.includes('?') ? '&' : '?') + 'chain=8453', { headers: { 'x-client-id': CBK_INSIGHT_CID } });
+  if (!r.ok) throw new Error('insight ' + r.status);
+  return r.json();
+};
+const cbkAirdropSenders = () => {
+  if (CBK_AIRDROP_SENDERS.length) return Promise.resolve(CBK_AIRDROP_SENDERS.map(a => a.toLowerCase()));
+  if (!_cbkSendersP) {
+    _cbkSendersP = cbkInsightGet('/tokens/owners?token_address=' + CBK_CONTRACT + '&limit=1')
+      .then(j => {
+        const rows = (j && (j.data || j.result || j.owners)) || [];
+        const top = rows[0] && (rows[0].owner_address || rows[0].address || rows[0].owner);
+        return top ? [String(top).toLowerCase()] : [];
+      })
+      .catch(e => { _cbkSendersP = null; throw e; });
+  }
+  return _cbkSendersP;
+};
+// Total MT ever transferred from the treasury sender(s) to `wallet`, in
+// whole tokens — or null when Insight is unavailable (domain not allowed,
+// offline, API change). Callers must treat null as "no live data".
+const cbkFetchAirdropped = async (wallet) => {
+  if (_cbkInsightDown || !wallet) return null;
+  try {
+    const senders = await cbkAirdropSenders();
+    if (!senders.length) return null;
+    let total = 0n;
+    for (const from of senders) {
+      if (from === wallet.toLowerCase()) continue; // treasury's own wallet
+      const j = await cbkInsightGet('/events/' + CBK_CONTRACT + '/Transfer(address,address,uint256)?decode=true&limit=200'
+        + '&filter_topic_1=' + from + '&filter_topic_2=' + wallet.toLowerCase());
+      const rows = (j && (j.data || j.result)) || [];
+      for (const ev of rows) {
+        const d = (ev && ev.decoded) || ev || {};
+        const v = (d.non_indexed_params && (d.non_indexed_params.value != null ? d.non_indexed_params.value : d.non_indexed_params.amount))
+          ?? (d.params && d.params.value) ?? d.value;
+        if (v != null) { try { total += BigInt(String(v)); } catch (e) {} }
+      }
+    }
+    return cbkFromWei(total);
+  } catch (e) {
+    _cbkInsightDown = true; // stop retrying a blocked API this session
+    return null;
+  }
+};
+
 /* ── minimal ABI helpers (no web3 library; MetaMask signs, RPC reads) ── */
 const cbkPad = (hex) => hex.replace(/^0x/, '').padStart(64, '0');
 const cbkPadN = (n) => BigInt(n).toString(16).padStart(64, '0');
@@ -8920,6 +8979,14 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
   // Linked wallets + LIVE on-chain MT for every roster member (balanceOf
   // straight from the token contract — the "from our thirdweb" number).
   const [vipWallets, setVipWallets] = useState({});
+  // The signed-in member's OWN live airdropped total (their linked wallet).
+  const [myAirLive, setMyAirLive] = useState(null);
+  useEffect(() => {
+    if (!wallet || !wallet.wallet_address || !isVip) { setMyAirLive(null); return; }
+    let dead = false;
+    cbkFetchAirdropped(wallet.wallet_address).then(v => { if (!dead) setMyAirLive(v); });
+    return () => { dead = true; };
+  }, [wallet, isVip]);
   useEffect(() => {
     if (!client || !session || vips.length === 0) { setVipWallets({}); return; }
     let dead = false;
@@ -8934,8 +9001,11 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
         for (const uid2 of Object.keys(map)) {
           try {
             const balHex = await cbkEthCall(CBK_CONTRACT, CBK_SEL.balanceOf + cbkPad(map[uid2].addr));
-            map[uid2] = { addr: map[uid2].addr, bal: cbkFromWei(BigInt(balHex)) };
+            map[uid2] = { addr: map[uid2].addr, bal: cbkFromWei(BigInt(balHex)), air: null };
           } catch (e) {}
+          // LIVE airdropped total from thirdweb Insight (null until the site
+          // domain is allowlisted in the thirdweb project — silent fallback).
+          try { map[uid2] = Object.assign({}, map[uid2], { air: await cbkFetchAirdropped(map[uid2].addr) }); } catch (e) {}
         }
         if (!dead) setVipWallets(Object.assign({}, map));
       } catch (e) {}
@@ -10534,7 +10604,7 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
                       {[
                         { label: 'Your VIP tier', value: tier, sub: mult + '× allocation', color: '#B9A8E8', border: '#2A2438' },
                         { label: 'Total allocation', value: cbkFmt(total), sub: 'Cinder across all milestones', color: '#E8B34B', border: '#33261A' },
-                        { label: 'Airdropped', value: cbkFmt(me && Number(me.airdropped) > 0 ? Number(me.airdropped) : received), sub: me && Number(me.airdropped) > 0 ? 'Delivered to you via thirdweb' : rows.filter(r => r.hit).length + ' of ' + rows.length + ' milestones', color: '#3ECF8E', border: '#1E3A2C' },
+                        { label: 'Airdropped', value: cbkFmt(myAirLive != null ? myAirLive : (me && Number(me.airdropped) > 0 ? Number(me.airdropped) : received)), sub: myAirLive != null ? '🪂 Live from the chain via thirdweb' : (me && Number(me.airdropped) > 0 ? 'Delivered to you via thirdweb' : rows.filter(r => r.hit).length + ' of ' + rows.length + ' milestones'), color: '#3ECF8E', border: '#1E3A2C' },
                         { label: 'Room members', value: cbkFmt(vips.length), sub: 'Admin-managed roster', color: '#F2F3F5', border: '#262A32' },
                       ].map((s, i) => (
                         <div key={i} style={{ background: '#14161B', border: '1px solid ' + s.border, borderRadius: 14, padding: 18 }}>
@@ -10623,7 +10693,7 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
                           <div style={{ flex: 1, minWidth: 160 }}>
                             <div style={{ fontWeight: 600, fontSize: 14 }}>{v.display_name}{session && v.user_id === session.user.id ? ' (you)' : ''}</div>
                             <div style={{ fontSize: 11, color: '#9BA1AB', marginTop: 2 }}>
-                              {cbkFmt(v.holdings)} MT held · <span style={{ color: '#3ECF8E' }}>{cbkFmt(v.airdropped)} airdropped</span>
+                              {cbkFmt(v.holdings)} MT held · <span style={{ color: '#3ECF8E' }}>{cbkFmt(w && w.air != null ? w.air : v.airdropped)} airdropped{w && w.air != null ? ' 🪂 live' : ''}</span>
                               {w && <span style={{ ...mono }}> · ⛓ {w.bal == null ? '…' : cbkFmt(w.bal)} on-chain ({cbkShortAddr(w.addr)})</span>}
                               {!w && <span> · no wallet linked</span>}
                             </div>
@@ -10650,6 +10720,10 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
                               {w && w.bal != null && (
                                 <button title={'Set holdings to the live on-chain balance (' + cbkFmt(w.bal) + ' MT)'} onClick={() => saveVipNumbers(v, { holdings: Math.round(w.bal) })}
                                   style={{ background: 'rgba(124,107,255,.12)', color: '#B9A8E8', border: '1px solid #4A3A7A', borderRadius: 8, padding: '6px 10px', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>⛓ use chain</button>
+                              )}
+                              {w && w.air != null && (
+                                <button title={'Set AIRDROPPED to the live thirdweb figure (' + cbkFmt(w.air) + ' MT from the treasury wallet)'} onClick={() => saveVipNumbers(v, { airdropped: Math.round(w.air) })}
+                                  style={{ background: 'rgba(62,207,142,.12)', color: '#3ECF8E', border: '1px solid rgba(62,207,142,.35)', borderRadius: 8, padding: '6px 10px', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>🪂 use live</button>
                               )}
                             </div>
                           )}
