@@ -4130,6 +4130,9 @@ const PlayerHub = ({ client, session, profile, refreshProfile, onSignedOut, onSh
             {/* ===== Cinder Backing — account-connected staking summary ===== */}
             <HubBackingPanel client={client} session={session} onShowBacking={onShowBacking} />
 
+            {/* ===== Referrals — share code, earn rewards + MT airdrop progress ===== */}
+            <HubReferralPanel client={client} session={session} refreshProfile={refreshProfile} />
+
             {/* ===== Favorite Hero + Strongest Unit ===== */}
             {/* Two side-by-side cards mirroring the in-game profile page so
                 players see the same highlights here as in the app. */}
@@ -11042,6 +11045,113 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
   );
 };
 
+// ═══ REFERRAL SYSTEM (profile panel) ═══
+// Share your code; every player who redeems it earns YOU 5,000 Cinder,
+// 1 Birth Of Universe One pack, and 5 Aza Coin — granted server-side by
+// referral_redeem() and delivered in-game (pack via the webPurchases rail).
+// Referral milestones earn Mythic Token airdrops, delivered via thirdweb
+// to the linked wallet.
+const REF_MILESTONES = [
+  { refs: 3, mt: 50 },
+  { refs: 10, mt: 200 },
+  { refs: 25, mt: 600 },
+  { refs: 50, mt: 1500 },
+  { refs: 100, mt: 4000 },
+];
+const HubReferralPanel = ({ client, session, refreshProfile }) => {
+  const [me, setMe] = useState(null); // {code, referrals, redeemed}
+  const [redeemCode, setRedeemCode] = useState(() => { try { return localStorage.getItem('ms_ref_code') || ''; } catch (e) { return ''; } });
+  const [msg, setMsg] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState('');
+  useEffect(() => {
+    if (!client || !session) return;
+    let dead = false;
+    client.rpc('referral_me').then(({ data }) => { if (!dead && data && data.ok) setMe(data); });
+    return () => { dead = true; };
+  }, [client, session]);
+  const refs = me ? (me.referrals || 0) : 0;
+  const next = REF_MILESTONES.find(m => refs < m.refs);
+  const segPct = next ? Math.min(100, Math.round((refs / next.refs) * 100)) : 100;
+  const shareLink = me ? 'https://mythicspellbook.xyz/?ref=' + me.code : '';
+  const copy = (label, text) => {
+    try { navigator.clipboard.writeText(text); setCopied(label); setTimeout(() => setCopied(''), 1800); } catch (e) {}
+  };
+  const doRedeem = async () => {
+    const c = redeemCode.trim();
+    if (!c || busy) return;
+    setBusy(true); setMsg(null);
+    const { data, error } = await client.rpc('referral_redeem', { p_code: c });
+    setBusy(false);
+    const res = data || {};
+    if (error || !res.ok) {
+      setMsg({ err: true, text: res.error === 'self_referral' ? "That's your own code — share it, don't redeem it!"
+        : res.error === 'already_redeemed' ? 'This account has already redeemed a referral code.'
+        : res.error === 'bad_code' ? "That code doesn't exist — check the spelling." : 'Could not redeem — try again.' });
+      return;
+    }
+    setMsg({ err: false, text: '✓ Code accepted — ' + res.referrer_name + ' just earned their referral rewards. Welcome to the network!' });
+    setMe(me ? { ...me, redeemed: c.toUpperCase() } : me);
+    try { localStorage.removeItem('ms_ref_code'); } catch (e) {}
+    if (refreshProfile) refreshProfile();
+  };
+  return (
+    <div className="bg-gradient-to-br from-stone-900/85 to-black/80 border border-emerald-500/35 rounded-lg overflow-hidden mb-8" style={{ boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
+      <div className="flex items-center justify-between gap-2 px-5 py-3 border-b border-stone-700/50 bg-black/30 flex-wrap">
+        <div className="flex items-center gap-2">
+          <span className="text-emerald-300 text-base">🤝</span>
+          <span className="text-emerald-300 text-xs tracking-[0.3em] uppercase font-bold">Referrals</span>
+        </div>
+        <span className="text-stone-400 text-xs">{refs.toLocaleString()} friend{refs === 1 ? '' : 's'} recruited</span>
+      </div>
+      <div className="p-5">
+        {/* Your code + share */}
+        <div className="flex items-center gap-3 flex-wrap mb-3">
+          <div className="font-mono text-xl font-bold text-emerald-200 tracking-widest bg-black/50 border border-emerald-500/35 rounded px-4 py-2">{me ? me.code : '·······'}</div>
+          <button onClick={() => me && copy('code', me.code)} className="text-[11px] tracking-widest uppercase font-bold text-emerald-200 border border-emerald-400/50 rounded px-3 py-2 hover:bg-emerald-500/15 transition">{copied === 'code' ? '✓ Copied' : 'Copy code'}</button>
+          <button onClick={() => me && copy('link', shareLink)} className="text-[11px] tracking-widest uppercase font-bold text-emerald-200 border border-emerald-400/50 rounded px-3 py-2 hover:bg-emerald-500/15 transition">{copied === 'link' ? '✓ Copied' : 'Copy invite link'}</button>
+        </div>
+        <div className="text-stone-300 text-sm mb-4 leading-relaxed">
+          Every player who redeems your code earns you <strong className="text-orange-300">5,000 🔥 Cinder</strong>, <strong className="text-purple-300">1 Birth Of Universe One pack</strong>, and <strong className="text-sky-300">5 👑 Aza Coin</strong> — delivered straight into your game on next sign-in.
+        </div>
+
+        {/* MT airdrop progression */}
+        <div className="bg-black/40 border border-stone-700/40 rounded p-4 mb-4">
+          <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+            <span className="text-purple-300 text-[11px] tracking-[0.25em] uppercase font-bold">⬢ Mythic Token airdrop progress</span>
+            <span className="text-stone-400 text-xs">{next ? `${refs} / ${next.refs} referrals → ${next.mt.toLocaleString()} MT` : 'All milestones reached!'}</span>
+          </div>
+          <div className="h-3 bg-stone-800 rounded-full overflow-hidden mb-3">
+            <div className="h-full rounded-full transition-all" style={{ width: segPct + '%', background: 'linear-gradient(90deg,#7C6BFF,#B9A8E8)' }}></div>
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            {REF_MILESTONES.map(m => (
+              <span key={m.refs} className="text-[11px] font-bold rounded-full px-3 py-1 border" style={refs >= m.refs
+                ? { color: '#B9A8E8', borderColor: 'rgba(124,107,255,0.6)', background: 'rgba(124,107,255,0.15)' }
+                : { color: '#78716c', borderColor: 'rgba(120,113,108,0.4)', background: 'rgba(0,0,0,0.3)' }}>
+                {refs >= m.refs ? '✓ ' : ''}{m.refs} refs · {m.mt.toLocaleString()} MT
+              </span>
+            ))}
+          </div>
+          <div className="text-stone-500 text-[11px] mt-2">Milestone airdrops are delivered via thirdweb to your linked wallet.</div>
+        </div>
+
+        {/* Redeem a friend's code */}
+        {me && me.redeemed ? (
+          <div className="text-stone-400 text-sm">You redeemed <span className="font-mono text-emerald-300">{me.redeemed}</span> ✓</div>
+        ) : (
+          <div className="flex items-center gap-2 flex-wrap">
+            <input value={redeemCode} onChange={(e) => setRedeemCode(e.target.value.toUpperCase())} onKeyDown={(e) => { if (e.key === 'Enter') doRedeem(); }} placeholder="Friend's code (MYTH-XXXXXX)"
+              className="flex-1 min-w-[200px] px-3 py-2 bg-black/60 border border-stone-700 rounded text-yellow-100 font-mono focus:border-emerald-500 focus:outline-none" />
+            <button onClick={doRedeem} disabled={busy} className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-700 text-emerald-50 font-bold text-[12px] rounded tracking-widest uppercase transition border border-emerald-400/60 disabled:opacity-50">{busy ? '…' : 'Redeem'}</button>
+          </div>
+        )}
+        {msg && <div className={'text-sm mt-3 ' + (msg.err ? 'text-red-300' : 'text-emerald-300')}>{msg.text}</div>}
+      </div>
+    </div>
+  );
+};
+
 // Compact Cinder Backing summary panel for the Player Hub — the "shows in
 // Your Account, Your Inventory" hook. Reads the same cinder_backings table
 // + the player's claimed district nodes.
@@ -11134,6 +11244,15 @@ function App() {
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
   const [profileRefresh, setProfileRefresh] = useState(0);
+
+  // Invite links (…/?ref=MYTH-XXXXXX) stash the code so the hub's referral
+  // panel prefills it after the visitor signs in.
+  useEffect(() => {
+    try {
+      const ref = new URLSearchParams(window.location.search).get('ref');
+      if (ref && /^[A-Za-z0-9-]{4,20}$/.test(ref)) localStorage.setItem('ms_ref_code', ref.toUpperCase());
+    } catch (e) {}
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
