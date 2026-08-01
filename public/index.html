@@ -10855,7 +10855,7 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
                       <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.08em', padding: '3px 9px', borderRadius: 99, background: 'rgba(62,207,142,.12)', color: '#3ECF8E', border: '1px solid rgba(62,207,142,.3)' }}>🪂 AIRDROP REWARDS</span>
                       <span style={{ ...mono, fontSize: 9, fontWeight: 700, letterSpacing: '.08em', padding: '3px 9px', borderRadius: 99, background: mcapPill.bg, color: mcapPill.color, border: '1px solid ' + mcapPill.border }}>{mcapPill.label}</span>
                     </div>
-                    <div style={{ marginTop: 4 }}><McapFigure size={24} /> <span style={{ fontSize: 13, color: '#9BA1AB', fontWeight: 500 }}>current market cap</span></div>
+                    <div style={{ marginTop: 4 }}><McapFigure size={24} /> <span style={{ fontSize: 13, color: '#9BA1AB', fontWeight: 500 }}>{mcapIsMarket ? 'current market cap' : 'notional value'}</span></div>
                   </div>
                   {mcNext && <div style={{ fontSize: 12, color: '#9BA1AB', textAlign: 'right' }}>Next unlock: <span style={{ color: '#FF8A55', fontWeight: 600 }}>{mcNext.label}</span> · {mcFmtCap(mcNext.cap - mcapN)} to go</div>}
                 </div>
@@ -11796,7 +11796,7 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <McapFigure size={28} />
-                  <div style={{ fontSize: 12, color: '#9BA1AB' }}>current market cap</div>
+                  <div style={{ fontSize: 12, color: '#9BA1AB' }}>{mcapIsMarket ? 'current market cap' : 'notional value — no market yet'}</div>
                   <div style={{ ...mono, fontSize: 9, fontWeight: 700, letterSpacing: '.08em', padding: '3px 9px', borderRadius: 99, background: mcapPill.bg, color: mcapPill.color, border: '1px solid ' + mcapPill.border, display: 'inline-block', marginTop: 6 }}>{mcapPill.label}</div>
                 </div>
               </div>
