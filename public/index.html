@@ -4076,37 +4076,20 @@ const PlayerHub = ({ client, session, profile, refreshProfile, onSignedOut, onSh
         ) : (
           <>
             {/* ===== 📡 Broadcast profile — the player's social hub ===== */}
-            {onShowFeed && (
+            {/* 📡 ONE door into Emergency Broadcast — the platform holds the
+                 feed, the survivor directory and your profile in its own nav,
+                 so players aren't bounced between separate pages. */}
+            {onShowBacking && (
               <button
-                onClick={onShowFeed}
-                className="w-full mb-3 px-5 py-3 rounded-lg border text-left flex items-center justify-between gap-4 transition hover:bg-white/5"
-                style={{ borderColor: 'rgba(255,106,43,0.4)', background: 'rgba(30,18,10,0.5)' }}
-              >
-                <span className="text-stone-300 text-sm">📡 The Feed — strategy posts &amp; clips from the whole network</span>
-                <span className="shrink-0 text-[11px] tracking-widest uppercase font-bold text-orange-200">Open →</span>
-              </button>
-            )}
-            {onShowDirectory && (
-              <button
-                onClick={onShowDirectory}
-                className="w-full mb-3 px-5 py-3 rounded-lg border text-left flex items-center justify-between gap-4 transition hover:bg-white/5"
-                style={{ borderColor: 'rgba(201,168,106,0.35)', background: 'rgba(20,22,27,0.5)' }}
-              >
-                <span className="text-stone-300 text-sm">📡 Browse every survivor on the network</span>
-                <span className="shrink-0 text-[11px] tracking-widest uppercase font-bold text-amber-200">Directory →</span>
-              </button>
-            )}
-            {onShowProfile && (
-              <button
-                onClick={() => onShowProfile(null)}
+                onClick={onShowBacking}
                 className="w-full mb-4 px-5 py-4 rounded-lg border text-left flex items-center justify-between gap-4 transition hover:shadow-lg"
                 style={{ borderColor: 'rgba(255,106,43,0.5)', background: 'linear-gradient(90deg, rgba(60,26,10,0.5), rgba(20,12,4,0.55))', boxShadow: '0 6px 22px rgba(255,106,43,0.12)' }}
               >
                 <span>
-                  <span className="block text-yellow-100 font-serif font-bold text-lg">📡 My Broadcast Profile</span>
-                  <span className="block text-stone-400 text-xs mt-0.5">Your decks, heroes, cities, businesses, match history and posts — all in one public profile.</span>
+                  <span className="block text-yellow-100 font-serif font-bold text-lg" style={{ fontFamily: "'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',Cinzel,serif" }}>📡 Emergency Broadcast</span>
+                  <span className="block text-stone-400 text-xs mt-0.5">Your profile, the network feed, every survivor, backing &amp; builders — all in one place.</span>
                 </span>
-                <span className="shrink-0 text-[11px] tracking-widest uppercase font-bold text-orange-200 border border-orange-400/50 rounded px-3 py-2">Open →</span>
+                <span className="shrink-0 text-[11px] tracking-widest uppercase font-bold text-orange-200 border border-orange-400/50 rounded px-3 py-2">Enter →</span>
               </button>
             )}
             {/* ===== 🛒 Shop banner — Founder & Node packages (ex-Pledge page) ===== */}
@@ -7122,7 +7105,7 @@ const EbProfileEditor = ({ client, session, p, onClose, onSaved }) => {
   );
 };
 
-const PlayerProfilePage = ({ client, session, profileKey, onBack, onOpenProfile }) => {
+const PlayerProfilePage = ({ client, session, profileKey, onBack, onOpenProfile, embedded }) => {
   const [p, setP] = useState(null);
   const [err, setErr] = useState('');
   const [tab, setTab] = useState('feed');
@@ -7194,7 +7177,7 @@ const PlayerProfilePage = ({ client, session, profileKey, onBack, onOpenProfile 
   );
 
   return (
-    <div style={{ background: EB_INK.bg, minHeight: '100vh', color: '#EDEFF3', fontFamily: "'IBM Plex Sans',system-ui,sans-serif" }}>
+    <div style={embedded ? { color: '#EDEFF3' } : { background: EB_INK.bg, minHeight: '100vh', color: '#EDEFF3', fontFamily: "'IBM Plex Sans',system-ui,sans-serif" }}>
       {/* ── Banner ── */}
       <div style={{
         height: 210, position: 'relative',
@@ -7202,11 +7185,11 @@ const PlayerProfilePage = ({ client, session, profileKey, onBack, onOpenProfile 
           : 'linear-gradient(120deg,#2A1608,#14161B 60%,#1A1030)',
         borderBottom: '1px solid ' + EB_INK.line,
       }}>
-        <button onClick={onBack} style={{ position: 'absolute', top: 84, left: 20, background: 'rgba(0,0,0,.6)', border: '1px solid ' + EB_INK.line, color: EB_INK.gold, borderRadius: 8, padding: '7px 14px', fontSize: 12, cursor: 'pointer' }}>← Broadcast</button>
+        {!embedded && <button onClick={onBack} style={{ position: 'absolute', top: 84, left: 20, background: 'rgba(0,0,0,.6)', border: '1px solid ' + EB_INK.line, color: EB_INK.gold, borderRadius: 8, padding: '7px 14px', fontSize: 12, cursor: 'pointer' }}>← Broadcast</button>}
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg,transparent 40%,rgba(20,22,27,.95))' }} />
       </div>
 
-      <div style={{ maxWidth: 1120, margin: '0 auto', padding: '0 20px 60px' }}>
+      <div style={{ maxWidth: 1120, margin: '0 auto', padding: embedded ? '0 0 20px' : '0 20px 60px' }}>
         {/* ── Identity row ── */}
         <div style={{ display: 'flex', gap: 18, alignItems: 'flex-end', marginTop: -46, flexWrap: 'wrap' }}>
           <div style={{
@@ -7517,7 +7500,7 @@ const PlayerProfilePage = ({ client, session, profileKey, onBack, onOpenProfile 
 // 📡 THE FEED — Emergency Broadcast's front page. Everyone's strategy posts
 // and clips in one stream. Public: signed-out visitors can read it, which is
 // the point (it's the shop window for the game).
-const EbFeedPage = ({ client, session, onBack, onOpenProfile, onSignIn }) => {
+const EbFeedPage = ({ client, session, onBack, onOpenProfile, onSignIn, embedded }) => {
   const [items, setItems] = useState(null);
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
@@ -7562,9 +7545,9 @@ const EbFeedPage = ({ client, session, onBack, onOpenProfile, onSignIn }) => {
   };
 
   return (
-    <div style={{ background: EB_INK.bg, minHeight: '100vh', color: '#EDEFF3', fontFamily: "'IBM Plex Sans',system-ui,sans-serif", paddingTop: 92 }}>
-      <div style={{ maxWidth: 720, margin: '0 auto', padding: '0 20px 60px' }}>
-        <button onClick={onBack} style={{ background: 'none', border: '1px solid ' + EB_INK.line, color: EB_INK.gold, borderRadius: 8, padding: '7px 14px', fontSize: 12, cursor: 'pointer' }}>← Broadcast</button>
+    <div style={embedded ? { color: '#EDEFF3' } : { background: EB_INK.bg, minHeight: '100vh', color: '#EDEFF3', fontFamily: "'IBM Plex Sans',system-ui,sans-serif", paddingTop: 92 }}>
+      <div style={{ maxWidth: 720, margin: '0 auto', padding: embedded ? 0 : '0 20px 60px' }}>
+        {!embedded && <button onClick={onBack} style={{ background: 'none', border: '1px solid ' + EB_INK.line, color: EB_INK.gold, borderRadius: 8, padding: '7px 14px', fontSize: 12, cursor: 'pointer' }}>← Broadcast</button>}
         <div style={{ fontSize: 28, fontWeight: 800, margin: '18px 0 4px' }}>📡 The Feed</div>
         <div style={{ color: EB_INK.dim, fontSize: 14, marginBottom: 20 }}>Strategy posts and match clips from across the network.</div>
 
@@ -7633,7 +7616,7 @@ const EbFeedPage = ({ client, session, onBack, onOpenProfile, onSignIn }) => {
 };
 
 // 📡 BROADCAST DIRECTORY — the discovery surface. Who else is out there.
-const EbDirectoryPage = ({ client, onBack, onOpenProfile }) => {
+const EbDirectoryPage = ({ client, onBack, onOpenProfile, embedded }) => {
   const [rows, setRows] = useState(null);
   const [q, setQ] = useState('');
   useEffect(() => {
@@ -7646,9 +7629,9 @@ const EbDirectoryPage = ({ client, onBack, onOpenProfile }) => {
   }, [client]);
   const list = (rows || []).filter(r => !q.trim() || String(r.name || '').toLowerCase().includes(q.trim().toLowerCase()));
   return (
-    <div style={{ background: EB_INK.bg, minHeight: '100vh', color: '#EDEFF3', fontFamily: "'IBM Plex Sans',system-ui,sans-serif", paddingTop: 92 }}>
-      <div style={{ maxWidth: 1120, margin: '0 auto', padding: '0 20px 60px' }}>
-        <button onClick={onBack} style={{ background: 'none', border: '1px solid ' + EB_INK.line, color: EB_INK.gold, borderRadius: 8, padding: '7px 14px', fontSize: 12, cursor: 'pointer' }}>← Broadcast</button>
+    <div style={embedded ? { color: '#EDEFF3' } : { background: EB_INK.bg, minHeight: '100vh', color: '#EDEFF3', fontFamily: "'IBM Plex Sans',system-ui,sans-serif", paddingTop: 92 }}>
+      <div style={{ maxWidth: 1120, margin: '0 auto', padding: embedded ? 0 : '0 20px 60px' }}>
+        {!embedded && <button onClick={onBack} style={{ background: 'none', border: '1px solid ' + EB_INK.line, color: EB_INK.gold, borderRadius: 8, padding: '7px 14px', fontSize: 12, cursor: 'pointer' }}>← Broadcast</button>}
         <div style={{ fontSize: 28, fontWeight: 800, margin: '18px 0 4px' }}>📡 Survivors on the Network</div>
         <div style={{ color: EB_INK.dim, fontSize: 14, marginBottom: 18 }}>Every player with a Broadcast profile. Open one to see their decks, cities, businesses and posts.</div>
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search survivors…"
@@ -9649,6 +9632,10 @@ const cbkTelemetry = (p, localPower) => {
 
 const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, onSignIn }) => {
   const [screen, setScreen] = useState('dashboard');
+  // 📡 Social screens live INSIDE this shell now (feed / survivors / profile)
+  // so players never leave the platform to use them.
+  const [ebKey, setEbKey] = useState(null);
+  const openPlayer = (k) => { setEbKey(k); setScreen('player'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
   const [selectedId, setSelectedId] = useState(null);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('All');
@@ -10471,10 +10458,13 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
     { key: 'vip', label: 'VIP Room', icon: '🏛' },
     { key: 'rewards', label: 'Rewards', icon: '✦' },
     { key: 'leaderboard', label: 'Rankings', icon: '♛' },
+    { key: 'feed', label: 'The Feed', icon: '✽' },
+    { key: 'people', label: 'Survivors', icon: '☷' },
+    { key: 'me', label: 'My Profile', icon: '★' },
   ];
-  const activeKey = screen === 'profile' ? 'discover' : screen;
+  const activeKey = screen === 'profile' ? 'discover' : (screen === 'player' ? 'people' : screen);
 
-  const filters = ['All', 'Node', 'Vendor', 'Worker', 'Mentor', 'Guild', 'Creator', 'Program'];
+  const filters = ['All', 'City', 'Worker', 'Coach', 'Operations', 'Creator', 'Program'];
   const chipLabels = { All: 'All', Node: 'Nodes', Vendor: 'Vendors', Worker: 'Builders', Mentor: 'Mentors', Guild: 'Guilds', Creator: 'Creators', Program: 'Programs' };
   const q = search.toLowerCase();
   const filtered = allProfiles.filter(p => (filter === 'All' || p.type === filter) && (!q || (p.name + p.tagline + (p.ownerName || '') + CBK_TYPE_LABELS[p.type]).toLowerCase().includes(q)));
@@ -10550,7 +10540,7 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 8px 14px' }}>
           <img src="./assets/artwork/gameicons/Cinder.png" alt="Cinder" style={{ width: 34, height: 44, objectFit: 'contain' }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
           <div>
-            <div style={{ ...grotesk, fontWeight: 700, fontSize: 16, letterSpacing: '.06em' }}>CINDER</div>
+            <div style={{ ...grotesk, fontWeight: 700, fontSize: 16, letterSpacing: '.06em' }}>EMERGENCY</div>
             <div style={{ fontSize: 10, letterSpacing: '.22em', color: '#9BA1AB' }}>BROADCAST</div>
           </div>
         </div>
@@ -11815,6 +11805,28 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
           )}
 
           {/* ═══ LEADERBOARD ═══ */}
+          {screen === 'feed' && (
+            <EbFeedPage embedded client={client} session={session}
+              onOpenProfile={openPlayer} onSignIn={onSignIn} onBack={() => setScreen('dashboard')} />
+          )}
+          {screen === 'people' && (
+            <EbDirectoryPage embedded client={client}
+              onOpenProfile={openPlayer} onBack={() => setScreen('dashboard')} />
+          )}
+          {screen === 'me' && (
+            session
+              ? <PlayerProfilePage embedded client={client} session={session}
+                  profileKey={session.user.id} onOpenProfile={openPlayer} onBack={() => setScreen('dashboard')} />
+              : <div style={{ ...card, padding: 26, textAlign: 'center' }}>
+                  <div style={{ ...grotesk, fontSize: 20, fontWeight: 700 }}>Your Broadcast profile</div>
+                  <div style={{ color: '#9BA1AB', fontSize: 14, marginTop: 8 }}>Sign in to see your decks, cities, businesses and posts in one public profile.</div>
+                  <button onClick={onSignIn} style={{ marginTop: 16, background: '#FF6A2B', color: '#14060A', border: 'none', borderRadius: 10, padding: '11px 22px', fontWeight: 600, cursor: 'pointer' }}>Connect account</button>
+                </div>
+          )}
+          {screen === 'player' && (
+            <PlayerProfilePage embedded client={client} session={session}
+              profileKey={ebKey} onOpenProfile={openPlayer} onBack={() => setScreen('people')} />
+          )}
           {screen === 'leaderboard' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
