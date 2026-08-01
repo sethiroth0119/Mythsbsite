@@ -3720,7 +3720,7 @@ const AZA_COIN_PACKAGES = [
   { id: 'aza_huge',   name: 'Sovereign Vault',   usd: 149.99, aza: 5500, bonus: 20, accent: '#ffd166' },
 ];
 
-const PlayerHub = ({ client, session, profile, refreshProfile, onSignedOut, onShowBacking, onShowShop, onShowProfile }) => {
+const PlayerHub = ({ client, session, profile, refreshProfile, onSignedOut, onShowBacking, onShowShop, onShowProfile, onShowDirectory }) => {
   const [buyingId, setBuyingId] = useState(null);
   const [buyMsg, setBuyMsg] = useState('');
   const [storeTab, setStoreTab] = useState('packs'); // 'packs' | 'aza'
@@ -4076,6 +4076,16 @@ const PlayerHub = ({ client, session, profile, refreshProfile, onSignedOut, onSh
         ) : (
           <>
             {/* ===== 📡 Broadcast profile — the player's social hub ===== */}
+            {onShowDirectory && (
+              <button
+                onClick={onShowDirectory}
+                className="w-full mb-3 px-5 py-3 rounded-lg border text-left flex items-center justify-between gap-4 transition hover:bg-white/5"
+                style={{ borderColor: 'rgba(201,168,106,0.35)', background: 'rgba(20,22,27,0.5)' }}
+              >
+                <span className="text-stone-300 text-sm">📡 Browse every survivor on the network</span>
+                <span className="shrink-0 text-[11px] tracking-widest uppercase font-bold text-amber-200">Directory →</span>
+              </button>
+            )}
             {onShowProfile && (
               <button
                 onClick={() => onShowProfile(null)}
@@ -7000,12 +7010,109 @@ const EbSection = ({ title, count, children, action }) => (
   </div>
 );
 
+// Editor for your own profile — banner, handle, showcase, favourite heroes and
+// the Top 8. Writes straight to eb_profiles / eb_top_friends (owner-only RLS).
+const EbProfileEditor = ({ client, session, p, onClose, onSaved }) => {
+  const [f, setF] = useState({
+    handle: p.handle || '', tagline: p.tagline || '', bio: p.bio || '',
+    banner_url: p.banner_url || '', avatar_url: p.avatar_url || '',
+  });
+  const [favs, setFavs] = useState(Array.isArray(p.favorite_hero_ids) ? p.favorite_hero_ids : []);
+  const [top, setTop] = useState((p.top_friends || []).map(t => t.user_id));
+  const [msg, setMsg] = useState('');
+  const [busy, setBusy] = useState(false);
+  const heroIds = Object.keys(p.heroes || {});
+  const friends = p.friends || [];
+  const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+  const inp = { width: '100%', background: '#0F1116', border: '1px solid ' + EB_INK.line, borderRadius: 8, color: '#EDEFF3', padding: '9px 11px', fontSize: 13, fontFamily: 'inherit' };
+  const lbl = { fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: EB_INK.dim, margin: '12px 0 5px' };
+
+  const save = async () => {
+    setBusy(true); setMsg('');
+    const handle = f.handle.trim().replace(/^@/, '');
+    if (handle && !/^[A-Za-z0-9_-]{3,20}$/.test(handle)) {
+      setMsg('Handle must be 3–20 letters, numbers, _ or -.'); setBusy(false); return;
+    }
+    try {
+      const { error } = await client.from('eb_profiles').upsert({
+        user_id: session.user.id,
+        handle: handle || null,
+        tagline: f.tagline.slice(0, 120), bio: f.bio.slice(0, 600),
+        banner_url: f.banner_url.trim() || null, avatar_url: f.avatar_url.trim() || null,
+        favorite_hero_ids: favs,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id' });
+      if (error) { setMsg(/duplicate|unique/i.test(error.message) ? 'That handle is taken.' : 'Could not save — ' + error.message.slice(0, 80)); setBusy(false); return; }
+      // Top 8 — rewrite the whole board so slots stay 1..8 in pick order.
+      await client.from('eb_top_friends').delete().eq('user_id', session.user.id);
+      if (top.length) {
+        await client.from('eb_top_friends').insert(top.slice(0, 8).map((fid, i) => ({ user_id: session.user.id, friend_id: fid, slot: i + 1 })));
+      }
+      onSaved(); onClose();
+    } catch (e) { setMsg('Could not save — try again.'); }
+    setBusy(false);
+  };
+  const toggle = (arr, setArr, id, max) => {
+    if (arr.includes(id)) setArr(arr.filter(x => x !== id));
+    else if (!max || arr.length < max) setArr(arr.concat(id));
+  };
+  const chip = (on) => ({
+    border: '1px solid ' + (on ? EB_INK.ember : EB_INK.line), background: on ? 'rgba(255,106,43,.14)' : 'transparent',
+    color: on ? EB_INK.ember : EB_INK.dim, borderRadius: 999, padding: '5px 12px', fontSize: 12, cursor: 'pointer',
+  });
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(4,6,10,.86)', backdropFilter: 'blur(8px)', overflowY: 'auto', padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ ...ebCard, maxWidth: 620, margin: '40px auto', padding: 24 }}>
+        <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 4 }}>Edit your Broadcast profile</div>
+        <div style={{ color: EB_INK.dim, fontSize: 12 }}>Your handle becomes your shareable link: mythicspellbook.xyz/?u=yourhandle</div>
+
+        <div style={lbl}>Handle</div>
+        <input value={f.handle} onChange={set('handle')} placeholder="sethiroth" style={inp} />
+        <div style={lbl}>Tagline</div>
+        <input value={f.tagline} onChange={set('tagline')} placeholder="Node operator · Dragonkin main" style={inp} />
+        <div style={lbl}>Bio</div>
+        <textarea value={f.bio} onChange={set('bio')} rows={3} style={{ ...inp, resize: 'vertical' }} />
+        <div style={lbl}>Banner image URL</div>
+        <input value={f.banner_url} onChange={set('banner_url')} placeholder="https://…" style={inp} />
+        <div style={lbl}>Avatar image URL</div>
+        <input value={f.avatar_url} onChange={set('avatar_url')} placeholder="https://…" style={inp} />
+
+        <div style={lbl}>Favourite heroes {favs.length ? '(' + favs.length + ')' : ''}</div>
+        {heroIds.length === 0 ? <div style={{ color: EB_INK.dim, fontSize: 12 }}>No heroes recruited yet.</div> : (
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {heroIds.map(h => (
+              <button key={h} onClick={() => toggle(favs, setFavs, h, 8)} style={{ ...chip(favs.includes(h)), textTransform: 'capitalize' }}>{h}</button>
+            ))}
+          </div>
+        )}
+
+        <div style={lbl}>Top 8 friends {top.length ? '(' + top.length + '/8)' : ''}</div>
+        {friends.length === 0 ? <div style={{ color: EB_INK.dim, fontSize: 12 }}>Add friends in-game and they'll show up here.</div> : (
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {friends.map(fr => (
+              <button key={fr.user_id} onClick={() => toggle(top, setTop, fr.user_id, 8)} style={chip(top.includes(fr.user_id))}>{fr.name}</button>
+            ))}
+          </div>
+        )}
+
+        {msg ? <div style={{ color: '#F0655A', fontSize: 12, marginTop: 12 }}>{msg}</div> : null}
+        <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+          <button onClick={save} disabled={busy} style={{ flex: 1, background: EB_INK.ember, color: '#14060A', border: 'none', borderRadius: 9, padding: '11px 0', fontWeight: 700, cursor: 'pointer', opacity: busy ? .6 : 1 }}>{busy ? 'Saving…' : 'Save profile'}</button>
+          <button onClick={onClose} style={{ flex: 1, background: 'transparent', color: EB_INK.dim, border: '1px solid ' + EB_INK.line, borderRadius: 9, padding: '11px 0', fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const PlayerProfilePage = ({ client, session, profileKey, onBack, onOpenProfile }) => {
   const [p, setP] = useState(null);
   const [err, setErr] = useState('');
   const [tab, setTab] = useState('feed');
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState('');
+  const [editing, setEditing] = useState(false);
   const resolveArt = useGameArt(client);
 
   const load = async () => {
@@ -7102,6 +7209,12 @@ const PlayerProfilePage = ({ client, session, profileKey, onBack, onOpenProfile 
               {comp.rankTierId ? <span style={{ color: EB_INK.gold }}>🏅 {comp.rankTierId}</span> : null}
             </div>
           </div>
+          {p.is_me ? (
+            <button onClick={() => setEditing(true)} style={{
+              background: 'transparent', color: EB_INK.gold, border: '1px solid ' + EB_INK.line,
+              borderRadius: 10, padding: '10px 20px', fontWeight: 700, fontSize: 13, cursor: 'pointer', marginBottom: 4,
+            }}>✎ Edit profile</button>
+          ) : null}
           {!p.is_me && session ? (
             <button onClick={doFollow} disabled={busy} style={{
               background: p.i_follow ? 'transparent' : EB_INK.ember,
@@ -7123,11 +7236,25 @@ const PlayerProfilePage = ({ client, session, profileKey, onBack, onOpenProfile 
           <Stat label="Businesses" value={(p.businesses || []).length} tone={EB_INK.gold} />
         </div>
 
-        {/* ── Achievement showcase ── */}
-        {Array.isArray(p.showcase) && p.showcase.length > 0 && (
+        {/* ── Achievement showcase. When the player hasn't curated one, derive
+             it from REAL milestones they've actually hit — never invented. ── */}
+        {(() => {
+          let show = Array.isArray(p.showcase) ? p.showcase : [];
+          if (show.length === 0) {
+            const auto = [];
+            if (wins >= 1) auto.push({ icon: '⚔', label: 'Battles Won', value: wins.toLocaleString() });
+            if (winRate >= 50 && battles >= 20) auto.push({ icon: '🎯', label: 'Win Rate', value: winRate + '%' });
+            if (comp.rankTierId) auto.push({ icon: '🏅', label: 'Rank', value: comp.rankTierId });
+            if (comp.bestStreak) auto.push({ icon: '🔥', label: 'Best Streak', value: comp.bestStreak });
+            if ((p.nodes_owned || []).length) auto.push({ icon: '🏙', label: 'Cities Owned', value: p.nodes_owned.length });
+            if ((p.businesses || []).length) auto.push({ icon: '🏢', label: 'Businesses', value: p.businesses.length });
+            if (deckKeys.length) auto.push({ icon: '🃏', label: 'Decks Built', value: deckKeys.length });
+            show = auto;
+          }
+          return show.length === 0 ? null : (
           <EbSection title="🏆 Achievement Showcase">
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              {p.showcase.map((a, i) => (
+              {show.map((a, i) => (
                 <div key={i} style={{ border: '1px solid ' + EB_INK.line, borderRadius: 10, padding: '10px 14px', minWidth: 120 }}>
                   <div style={{ fontSize: 20 }}>{a.icon || '🏅'}</div>
                   <div style={{ fontWeight: 700, fontSize: 13, marginTop: 4 }}>{a.label}</div>
@@ -7136,7 +7263,8 @@ const PlayerProfilePage = ({ client, session, profileKey, onBack, onOpenProfile 
               ))}
             </div>
           </EbSection>
-        )}
+          );
+        })()}
 
         {/* ── Tabs ── */}
         <div style={{ display: 'flex', gap: 8, margin: '22px 0 16px', flexWrap: 'wrap' }}>
@@ -7358,6 +7486,57 @@ const PlayerProfilePage = ({ client, session, profileKey, onBack, onOpenProfile 
               )}
             </EbSection>
           </>
+        )}
+      </div>
+      {editing && p.is_me && (
+        <EbProfileEditor client={client} session={session} p={p}
+          onClose={() => setEditing(false)} onSaved={load} />
+      )}
+    </div>
+  );
+};
+
+// 📡 BROADCAST DIRECTORY — the discovery surface. Who else is out there.
+const EbDirectoryPage = ({ client, onBack, onOpenProfile }) => {
+  const [rows, setRows] = useState(null);
+  const [q, setQ] = useState('');
+  useEffect(() => {
+    if (!client) return;
+    let dead = false;
+    client.rpc('eb_directory', { p_limit: 60 })
+      .then(({ data }) => { if (!dead) setRows(Array.isArray(data) ? data : []); })
+      .catch(() => { if (!dead) setRows([]); });
+    return () => { dead = true; };
+  }, [client]);
+  const list = (rows || []).filter(r => !q.trim() || String(r.name || '').toLowerCase().includes(q.trim().toLowerCase()));
+  return (
+    <div style={{ background: EB_INK.bg, minHeight: '100vh', color: '#EDEFF3', fontFamily: "'IBM Plex Sans',system-ui,sans-serif", paddingTop: 92 }}>
+      <div style={{ maxWidth: 1120, margin: '0 auto', padding: '0 20px 60px' }}>
+        <button onClick={onBack} style={{ background: 'none', border: '1px solid ' + EB_INK.line, color: EB_INK.gold, borderRadius: 8, padding: '7px 14px', fontSize: 12, cursor: 'pointer' }}>← Broadcast</button>
+        <div style={{ fontSize: 28, fontWeight: 800, margin: '18px 0 4px' }}>📡 Survivors on the Network</div>
+        <div style={{ color: EB_INK.dim, fontSize: 14, marginBottom: 18 }}>Every player with a Broadcast profile. Open one to see their decks, cities, businesses and posts.</div>
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search survivors…"
+          style={{ width: '100%', maxWidth: 380, background: '#0F1116', border: '1px solid ' + EB_INK.line, borderRadius: 9, color: '#EDEFF3', padding: '10px 13px', fontSize: 13, marginBottom: 20, fontFamily: 'inherit' }} />
+        {rows === null ? <div style={{ color: EB_INK.dim }}>Loading…</div> : list.length === 0 ? (
+          <div style={{ color: EB_INK.dim, fontStyle: 'italic' }}>No survivors found.</div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))', gap: 12 }}>
+            {list.map(r => (
+              <button key={r.user_id} onClick={() => onOpenProfile(r.handle || r.user_id)}
+                style={{ ...ebCard, padding: 14, textAlign: 'left', cursor: 'pointer', color: 'inherit', display: 'flex', gap: 12, alignItems: 'center' }}>
+                <div style={{ width: 46, height: 46, borderRadius: 10, flexShrink: 0, background: r.avatar_url ? `center/cover no-repeat url("${r.avatar_url}")` : 'linear-gradient(140deg,#FF6A2B,#7a2d10)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: '#14060A' }}>
+                  {r.avatar_url ? '' : String(r.name || '?').slice(0, 1).toUpperCase()}
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</div>
+                  <div style={{ color: EB_INK.dim, fontSize: 11, marginTop: 2 }}>
+                    {r.handle ? '@' + r.handle + ' · ' : ''}{(r.wins | 0)}W{r.rank ? ' · ' + r.rank : ''}
+                  </div>
+                  {r.followers > 0 ? <div style={{ color: EB_INK.gold, fontSize: 11 }}>{r.followers} followers</div> : null}
+                </div>
+              </button>
+            ))}
+          </div>
         )}
       </div>
     </div>
@@ -12080,6 +12259,7 @@ function App() {
     setProfileKey(k); setCurrentPage('playerprofile');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+  const showDirectory = () => { setCurrentPage('ebdirectory'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
   // Card List page — Palworld-inspired browsable catalog + Coming Drops.
   const showCardList = () => { setCurrentPage('cardlist'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
   // Emergency Broadcast — account-connected social platform page.
@@ -12127,6 +12307,7 @@ function App() {
             onShowBacking={showBacking}
             onShowShop={showPledge}
             onShowProfile={showProfile}
+            onShowDirectory={showDirectory}
           />
           <Footer />
         </div>
@@ -12152,6 +12333,9 @@ function App() {
       ) : currentPage === 'news' ? (
         /* ===== NEWS PAGE — patch notes / devlogs / announcements (edit NEWS_POSTS at top of file) ===== */
         <NewsPage />
+      ) : currentPage === 'ebdirectory' ? (
+        /* ===== 📡 BROADCAST DIRECTORY — player discovery ===== */
+        <EbDirectoryPage client={client} onBack={showBacking} onOpenProfile={showProfile} />
       ) : currentPage === 'playerprofile' ? (
         /* ===== 📡 PLAYER PROFILE — the social hub (Emergency Broadcast) ===== */
         <PlayerProfilePage
