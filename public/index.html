@@ -6922,6 +6922,15 @@ const AdminPanelModal = ({ open, onClose, client }) => {
 // top 8, banner, showcase, placements) lives in the eb_* tables.
 // Sections with no data yet render an honest empty state — never filler.
 // ═══════════════════════════════════════════════════════════════════════
+// A pasted YouTube link has a free thumbnail — use it so shared clips look
+// like clips instead of a generic placeholder. Other hosts fall back to the
+// stored thumb_url (or the icon) since they have no public thumb endpoint.
+const ebClipThumb = (c) => {
+  if (c && c.thumb_url) return c.thumb_url;
+  const u = String((c && (c.url || c.clip_url)) || '');
+  const m = u.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|shorts\/|embed\/))([A-Za-z0-9_-]{6,})/);
+  return m ? 'https://img.youtube.com/vi/' + m[1] + '/hqdefault.jpg' : null;
+};
 const EB_INK = { bg: '#14161B', card: '#191C23', line: '#262B34', dim: '#9BA1AB', ember: '#FF6A2B', gold: '#e8d5a8' };
 const ebCard = { background: EB_INK.card, border: '1px solid ' + EB_INK.line, borderRadius: 14 };
 
@@ -7389,7 +7398,9 @@ const PlayerProfilePage = ({ client, session, profileKey, onBack, onOpenProfile 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(210px,1fr))', gap: 12 }}>
                   {p.clips.map(c => (
                     <a key={c.id} href={c.url} target="_blank" rel="noopener noreferrer" style={{ ...ebCard, overflow: 'hidden', textDecoration: 'none', color: 'inherit' }}>
-                      <div style={{ height: 118, background: c.thumb_url ? `center/cover no-repeat url("${c.thumb_url}")` : '#0F1116', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>{c.thumb_url ? '' : '🎬'}</div>
+                      {(() => { const th = ebClipThumb(c); return (
+                        <div style={{ height: 118, background: th ? `center/cover no-repeat url("${th}")` : '#0F1116', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>{th ? '▶' : '🎬'}</div>
+                      ); })()}
                       <div style={{ padding: 10 }}>
                         <div style={{ fontSize: 13, fontWeight: 700 }}>{c.title}</div>
                         <div style={{ color: EB_INK.dim, fontSize: 11, marginTop: 3 }}>{c.views} views{c.duration_s ? ' · ' + c.duration_s + 's' : ''}</div>
@@ -7593,7 +7604,9 @@ const EbFeedPage = ({ client, session, onBack, onOpenProfile, onSignIn }) => {
 
               {it.kind === 'clip' ? (
                 <a href={it.clip_url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', color: 'inherit' }}>
-                  <div style={{ height: 170, borderRadius: 10, background: it.thumb_url ? `center/cover no-repeat url("${it.thumb_url}")` : '#0F1116', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32, marginBottom: 8 }}>{it.thumb_url ? '' : '🎬'}</div>
+                  {(() => { const th = ebClipThumb(it); return (
+                    <div style={{ height: 170, borderRadius: 10, background: th ? `center/cover no-repeat url("${th}")` : '#0F1116', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32, marginBottom: 8 }}>{th ? '▶' : '🎬'}</div>
+                  ); })()}
                   <div style={{ fontWeight: 700, fontSize: 14 }}>{it.body}</div>
                 </a>
               ) : (
