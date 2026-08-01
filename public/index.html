@@ -9766,7 +9766,7 @@ const cbkTelemetry = (p, localPower) => {
   };
 };
 
-const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, onSignIn }) => {
+const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, onSignIn, entry }) => {
   const [screen, setScreen] = useState('dashboard');
   // 📡 Social screens live INSIDE this shell now (feed / survivors / profile)
   // so players never leave the platform to use them.
