@@ -4946,6 +4946,10 @@ const SCP_STANDARDS = ['Build — not destroy — communities', 'Respect players
 // NOT here — they stay Coming Soon. Keep this list in sync with the TIERS
 // price table inside supabase/functions/pledge-checkout.
 const SHOP_STRIPE_TIERS = ['vault-key', 'scavenger', 'starter-node', 'outpost-operator', 'foundation-contributor'];
+// Checkout runs on the GAME's Cloudflare Worker — that's where the live Stripe
+// secret already lives (same rail as the in-game Aza store). Prices and seat
+// caps are enforced there; this file only decides which tiers show a button.
+const SHOP_API = 'https://playmythicspellbook.com';
 const PLEDGE_TIERS = [
   {
     id: 'survivor',
@@ -6869,26 +6873,48 @@ const PledgePage = ({ client, session, onSignIn }) => {
   // Stripe checkout state — which tier's button is busy + last error/notice.
   const [buyingId, setBuyingId] = useState('');
   const [shopMsg, setShopMsg] = useState(null);
+  // Returning from Stripe: verify the session server-side (the Worker re-reads
+  // it from Stripe with the secret key and records the purchase) — never trust
+  // the ?pledge_paid flag on its own, a URL can be typed by anyone.
   useEffect(() => {
-    try {
-      const q = new URLSearchParams(window.location.search);
-      if (q.get('pledge_paid')) setShopMsg({ ok: true, text: '✓ Payment received — your package is confirmed! Benefits are delivered to your Mythic Spellbook account.' });
-      else if (q.get('pledge_cancel')) setShopMsg({ ok: false, text: 'Checkout cancelled — your card was not charged.' });
-    } catch (e) {}
-  }, []);
+    let dead = false;
+    (async () => {
+      try {
+        const q = new URLSearchParams(window.location.search);
+        if (q.get('pledge_cancel')) { setShopMsg({ ok: false, text: 'Checkout cancelled — your card was not charged.' }); return; }
+        if (!q.get('pledge_paid')) return;
+        const sid = q.get('sid') || '';
+        if (!sid || !session) { setShopMsg({ ok: true, text: '✓ Payment received — thank you! Your package will appear on your account shortly.' }); return; }
+        setShopMsg({ ok: true, text: 'Confirming your payment…' });
+        const r = await fetch(SHOP_API + '/api/shop/confirm?sid=' + encodeURIComponent(sid), {
+          headers: { 'Authorization': 'Bearer ' + session.access_token },
+        });
+        const j = await r.json().catch(() => ({}));
+        if (dead) return;
+        if (j && j.ok) {
+          setShopMsg({ ok: true, text: '✓ Payment confirmed — ' + (j.tier_name || 'your package') + ' is now on your account. Welcome aboard, Founder.' });
+          try { window.history.replaceState({}, '', window.location.pathname); } catch (e) {}
+        } else {
+          setShopMsg({ ok: true, text: '✓ Payment received — thank you! Your package will appear on your account shortly.' });
+        }
+      } catch (e) {
+        if (!dead) setShopMsg({ ok: true, text: '✓ Payment received — thank you! Your package will appear on your account shortly.' });
+      }
+    })();
+    return () => { dead = true; };
+  }, [session]);
   const buyTier = async (tier) => {
     if (!session) { setShopMsg({ ok: false, text: 'Sign in first — your package is delivered to your account.' }); if (onSignIn) onSignIn(); return; }
     if (buyingId) return;
     setBuyingId(tier.id); setShopMsg(null);
     try {
-      const r = await fetch(window.MS_SUPABASE_URL + '/functions/v1/pledge-checkout', {
+      const r = await fetch(SHOP_API + '/api/shop/checkout', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ' + session.access_token,
-          'apikey': window.MS_SUPABASE_ANON_KEY,
         },
-        body: JSON.stringify({ tier_id: tier.id }),
+        body: JSON.stringify({ tier: tier.id }),
       });
       const j = await r.json().catch(() => ({}));
       if (j && j.url) { window.location.href = j.url; return; }
