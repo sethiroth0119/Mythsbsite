@@ -3720,7 +3720,7 @@ const AZA_COIN_PACKAGES = [
   { id: 'aza_huge',   name: 'Sovereign Vault',   usd: 149.99, aza: 5500, bonus: 20, accent: '#ffd166' },
 ];
 
-const PlayerHub = ({ client, session, profile, refreshProfile, onSignedOut, onShowBacking, onShowShop, onShowProfile, onShowDirectory }) => {
+const PlayerHub = ({ client, session, profile, refreshProfile, onSignedOut, onShowBacking, onShowShop, onShowProfile, onShowDirectory, onShowFeed }) => {
   const [buyingId, setBuyingId] = useState(null);
   const [buyMsg, setBuyMsg] = useState('');
   const [storeTab, setStoreTab] = useState('packs'); // 'packs' | 'aza'
@@ -4076,6 +4076,16 @@ const PlayerHub = ({ client, session, profile, refreshProfile, onSignedOut, onSh
         ) : (
           <>
             {/* ===== 📡 Broadcast profile — the player's social hub ===== */}
+            {onShowFeed && (
+              <button
+                onClick={onShowFeed}
+                className="w-full mb-3 px-5 py-3 rounded-lg border text-left flex items-center justify-between gap-4 transition hover:bg-white/5"
+                style={{ borderColor: 'rgba(255,106,43,0.4)', background: 'rgba(30,18,10,0.5)' }}
+              >
+                <span className="text-stone-300 text-sm">📡 The Feed — strategy posts &amp; clips from the whole network</span>
+                <span className="shrink-0 text-[11px] tracking-widest uppercase font-bold text-orange-200">Open →</span>
+              </button>
+            )}
             {onShowDirectory && (
               <button
                 onClick={onShowDirectory}
@@ -7489,6 +7499,122 @@ const PlayerProfilePage = ({ client, session, profileKey, onBack, onOpenProfile 
         <EbProfileEditor client={client} session={session} p={p}
           onClose={() => setEditing(false)} onSaved={load} />
       )}
+    </div>
+  );
+};
+
+// 📡 THE FEED — Emergency Broadcast's front page. Everyone's strategy posts
+// and clips in one stream. Public: signed-out visitors can read it, which is
+// the point (it's the shop window for the game).
+const EbFeedPage = ({ client, session, onBack, onOpenProfile, onSignIn }) => {
+  const [items, setItems] = useState(null);
+  const [draft, setDraft] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [more, setMore] = useState(true);
+
+  const load = async (before) => {
+    if (!client) return;
+    const { data } = await client.rpc('eb_feed', { p_limit: 30, p_before: before || null });
+    const rows = Array.isArray(data) ? data : [];
+    setItems(before ? (prev => prev) && ((items || []).concat(rows)) : rows);
+    if (rows.length < 30) setMore(false);
+  };
+  useEffect(() => { load(null); }, [client, session]);
+
+  const post = async () => {
+    const body = draft.trim();
+    if (!body || !session) return;
+    setBusy(true);
+    try {
+      await client.from('eb_posts').insert({ user_id: session.user.id, body: body.slice(0, 1000), kind: 'strategy' });
+      setDraft(''); await load(null);
+    } catch (e) {}
+    setBusy(false);
+  };
+  const like = async (it) => {
+    if (!session || it.kind !== 'post') return;
+    // Optimistic — the DB trigger is the source of truth on next load.
+    setItems((items || []).map(x => x.id === it.id
+      ? { ...x, i_liked: !x.i_liked, likes: (x.likes | 0) + (x.i_liked ? -1 : 1) } : x));
+    try {
+      if (it.i_liked) await client.from('eb_post_likes').delete().eq('post_id', it.id).eq('user_id', session.user.id);
+      else await client.from('eb_post_likes').insert({ post_id: it.id, user_id: session.user.id });
+    } catch (e) {}
+  };
+  const when = (iso) => {
+    const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
+    if (s < 60) return 'just now';
+    if (s < 3600) return Math.floor(s / 60) + 'm ago';
+    if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+    if (s < 604800) return Math.floor(s / 86400) + 'd ago';
+    return new Date(iso).toLocaleDateString();
+  };
+
+  return (
+    <div style={{ background: EB_INK.bg, minHeight: '100vh', color: '#EDEFF3', fontFamily: "'IBM Plex Sans',system-ui,sans-serif", paddingTop: 92 }}>
+      <div style={{ maxWidth: 720, margin: '0 auto', padding: '0 20px 60px' }}>
+        <button onClick={onBack} style={{ background: 'none', border: '1px solid ' + EB_INK.line, color: EB_INK.gold, borderRadius: 8, padding: '7px 14px', fontSize: 12, cursor: 'pointer' }}>← Broadcast</button>
+        <div style={{ fontSize: 28, fontWeight: 800, margin: '18px 0 4px' }}>📡 The Feed</div>
+        <div style={{ color: EB_INK.dim, fontSize: 14, marginBottom: 20 }}>Strategy posts and match clips from across the network.</div>
+
+        {session ? (
+          <div style={{ ...ebCard, padding: 16, marginBottom: 18 }}>
+            <textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={3}
+              placeholder="Share a strategy, a deck tech, a callout…"
+              style={{ width: '100%', background: '#0F1116', border: '1px solid ' + EB_INK.line, borderRadius: 10, color: '#EDEFF3', padding: 12, fontSize: 14, resize: 'vertical', fontFamily: 'inherit' }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
+              <span style={{ color: EB_INK.dim, fontSize: 12 }}>{draft.length}/1000</span>
+              <button onClick={post} disabled={busy || !draft.trim()} style={{ background: EB_INK.ember, color: '#14060A', border: 'none', borderRadius: 9, padding: '9px 20px', fontWeight: 700, fontSize: 13, cursor: 'pointer', opacity: (busy || !draft.trim()) ? .5 : 1 }}>Broadcast</button>
+            </div>
+          </div>
+        ) : (
+          <div style={{ ...ebCard, padding: 16, marginBottom: 18, textAlign: 'center', color: EB_INK.dim, fontSize: 13 }}>
+            <button onClick={onSignIn} style={{ background: 'none', border: 'none', color: EB_INK.ember, fontWeight: 700, cursor: 'pointer', fontSize: 13 }}>Sign in</button> to post to the network.
+          </div>
+        )}
+
+        {items === null ? <div style={{ color: EB_INK.dim }}>Loading feed…</div>
+          : items.length === 0 ? <div style={{ color: EB_INK.dim, fontStyle: 'italic', textAlign: 'center', padding: 30 }}>Nothing broadcast yet. Be the first.</div>
+          : items.map(it => (
+            <div key={it.kind + it.id} style={{ ...ebCard, padding: 16, marginBottom: 12 }}>
+              <div style={{ display: 'flex', gap: 11, alignItems: 'center', marginBottom: 10 }}>
+                <button onClick={() => onOpenProfile(it.handle || it.author_id)} style={{
+                  width: 38, height: 38, borderRadius: 9, border: 'none', cursor: 'pointer', flexShrink: 0,
+                  background: it.avatar_url ? `center/cover no-repeat url("${it.avatar_url}")` : 'linear-gradient(140deg,#FF6A2B,#7a2d10)',
+                  color: '#14060A', fontWeight: 800,
+                }}>{it.avatar_url ? '' : String(it.author || '?').slice(0, 1).toUpperCase()}</button>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <button onClick={() => onOpenProfile(it.handle || it.author_id)} style={{ background: 'none', border: 'none', padding: 0, color: '#EDEFF3', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>{it.author}</button>
+                  <div style={{ color: EB_INK.dim, fontSize: 11 }}>
+                    {it.handle ? '@' + it.handle + ' · ' : ''}{when(it.at)}{it.kind === 'clip' ? ' · 🎬 clip' : ''}
+                  </div>
+                </div>
+              </div>
+
+              {it.kind === 'clip' ? (
+                <a href={it.clip_url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', color: 'inherit' }}>
+                  <div style={{ height: 170, borderRadius: 10, background: it.thumb_url ? `center/cover no-repeat url("${it.thumb_url}")` : '#0F1116', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32, marginBottom: 8 }}>{it.thumb_url ? '' : '🎬'}</div>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>{it.body}</div>
+                </a>
+              ) : (
+                <div style={{ whiteSpace: 'pre-wrap', fontSize: 14, lineHeight: 1.6 }}>{it.body}</div>
+              )}
+
+              {it.kind === 'post' && (
+                <div style={{ marginTop: 12, display: 'flex', gap: 14, alignItems: 'center' }}>
+                  <button onClick={() => like(it)} disabled={!session} title={session ? '' : 'Sign in to like'} style={{
+                    background: 'none', border: 'none', cursor: session ? 'pointer' : 'default',
+                    color: it.i_liked ? EB_INK.ember : EB_INK.dim, fontSize: 13, fontWeight: 700, padding: 0,
+                  }}>{it.i_liked ? '♥' : '♡'} {it.likes | 0}</button>
+                </div>
+              )}
+            </div>
+          ))}
+
+        {items && items.length > 0 && more && (
+          <button onClick={() => load(items[items.length - 1].at)} style={{ width: '100%', background: 'transparent', border: '1px solid ' + EB_INK.line, color: EB_INK.dim, borderRadius: 10, padding: '11px 0', cursor: 'pointer', marginTop: 8 }}>Load more</button>
+        )}
+      </div>
     </div>
   );
 };
@@ -12130,6 +12256,7 @@ function App() {
       // 📡 Shareable profile links: mythicspellbook.xyz/?u=handle
       const u = q.get('u');
       if (u && /^[@A-Za-z0-9_-]{2,40}$/.test(u)) { setProfileKey(u); setCurrentPage('playerprofile'); }
+      else if (q.get('feed')) setCurrentPage('ebfeed');
     } catch (e) {}
   }, []);
 
@@ -12231,6 +12358,7 @@ function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
   const showDirectory = () => { setCurrentPage('ebdirectory'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+  const showFeed = () => { setCurrentPage('ebfeed'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
   // Card List page — Palworld-inspired browsable catalog + Coming Drops.
   const showCardList = () => { setCurrentPage('cardlist'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
   // Emergency Broadcast — account-connected social platform page.
@@ -12279,6 +12407,7 @@ function App() {
             onShowShop={showPledge}
             onShowProfile={showProfile}
             onShowDirectory={showDirectory}
+            onShowFeed={showFeed}
           />
           <Footer />
         </div>
@@ -12304,6 +12433,10 @@ function App() {
       ) : currentPage === 'news' ? (
         /* ===== NEWS PAGE — patch notes / devlogs / announcements (edit NEWS_POSTS at top of file) ===== */
         <NewsPage />
+      ) : currentPage === 'ebfeed' ? (
+        /* ===== 📡 THE FEED — Emergency Broadcast front page ===== */
+        <EbFeedPage client={client} session={session} onBack={showBacking}
+          onOpenProfile={showProfile} onSignIn={showHub} />
       ) : currentPage === 'ebdirectory' ? (
         /* ===== 📡 BROADCAST DIRECTORY — player discovery ===== */
         <EbDirectoryPage client={client} onBack={showBacking} onOpenProfile={showProfile} />
