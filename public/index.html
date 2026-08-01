@@ -6927,16 +6927,13 @@ const useGameArt = (client) => {
   useEffect(() => {
     if (!client) return;
     let dead = false;
-    client.from('card_catalog').select('cards, moves').eq('id', 'singleton').maybeSingle()
-      .then(({ data }) => {
-        if (dead || !data) return;
-        const m = {};
-        const add = (c) => { if (c && c.id) m[c.id] = { name: c.name || c.id, icon: c.icon || '' }; };
-        (Array.isArray(data.cards) ? data.cards : []).forEach(add);
-        const bi = data.moves && data.moves.__builtin_cards__;
-        (Array.isArray(bi) ? bi : []).forEach(add);
-        setMeta(m);
-      }).catch(() => {});
+    // eb_card_meta() — a public, display-only id→{name,icon} map. We must NOT
+    // read card_catalog directly here: it's RLS-gated to signed-in players, so
+    // a logged-out visitor to a public profile got zero rows and every card
+    // fell back to its raw id.
+    client.rpc('eb_card_meta')
+      .then(({ data }) => { if (!dead && data && typeof data === 'object') setMeta(data); })
+      .catch(() => {});
     const pull = async (filename, setter) => {
       try {
         const base = filename.replace(/\.json$/, '');
