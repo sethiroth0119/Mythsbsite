@@ -7180,10 +7180,11 @@ const PlayerProfilePage = ({ client, session, profileKey, onBack, onOpenProfile,
     <div style={embedded ? { color: '#EDEFF3' } : { background: EB_INK.bg, minHeight: '100vh', color: '#EDEFF3', fontFamily: "'IBM Plex Sans',system-ui,sans-serif" }}>
       {/* ── Banner ── */}
       <div style={{
-        height: 210, position: 'relative',
+        height: embedded ? 168 : 210, position: 'relative', overflow: 'hidden',
         background: p.banner_url ? `center/cover no-repeat url("${p.banner_url}")`
           : 'linear-gradient(120deg,#2A1608,#14161B 60%,#1A1030)',
         borderBottom: '1px solid ' + EB_INK.line,
+        borderRadius: embedded ? 14 : 0,
       }}>
         {!embedded && <button onClick={onBack} style={{ position: 'absolute', top: 84, left: 20, background: 'rgba(0,0,0,.6)', border: '1px solid ' + EB_INK.line, color: EB_INK.gold, borderRadius: 8, padding: '7px 14px', fontSize: 12, cursor: 'pointer' }}>← Broadcast</button>}
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg,transparent 40%,rgba(20,22,27,.95))' }} />
@@ -7191,9 +7192,10 @@ const PlayerProfilePage = ({ client, session, profileKey, onBack, onOpenProfile,
 
       <div style={{ maxWidth: 1120, margin: '0 auto', padding: embedded ? '0 0 20px' : '0 20px 60px' }}>
         {/* ── Identity row ── */}
-        <div style={{ display: 'flex', gap: 18, alignItems: 'flex-end', marginTop: -46, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 18, alignItems: 'flex-end', marginTop: -46, flexWrap: 'wrap', position: 'relative', zIndex: 2 }}>
           <div style={{
             width: 108, height: 108, borderRadius: 16, border: '3px solid ' + EB_INK.bg, flexShrink: 0,
+            backgroundColor: EB_INK.card, boxShadow: '0 6px 18px rgba(0,0,0,.55)',
             background: p.avatar_url ? `center/cover no-repeat url("${p.avatar_url}")` : 'linear-gradient(140deg,#FF6A2B,#7a2d10)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 40, fontWeight: 800, color: '#14060A',
           }}>{p.avatar_url ? '' : String(p.display_name || '?').slice(0, 1).toUpperCase()}</div>
