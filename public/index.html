@@ -7566,6 +7566,35 @@ const EbFeedPage = ({ client, session, onBack, onOpenProfile, onSignIn, embedded
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
   const [more, setMore] = useState(true);
+  // Threads are lazy: a post's replies are only fetched when it's expanded,
+  // so the feed stays one query no matter how deep the conversations get.
+  const [open_, setOpen] = useState({});
+  const [threads, setThreads] = useState({});
+  const [replyDraft, setReplyDraft] = useState({});
+
+  const toggleThread = async (it) => {
+    const isOpen = !!open_[it.id];
+    setOpen({ ...open_, [it.id]: !isOpen });
+    if (isOpen || threads[it.id]) return;
+    try {
+      const { data } = await client.rpc('eb_replies', { p_post: it.id });
+      setThreads(t => ({ ...t, [it.id]: Array.isArray(data) ? data : [] }));
+    } catch (e) { setThreads(t => ({ ...t, [it.id]: [] })); }
+  };
+  const sendReply = async (it) => {
+    const body = (replyDraft[it.id] || '').trim();
+    if (!body || !session) return;
+    setReplyDraft({ ...replyDraft, [it.id]: '' });
+    try {
+      await client.from('eb_posts').insert({
+        user_id: session.user.id, body: body.slice(0, 1000), kind: 'post', reply_to: it.id,
+      });
+      const { data } = await client.rpc('eb_replies', { p_post: it.id });
+      setThreads(t => ({ ...t, [it.id]: Array.isArray(data) ? data : [] }));
+      // Bump the visible count without refetching the whole feed.
+      setItems(list => (list || []).map(x => x.id === it.id ? { ...x, replies: (x.replies | 0) + 1 } : x));
+    } catch (e) {}
+  };
 
   const load = async (before) => {
     if (!client) return;
@@ -7658,12 +7687,58 @@ const EbFeedPage = ({ client, session, onBack, onOpenProfile, onSignIn, embedded
               )}
 
               {it.kind === 'post' && (
-                <div style={{ marginTop: 12, display: 'flex', gap: 14, alignItems: 'center' }}>
-                  <button onClick={() => like(it)} disabled={!session} title={session ? '' : 'Sign in to like'} style={{
-                    background: 'none', border: 'none', cursor: session ? 'pointer' : 'default',
-                    color: it.i_liked ? EB_INK.ember : EB_INK.dim, fontSize: 13, fontWeight: 700, padding: 0,
-                  }}>{it.i_liked ? '♥' : '♡'} {it.likes | 0}</button>
-                </div>
+                <>
+                  <div style={{ marginTop: 12, display: 'flex', gap: 16, alignItems: 'center' }}>
+                    <button onClick={() => like(it)} disabled={!session} title={session ? '' : 'Sign in to like'} style={{
+                      background: 'none', border: 'none', cursor: session ? 'pointer' : 'default',
+                      color: it.i_liked ? EB_INK.ember : EB_INK.dim, fontSize: 13, fontWeight: 700, padding: 0,
+                    }}>{it.i_liked ? '♥' : '♡'} {it.likes | 0}</button>
+                    <button onClick={() => toggleThread(it)} style={{
+                      background: 'none', border: 'none', cursor: 'pointer', color: EB_INK.dim,
+                      fontSize: 13, fontWeight: 700, padding: 0,
+                    }}>💬 {it.replies | 0}{open_[it.id] ? ' ▴' : ''}</button>
+                  </div>
+
+                  {open_[it.id] && (
+                    <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid ' + EB_INK.line }}>
+                      {(threads[it.id] || []).map(rp => (
+                        <div key={rp.id} style={{ display: 'flex', gap: 9, alignItems: 'flex-start', marginBottom: 10 }}>
+                          <button onClick={() => onOpenProfile(rp.handle || rp.author_id)} style={{
+                            width: 28, height: 28, borderRadius: 7, border: 'none', cursor: 'pointer', flexShrink: 0,
+                            background: rp.avatar_url ? `center/cover no-repeat url("${rp.avatar_url}")` : 'linear-gradient(140deg,#FF6A2B,#7a2d10)',
+                            color: '#14060A', fontWeight: 800, fontSize: 12,
+                          }}>{rp.avatar_url ? '' : String(rp.author || '?').slice(0, 1).toUpperCase()}</button>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: 12.5 }}>
+                              <b>{rp.author}</b> <span style={{ color: EB_INK.dim }}>{when(rp.at)}</span>
+                            </div>
+                            <div style={{ fontSize: 13.5, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{rp.body}</div>
+                          </div>
+                        </div>
+                      ))}
+                      {(threads[it.id] || []).length === 0 && (
+                        <div style={{ color: EB_INK.dim, fontSize: 12, fontStyle: 'italic', marginBottom: 10 }}>No replies yet.</div>
+                      )}
+                      {session ? (
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <input
+                            value={replyDraft[it.id] || ''}
+                            onChange={(e) => setReplyDraft({ ...replyDraft, [it.id]: e.target.value })}
+                            onKeyDown={(e) => { if (e.key === 'Enter') sendReply(it); }}
+                            placeholder="Write a reply…"
+                            style={{ flex: 1, background: '#0F1116', border: '1px solid ' + EB_INK.line, borderRadius: 8, color: '#EDEFF3', padding: '8px 11px', fontSize: 13, fontFamily: 'inherit' }} />
+                          <button onClick={() => sendReply(it)} disabled={!(replyDraft[it.id] || '').trim()} style={{
+                            background: EB_INK.ember, color: '#14060A', border: 'none', borderRadius: 8,
+                            padding: '8px 16px', fontWeight: 700, fontSize: 12.5, cursor: 'pointer',
+                            opacity: (replyDraft[it.id] || '').trim() ? 1 : .5,
+                          }}>Reply</button>
+                        </div>
+                      ) : (
+                        <div style={{ color: EB_INK.dim, fontSize: 12 }}>Sign in to reply.</div>
+                      )}
+                    </div>
+                  )}
+                </>
               )}
             </div>
           ))}
