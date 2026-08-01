@@ -8453,7 +8453,19 @@ const GaSignup = () => {
 // Token buys are a PREVIEW loop (local, marked as such) until on-chain
 // settlement goes live; the contract link is real.
 // ═══════════════════════════════════════════════════════════════════════
-const CBK_CONTRACT = '0x2915FdB0f04c4452c60a1B7f5174004513196c76';
+// Testnet dry-run switch — append ?testnet=1&staking=0x..&token=0x.. to the URL
+// to point the Stake screen at Base Sepolia + your deployed test stack
+// (mythic-staking/script/DeployTestnet.s.sol). URL-gated: production is
+// unaffected. Used only to validate the flow before the mainnet launch.
+const CBK_TN = (() => {
+  try {
+    const p = new URLSearchParams(location.search);
+    if (p.get('testnet') !== '1') return null;
+    return { staking: p.get('staking') || '', token: p.get('token') || '',
+             chainHex: '0x14a34', rpc: 'https://sepolia.base.org' };
+  } catch (e) { return null; }
+})();
+const CBK_CONTRACT = CBK_TN ? CBK_TN.token : '0x2915FdB0f04c4452c60a1B7f5174004513196c76';
 const CBK_TOKEN_PRICE = 0.12;
 const CBK_XP_PER_LEVEL = 500; // matches the game's node_power curve: 500 power = 1 level
 const CBK_LEVEL_MAX = 10;
@@ -8482,9 +8494,9 @@ const CBK_MT_PRICE_USD = 0.10; // in-game MT sale price (Bank of Ethos buy flow)
 // ═══ ON-CHAIN STAKING (LockedStaking, mythic-staking repo) ═══
 // Paste the deployed contract address here to switch the Stake screen from
 // preview to LIVE. Everything else is already wired.
-const CBK_STAKING_ADDRESS = '';
-const CBK_BASE_CHAIN_HEX = '0x2105'; // Base mainnet (8453)
-const CBK_RPC = 'https://mainnet.base.org';
+const CBK_STAKING_ADDRESS = CBK_TN ? CBK_TN.staking : '';
+const CBK_BASE_CHAIN_HEX = CBK_TN ? CBK_TN.chainHex : '0x2105'; // Base mainnet (8453) / Sepolia (84532)
+const CBK_RPC = CBK_TN ? CBK_TN.rpc : 'https://mainnet.base.org';
 // Selectors computed with `cast sig` against src/LockedStaking.sol.
 const CBK_SEL = {
   tierCount: '0x96b55f7d', getTier: '0x4f062c5a', stake: '0x7ec6840f',
