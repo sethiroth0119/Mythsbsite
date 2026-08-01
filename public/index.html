@@ -6910,9 +6910,23 @@ const ebCard = { background: EB_INK.card, border: '1px solid ' + EB_INK.line, bo
 const useGameArt = (client) => {
   const [artMap, setArtMap] = useState(null);
   const [spriteMap, setSpriteMap] = useState(null);
+  // id → {name, icon}. Covers BOTH Forge cards (published `cards`) and the
+  // game's built-in cards (published under moves.__builtin_cards__), so a
+  // starter deck reads "Goblin Scout 👺" instead of a raw id.
+  const [meta, setMeta] = useState(null);
   useEffect(() => {
     if (!client) return;
     let dead = false;
+    client.from('card_catalog').select('cards, moves').eq('id', 'singleton').maybeSingle()
+      .then(({ data }) => {
+        if (dead || !data) return;
+        const m = {};
+        const add = (c) => { if (c && c.id) m[c.id] = { name: c.name || c.id, icon: c.icon || '' }; };
+        (Array.isArray(data.cards) ? data.cards : []).forEach(add);
+        const bi = data.moves && data.moves.__builtin_cards__;
+        (Array.isArray(bi) ? bi : []).forEach(add);
+        setMeta(m);
+      }).catch(() => {});
     const pull = async (filename, setter) => {
       try {
         const base = filename.replace(/\.json$/, '');
@@ -6963,6 +6977,10 @@ const useGameArt = (client) => {
       }
     }
     return null;
+  };
+  resolve.meta = (rawId) => {
+    if (!meta || !rawId) return null;
+    return meta[String(rawId)] || meta[String(rawId).split(':').pop()] || null;
   };
   return resolve;
 };
@@ -7176,14 +7194,21 @@ const PlayerProfilePage = ({ client, session, profileKey, onBack, onOpenProfile 
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                     {uniq.slice(0, 24).map((cid, i) => {
                       const img = resolveArt(cid);
+                      const md = resolveArt.meta ? resolveArt.meta(cid) : null;
+                      const label = (md && md.name) || String(cid).split(':').pop();
                       return (
-                        <div key={i} title={String(cid).split(':').pop()} style={{
+                        <div key={i} title={label} style={{
                           width: 46, height: 64, borderRadius: 5, overflow: 'hidden',
                           border: '1px solid ' + EB_INK.line, background: '#0F1116',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: EB_INK.dim,
+                          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 8, color: EB_INK.dim, textAlign: 'center', padding: 2,
                         }}>
-                          {img ? <img src={img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                               : <span style={{ padding: 2, textAlign: 'center', lineHeight: 1.1 }}>{String(cid).split(':').pop().slice(0, 8)}</span>}
+                          {img ? <img src={img} alt={label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (
+                            <>
+                              <span style={{ fontSize: 18, lineHeight: 1 }}>{(md && md.icon) || '🃏'}</span>
+                              <span style={{ marginTop: 3, lineHeight: 1.1, overflow: 'hidden' }}>{label.slice(0, 14)}</span>
+                            </>
+                          )}
                         </div>
                       );
                     })}
