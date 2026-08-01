@@ -7507,6 +7507,57 @@ const PlayerProfilePage = ({ client, session, profileKey, onBack, onOpenProfile,
   );
 };
 
+// 🔔 ALERTS — what happened while you were away. Rows are written by DB
+// triggers (follow / like / reply / gift), so nothing can be forged or missed.
+const EbAlertsPage = ({ client, session, onOpenProfile, onSignIn }) => {
+  const [data, setData] = useState(null);
+  const load = async () => {
+    if (!client || !session) { setData({ unread: 0, items: [] }); return; }
+    const { data: d } = await client.rpc('eb_notifications_get', { p_limit: 40 });
+    setData(d && typeof d === 'object' ? d : { unread: 0, items: [] });
+    // Opening the panel IS reading them.
+    try { await client.rpc('eb_notifications_read_all'); } catch (e) {}
+  };
+  useEffect(() => { load(); }, [client, session]);
+  const icon = (k) => k === 'follow' ? '➕' : k === 'like' ? '♥' : k === 'reply' ? '💬' : '🎁';
+  const when = (iso) => {
+    const s2 = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
+    if (s2 < 60) return 'just now';
+    if (s2 < 3600) return Math.floor(s2 / 60) + 'm ago';
+    if (s2 < 86400) return Math.floor(s2 / 3600) + 'h ago';
+    return Math.floor(s2 / 86400) + 'd ago';
+  };
+  if (!session) return (
+    <div style={{ ...ebCard, padding: 26, textAlign: 'center', color: EB_INK.dim }}>
+      <div style={{ fontSize: 18, fontWeight: 700, color: '#EDEFF3' }}>Alerts</div>
+      <div style={{ fontSize: 13, marginTop: 8 }}>Sign in to see who followed you, liked your posts and what rewards arrived.</div>
+      <button onClick={onSignIn} style={{ marginTop: 16, background: EB_INK.ember, color: '#14060A', border: 'none', borderRadius: 10, padding: '11px 22px', fontWeight: 700, cursor: 'pointer' }}>Connect account</button>
+    </div>
+  );
+  const items = (data && data.items) || [];
+  return (
+    <div style={{ color: '#EDEFF3' }}>
+      <div style={{ fontSize: 22, fontWeight: 800, marginBottom: 4 }}>🔔 Alerts</div>
+      <div style={{ color: EB_INK.dim, fontSize: 13, marginBottom: 16 }}>Follows, likes, replies and rewards.</div>
+      {data === null ? <div style={{ color: EB_INK.dim }}>Loading…</div>
+        : items.length === 0 ? <EbEmpty>Nothing yet — post something and see who bites.</EbEmpty>
+        : items.map(n => (
+          <div key={n.id} style={{ ...ebCard, padding: '12px 14px', marginBottom: 8, display: 'flex', gap: 11, alignItems: 'center',
+            borderColor: n.read ? EB_INK.line : 'rgba(255,106,43,.45)' }}>
+            <span style={{ fontSize: 18 }}>{icon(n.kind)}</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13.5, lineHeight: 1.45 }}>{n.body}</div>
+              <div style={{ color: EB_INK.dim, fontSize: 11, marginTop: 2 }}>{when(n.at)}</div>
+            </div>
+            {n.actor_id ? (
+              <button onClick={() => onOpenProfile(n.handle || n.actor_id)} style={{ background: 'none', border: '1px solid ' + EB_INK.line, color: EB_INK.gold, borderRadius: 8, padding: '5px 11px', fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap' }}>View</button>
+            ) : null}
+          </div>
+        ))}
+    </div>
+  );
+};
+
 // 📡 THE FEED — Emergency Broadcast's front page. Everyone's strategy posts
 // and clips in one stream. Public: signed-out visitors can read it, which is
 // the point (it's the shop window for the game).
@@ -9645,6 +9696,22 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
   // 📡 Social screens live INSIDE this shell now (feed / survivors / profile)
   // so players never leave the platform to use them.
   const [ebKey, setEbKey] = useState(null);
+  // Unread alert count for the nav badge — polled lightly, and refreshed
+  // whenever the player opens the Alerts screen (which marks them read).
+  const [ebUnread, setEbUnread] = useState(0);
+  useEffect(() => {
+    if (!client || !session) { setEbUnread(0); return; }
+    let dead = false;
+    const tick = async () => {
+      try {
+        const { data } = await client.rpc('eb_notifications_get', { p_limit: 1 });
+        if (!dead && data) setEbUnread(data.unread | 0);
+      } catch (e) {}
+    };
+    tick();
+    const h = setInterval(tick, 60000);
+    return () => { dead = true; clearInterval(h); };
+  }, [client, session, screen]);
   const openPlayer = (k) => { setEbKey(k); setScreen('player'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
   const [selectedId, setSelectedId] = useState(null);
   const [search, setSearch] = useState('');
@@ -10471,6 +10538,7 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
     { key: 'feed', label: 'The Feed', icon: '✽' },
     { key: 'people', label: 'Survivors', icon: '☷' },
     { key: 'me', label: 'My Profile', icon: '★' },
+    { key: 'alerts', label: ebUnread > 0 ? ('Alerts (' + ebUnread + ')') : 'Alerts', icon: '✿' },
   ];
   const activeKey = screen === 'profile' ? 'discover' : (screen === 'player' ? 'people' : screen);
 
@@ -11815,6 +11883,10 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
           )}
 
           {/* ═══ LEADERBOARD ═══ */}
+          {screen === 'alerts' && (
+            <EbAlertsPage client={client} session={session}
+              onOpenProfile={openPlayer} onSignIn={onSignIn} />
+          )}
           {screen === 'feed' && (
             <EbFeedPage embedded client={client} session={session}
               onOpenProfile={openPlayer} onSignIn={onSignIn} onBack={() => setScreen('dashboard')} />
