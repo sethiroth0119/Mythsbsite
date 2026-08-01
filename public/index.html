@@ -88,11 +88,13 @@
   /* Loading state — shown while Babel transpiles */
   .boot-shimmer { background: linear-gradient(90deg, #1c1a14 0%, #4a3f28 50%, #1c1a14 100%); background-size: 200% 100%; animation: shimmer 1.5s ease-in-out infinite; }
   @keyframes shimmer { 0%,100% { background-position: 0% 0%; } 50% { background-position: 200% 0%; } }
-  /* Navbar wordmark — scales bigger on roomier screens so the logo reads
-     bold on desktop without crowding Login/Play/hamburger on phones. */
-  .ms-logo { transform: scale(1.25); margin-right: 16px; }
-  @media (min-width: 640px)  { .ms-logo { transform: scale(1.5);  margin-right: 26px; } }
-  @media (min-width: 1024px) { .ms-logo { transform: scale(1.8);  margin-right: 38px; } }
+  /* Navbar logo — the gold lockup is a SQUARE (cards over the wordmark), so
+     it needs far gentler scaling than the old flat wordmark did: transform
+     doesn't reflow, so an aggressive scale would spill the art out of the
+     slim bar instead of just reading bigger. */
+  .ms-logo { transform: scale(1.0); margin-right: 10px; }
+  @media (min-width: 640px)  { .ms-logo { transform: scale(1.08); margin-right: 18px; } }
+  @media (min-width: 1024px) { .ms-logo { transform: scale(1.16); margin-right: 26px; } }
   /* Prevent stray content from triggering horizontal scroll on phones. */
   html, body { overflow-x: hidden; max-width: 100%; }
 
@@ -748,7 +750,7 @@ const Navbar = ({ onNavigate, deckCount, survivors, loyalFaction, isSignedIn, di
         {/* ===== Logo (left) — wordmark image, no glow ===== */}
         <button onClick={onShowHome} className="flex items-center cursor-pointer hover:opacity-85 transition shrink-0" title="Back to home">
           <img
-            src="./assets/artwork/Mythic%20Spellbook.png"
+            src="./assets/artwork/Mythic%20Spellbook%20Gold%20Logo.png"
             alt="Mythic Spellbook"
             className="block ms-logo"
             style={{
@@ -757,7 +759,10 @@ const Navbar = ({ onNavigate, deckCount, survivors, loyalFaction, isSignedIn, di
               // crowded by Login + Play + hamburger) but keep it bold on
               // desktop where there's room. See the .ms-logo media query in
               // the <style> block.
-              height: '36px',
+              // The gold logo is a square lockup (cards stacked over the
+              // wordmark), so it needs more height than the old flat wordmark
+              // to stay legible in a slim bar.
+              height: '46px',
               width: 'auto',
               transformOrigin: 'center left',
               filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.9))',
@@ -908,11 +913,14 @@ const Hero = ({ featuredCard, onCardClick, onScrollTo }) => (
     <div className="relative z-10 text-center px-6 max-w-3xl mx-auto" style={{ animation: 'rise 1s ease-out' }}>
       {/* Brand mark — centered, clean drop shadow only (no orange glow). */}
       <img
-        src="./assets/artwork/Mythic%20Spellbook%20Logo.png?v=1"
+        src="./assets/artwork/Mythic%20Spellbook%20Gold%20Logo.png"
         alt="Mythic Spellbook"
         className="block mx-auto mb-8"
         style={{
-          width: 'clamp(280px, 42vw, 560px)',
+          // Square lockup — narrower than the old wide wordmark at the same
+          // width, so it gets a slightly smaller clamp to keep the hero
+          // headline breathing underneath it.
+          width: 'clamp(240px, 34vw, 460px)',
           height: 'auto',
           maxWidth: '100%',
           filter: 'drop-shadow(0 4px 14px rgba(0,0,0,0.9))',
@@ -6912,10 +6920,10 @@ const ShopSuccessModal = ({ info, onClose }) => {
 
         <div className="relative px-7 pt-7 pb-6 text-center">
           <img
-            src="./assets/artwork/Mythic%20Spellbook%20Logo.png?v=1"
+            src="./assets/artwork/Mythic%20Spellbook%20Gold%20Logo.png"
             alt="Mythic Spellbook"
             className="mx-auto mb-4"
-            style={{ maxWidth: '230px', width: '70%', height: 'auto', filter: 'drop-shadow(0 8px 26px rgba(0,0,0,0.75))' }}
+            style={{ maxWidth: '210px', width: '62%', height: 'auto', filter: 'drop-shadow(0 8px 26px rgba(0,0,0,0.75))' }}
             onError={(e) => { e.target.style.display = 'none'; }}
           />
           <div className="text-emerald-300 text-[11px] tracking-[0.4em] uppercase font-bold mb-2">✓ Payment Successful</div>
