@@ -7507,6 +7507,150 @@ const PlayerProfilePage = ({ client, session, profileKey, onBack, onOpenProfile,
   );
 };
 
+// 📚 TRAINING & DOCUMENTATION — admin-curated PDFs, videos and links.
+// Public to read (it's onboarding material); writes are admin-only and that
+// is enforced by RLS on eb_docs, not by hiding the buttons.
+const EbTrainingPage = ({ client, session, isAdmin }) => {
+  const [docs, setDocs] = useState(null);
+  const [form, setForm] = useState(null);   // null = closed, else the row being edited
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+
+  const load = async () => {
+    if (!client) return;
+    const { data } = await client.from('eb_docs').select('*')
+      .order('category').order('sort_order').order('created_at');
+    setDocs(Array.isArray(data) ? data : []);
+  };
+  useEffect(() => { load(); }, [client, session]);
+
+  const blank = { title: '', summary: '', kind: 'pdf', url: '', category: 'General', sort_order: 0, published: true };
+  const save = async () => {
+    const f = form || {};
+    if (!f.title || !f.title.trim()) { setMsg('Give it a title.'); return; }
+    if (!f.url || !/^https?:\/\/.+/i.test(f.url.trim())) { setMsg('Needs a full URL starting with http.'); return; }
+    setBusy(true); setMsg('');
+    const row = {
+      title: f.title.trim().slice(0, 140), summary: (f.summary || '').slice(0, 400),
+      kind: f.kind || 'pdf', url: f.url.trim(), category: (f.category || 'General').trim().slice(0, 40),
+      sort_order: parseInt(f.sort_order, 10) || 0, published: f.published !== false,
+      updated_at: new Date().toISOString(),
+    };
+    try {
+      const r = f.id
+        ? await client.from('eb_docs').update(row).eq('id', f.id)
+        : await client.from('eb_docs').insert({ ...row, created_by: session ? session.user.id : null });
+      if (r && r.error) { setMsg('Could not save — ' + r.error.message.slice(0, 90)); setBusy(false); return; }
+      setForm(null); await load();
+    } catch (e) { setMsg('Could not save — try again.'); }
+    setBusy(false);
+  };
+  const del = async (d) => {
+    if (!window.confirm('Delete "' + d.title + '"?')) return;
+    try { await client.from('eb_docs').delete().eq('id', d.id); await load(); } catch (e) {}
+  };
+
+  // YouTube links get a real thumbnail so the shelf reads like a video library.
+  const ytId = (u) => {
+    const m = String(u || '').match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|shorts\/|embed\/))([A-Za-z0-9_-]{6,})/);
+    return m ? m[1] : null;
+  };
+  const icon = (d) => d.kind === 'video' ? '🎬' : d.kind === 'link' ? '🔗' : '📄';
+
+  const inp = { width: '100%', background: '#0F1116', border: '1px solid ' + EB_INK.line, borderRadius: 8, color: '#EDEFF3', padding: '9px 11px', fontSize: 13, fontFamily: 'inherit' };
+  const lbl = { fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: EB_INK.dim, margin: '10px 0 4px' };
+
+  const cats = {};
+  (docs || []).forEach(d => { (cats[d.category || 'General'] = cats[d.category || 'General'] || []).push(d); });
+  const catNames = Object.keys(cats);
+
+  return (
+    <div style={{ color: '#EDEFF3' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap' }}>
+        <div>
+          <div style={{ fontSize: 22, fontWeight: 800 }}>📚 Training &amp; Documentation</div>
+          <div style={{ color: EB_INK.dim, fontSize: 13, marginTop: 3 }}>Guides, walkthroughs and reference material for the ecosystem.</div>
+        </div>
+        {isAdmin && (
+          <button onClick={() => { setForm(blank); setMsg(''); }} style={{ background: EB_INK.ember, color: '#14060A', border: 'none', borderRadius: 9, padding: '10px 18px', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>+ Add material</button>
+        )}
+      </div>
+
+      {isAdmin && form && (
+        <div style={{ ...ebCard, padding: 18, marginTop: 16 }}>
+          <div style={{ fontWeight: 700, marginBottom: 4 }}>{form.id ? 'Edit material' : 'New material'}</div>
+          <div style={lbl}>Title</div>
+          <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} style={inp} />
+          <div style={lbl}>Summary</div>
+          <textarea rows={2} value={form.summary} onChange={(e) => setForm({ ...form, summary: e.target.value })} style={{ ...inp, resize: 'vertical' }} />
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <div style={{ flex: '1 1 140px' }}>
+              <div style={lbl}>Type</div>
+              <select value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value })} style={inp}>
+                <option value="pdf">📄 PDF</option>
+                <option value="video">🎬 Video (YouTube)</option>
+                <option value="link">🔗 Link</option>
+              </select>
+            </div>
+            <div style={{ flex: '1 1 140px' }}>
+              <div style={lbl}>Category</div>
+              <input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="Getting Started" style={inp} />
+            </div>
+            <div style={{ flex: '0 0 110px' }}>
+              <div style={lbl}>Order</div>
+              <input type="number" value={form.sort_order} onChange={(e) => setForm({ ...form, sort_order: e.target.value })} style={inp} />
+            </div>
+          </div>
+          <div style={lbl}>{form.kind === 'video' ? 'YouTube URL' : form.kind === 'pdf' ? 'PDF URL' : 'URL'}</div>
+          <input value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} placeholder="https://…" style={inp} />
+          <label style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 12, fontSize: 13, color: EB_INK.dim }}>
+            <input type="checkbox" checked={form.published !== false} onChange={(e) => setForm({ ...form, published: e.target.checked })} />
+            Published (visible to players)
+          </label>
+          {msg ? <div style={{ color: '#F0655A', fontSize: 12, marginTop: 8 }}>{msg}</div> : null}
+          <div style={{ display: 'flex', gap: 9, marginTop: 14 }}>
+            <button onClick={save} disabled={busy} style={{ flex: 1, background: EB_INK.ember, color: '#14060A', border: 'none', borderRadius: 9, padding: '10px 0', fontWeight: 700, cursor: 'pointer', opacity: busy ? .6 : 1 }}>{busy ? 'Saving…' : 'Save'}</button>
+            <button onClick={() => setForm(null)} style={{ flex: 1, background: 'transparent', color: EB_INK.dim, border: '1px solid ' + EB_INK.line, borderRadius: 9, padding: '10px 0', fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {docs === null ? <div style={{ color: EB_INK.dim, marginTop: 20 }}>Loading…</div>
+        : catNames.length === 0 ? <EbEmpty>{isAdmin ? 'Nothing here yet — add your first guide above.' : 'Training material is on the way.'}</EbEmpty>
+        : catNames.map(cn => (
+          <div key={cn} style={{ marginTop: 22 }}>
+            <div style={{ fontSize: 11, letterSpacing: '.22em', textTransform: 'uppercase', color: EB_INK.gold, fontWeight: 800, marginBottom: 10 }}>{cn}</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(250px,1fr))', gap: 12 }}>
+              {cats[cn].map(d => {
+                const yt = d.kind === 'video' ? ytId(d.url) : null;
+                return (
+                  <div key={d.id} style={{ ...ebCard, overflow: 'hidden', display: 'flex', flexDirection: 'column',
+                    opacity: d.published === false ? .55 : 1 }}>
+                    <a href={d.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', color: 'inherit' }}>
+                      <div style={{ height: 116, background: yt ? `center/cover no-repeat url("https://img.youtube.com/vi/${yt}/hqdefault.jpg")` : '#0F1116',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30 }}>{yt ? '▶' : icon(d)}</div>
+                      <div style={{ padding: '12px 14px' }}>
+                        <div style={{ fontWeight: 700, fontSize: 14 }}>{d.title}</div>
+                        {d.summary ? <div style={{ color: EB_INK.dim, fontSize: 12, marginTop: 4, lineHeight: 1.5 }}>{d.summary}</div> : null}
+                        {d.published === false ? <div style={{ color: '#F0655A', fontSize: 11, marginTop: 6, fontWeight: 700 }}>DRAFT — hidden from players</div> : null}
+                      </div>
+                    </a>
+                    {isAdmin && (
+                      <div style={{ display: 'flex', gap: 8, padding: '0 14px 12px' }}>
+                        <button onClick={() => { setForm(d); setMsg(''); }} style={{ background: 'none', border: '1px solid ' + EB_INK.line, color: EB_INK.gold, borderRadius: 7, padding: '5px 11px', fontSize: 11, cursor: 'pointer' }}>Edit</button>
+                        <button onClick={() => del(d)} style={{ background: 'none', border: '1px solid ' + EB_INK.line, color: '#F0655A', borderRadius: 7, padding: '5px 11px', fontSize: 11, cursor: 'pointer' }}>Delete</button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+    </div>
+  );
+};
+
 // 🔔 ALERTS — what happened while you were away. Rows are written by DB
 // triggers (follow / like / reply / gift), so nothing can be forged or missed.
 const EbAlertsPage = ({ client, session, onOpenProfile, onSignIn }) => {
@@ -10655,6 +10799,7 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
     { key: 'people', label: 'Survivors', icon: '☷' },
     { key: 'me', label: 'My Profile', icon: '★' },
     { key: 'alerts', label: ebUnread > 0 ? ('Alerts (' + ebUnread + ')') : 'Alerts', icon: '✿' },
+    { key: 'training', label: 'Training', icon: '☷' },
   ];
   const activeKey = screen === 'profile' ? 'discover' : (screen === 'player' ? 'people' : screen);
 
@@ -12013,6 +12158,9 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
           )}
 
           {/* ═══ LEADERBOARD ═══ */}
+          {screen === 'training' && (
+            <EbTrainingPage client={client} session={session} isAdmin={isAdminEmail(session && session.user && session.user.email)} />
+          )}
           {screen === 'alerts' && (
             <EbAlertsPage client={client} session={session}
               onOpenProfile={openPlayer} onSignIn={onSignIn} />
