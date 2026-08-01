@@ -10679,7 +10679,13 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
   // means no data source answered yet → display N/A like thirdweb does, and
   // treat milestones as not reached.
   const mcap = mcapLive ? mcapLive.v : null;
-  const mcapN = mcap || 0;
+  // ⚠ Milestones may ONLY be driven by a real traded market cap. The
+  // on-chain fallback is supply × the in-game $0.10 sale price — a notional
+  // figure, not a market cap. Counting it would mark the $1M reward tier
+  // "reached" before a single token has ever traded, promising airdrops the
+  // market has not earned. Until a DEX pool exists, progress is 0.
+  const mcapIsMarket = !!(mcapLive && mcapLive.src === 'dex');
+  const mcapN = mcapIsMarket ? (mcap || 0) : 0;
   const mcNext = CBK_MCAPS.find(d => d.cap > mcapN);
   const mcMaxCap = CBK_MCAPS[CBK_MCAPS.length - 1].cap;
   const mcPct = Math.min(100, Math.round((mcapN / mcMaxCap) * 100)) + '%';
@@ -10690,7 +10696,7 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
   const mcapPill = mcapLive
     ? (mcapLive.src === 'dex'
       ? { label: 'LIVE · DEX MARKET', color: '#3ECF8E', border: 'rgba(62,207,142,.3)', bg: 'rgba(62,207,142,.12)' }
-      : { label: 'LIVE · ON-CHAIN SUPPLY × $0.10', color: '#B9A8E8', border: '#4A3A7A', bg: 'rgba(185,168,232,.12)' })
+      : { label: 'NOTIONAL · NO DEX MARKET YET', color: '#B9A8E8', border: '#4A3A7A', bg: 'rgba(185,168,232,.12)' })
     : { label: 'NO MARKET DATA YET', color: '#9BA1AB', border: '#3A404B', bg: 'rgba(92,98,108,.12)' };
   const McapFigure = ({ size }) => (
     <a href={'https://thirdweb.com/base/' + CBK_CONTRACT} target="_blank" rel="noreferrer" title="View the Mythic Token on thirdweb (Base mainnet)"
@@ -10877,6 +10883,14 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
                     );
                   })}
                 </div>
+                {!mcapIsMarket && (
+                  <div style={{ color: '#B9A8E8', fontSize: 12, marginTop: 12, padding: '9px 12px', borderRadius: 8,
+                    background: 'rgba(185,168,232,.08)', border: '1px solid #4A3A7A', lineHeight: 1.6 }}>
+                    Mythic Token has <b>no liquidity pool yet</b>, so it has no market price. The figure above is
+                    notional — 10M supply at the in-game $0.10 rate. Milestone rewards unlock on a <b>real traded
+                    market cap</b>, so this bar starts moving the moment a pool goes live.
+                  </div>
+                )}
                 <div style={{ fontSize: 11, color: '#9BA1AB', marginTop: 12, lineHeight: 1.6 }}>Each milestone triggers a <span style={{ color: '#3ECF8E', fontWeight: 600 }}>Cinder airdrop</span> — sent directly to VIP holders' and Builders' wallets, funded from the company allocation, never from committed Cinder.</div>
               </div>
 
