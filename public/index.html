@@ -9616,11 +9616,11 @@ const cbkWaitReceipt = async (hash) => {
   throw new Error('timed out waiting for confirmation');
 };
 const CBK_MCAPS = [
-  { cap: 1000000, label: '$1M', vip: 'Cinder airdrop + Founding VIP badge', builder: 'Cinder airdrop + capacity boost' },
-  { cap: 2000000, label: '$2M', vip: 'Cinder airdrop + exclusive card back', builder: 'Cinder airdrop + grant pool unlocked' },
-  { cap: 5000000, label: '$5M', vip: 'Cinder airdrop + VIP profile frame', builder: 'Cinder airdrop + Node level boost' },
-  { cap: 10000000, label: '$10M', vip: 'Cinder airdrop + Mythic promo card', builder: 'Cinder airdrop + ecosystem fund' },
-  { cap: 25000000, label: '$25M', vip: 'Cinder airdrop + lifetime VIP status', builder: 'Cinder airdrop + hall of fame' },
+  { cap: 1000000, label: '$1M', vip: 'Cinder + Mythic Token airdrop · Founding VIP badge', builder: 'Cinder + Mythic Token airdrop · capacity boost' },
+  { cap: 2000000, label: '$2M', vip: 'Cinder + Mythic Token airdrop · exclusive card back', builder: 'Cinder + Mythic Token airdrop · grant pool unlocked' },
+  { cap: 5000000, label: '$5M', vip: 'Cinder + Mythic Token airdrop · VIP profile frame', builder: 'Cinder + Mythic Token airdrop · Node level boost' },
+  { cap: 10000000, label: '$10M', vip: 'Cinder + Mythic Token airdrop · Mythic promo card', builder: 'Cinder + Mythic Token airdrop · ecosystem fund' },
+  { cap: 25000000, label: '$25M', vip: 'Cinder + Mythic Token airdrop · lifetime VIP status', builder: 'Cinder + Mythic Token airdrop · hall of fame' },
 ];
 const CBK_VIP_TIERS = ['VIP', 'VIP Gold', 'VIP Elite'];
 
@@ -12149,7 +12149,9 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
                       style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: '#F2F3F5', ...grotesk, fontSize: 22, fontWeight: 600, minWidth: 0 }} />
                     <span style={{ fontSize: 13, color: '#9BA1AB', paddingRight: 8 }}>{lmUnit}</span>
                   </div>
-                  {lmOver && <div style={{ fontSize: 12, color: '#F0655A', marginTop: 6 }}>{lmIsMt ? 'Exceeds your lockable in-game MT. Wallet MT stakes on-chain from the Stake MT screen instead.' : 'Exceeds your available Cinder balance'}</div>}
+                  {lmOver && <div style={{ fontSize: 12, color: '#F0655A', marginTop: 6 }}>{lmIsMt ? (mtBal > 0
+                      ? 'Exceeds your lockable in-game MT — you have ' + cbkFmt(mtBal) + ' MT credited in-game.'
+                      : 'Backing locks MT credited to your in-game balance, and you have none yet. Tokens in your wallet cannot be locked by the site — that needs the on-chain staking contract (Stake MT), which goes live shortly. Back with Cinder in the meantime.') : 'Exceeds your available Cinder balance'}</div>}
                   <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
                     {[25, 50, 75, 100].map(pc => (
                       <button key={pc} onClick={() => setModal({ ...lm, amountStr: String(Math.floor(lmFunds * pc / 100)) })}
