@@ -792,8 +792,6 @@ const Navbar = ({ onNavigate, deckCount, survivors, loyalFaction, isSignedIn, di
           <button onClick={() => { if (onShowBacking) onShowBacking(); }} className="whitespace-nowrap transition tracking-wide font-medium hover:text-white" style={{ color: currentPage === 'backing' ? '#e8d5a8' : '#c9a86a' }}>Backing</button>
           {/* 🪙 RMT — Real Money Trading manifesto + Build a Career economy. Gold accent when active. */}
           <button onClick={() => { if (onShowRMT) onShowRMT(); }} className="whitespace-nowrap transition tracking-wide font-medium hover:text-white" style={{ color: currentPage === 'rmt' ? '#e8d5a8' : '#c9a86a' }}>RMT</button>
-          {/* Pledge — ownership manifesto + tier scaffold. Gold so it groups with RMT. */}
-          <button onClick={() => { if (onShowPledge) onShowPledge(); }} className="whitespace-nowrap transition tracking-wide font-medium hover:text-white" style={{ color: currentPage === 'pledge' ? '#e8d5a8' : '#c9a86a' }}>Pledge</button>
           <button onClick={() => { if (onShowCommunity) onShowCommunity(); }} className={`whitespace-nowrap hover:text-white transition tracking-wide font-medium ${currentPage === 'community' ? 'text-white' : ''}`}>Community</button>
           {/* Deck Builder — opens the dedicated page. */}
           <button onClick={() => { if (onShowDeckBuilder) onShowDeckBuilder(); }} className={`whitespace-nowrap hover:text-white transition tracking-wide font-medium ${currentPage === 'deckbuilder' ? 'text-white' : ''}`}>Deck Builder</button>
@@ -801,6 +799,17 @@ const Navbar = ({ onNavigate, deckCount, survivors, loyalFaction, isSignedIn, di
 
         {/* ===== Right cluster (auth + play + hamburger on mobile) ===== */}
         <div className="flex items-center gap-2 shrink-0 ml-auto">
+          {/* 🛒 Shop (ex-Pledge) — lives beside the account button, signed-in only. */}
+          {isSignedIn && (
+            <button
+              onClick={() => { if (onShowPledge) onShowPledge(); }}
+              className="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] sm:text-[13px] tracking-wide transition border whitespace-nowrap"
+              style={{ borderRadius: '2px', borderColor: currentPage === 'pledge' ? '#c9a86a' : 'rgba(201,168,106,0.45)', color: '#e8d5a8', background: currentPage === 'pledge' ? 'rgba(201,168,106,0.15)' : 'rgba(201,168,106,0.06)' }}
+              title="Founder & Node packages"
+            >
+              🛒 Shop
+            </button>
+          )}
           {isSignedIn ? (
             <button
               onClick={onShowHub}
@@ -851,7 +860,9 @@ const Navbar = ({ onNavigate, deckCount, survivors, loyalFaction, isSignedIn, di
             <button onClick={mAction(onShowCardList)} className={`text-left py-2.5 px-3 rounded hover:bg-white/5 tracking-wide font-medium ${currentPage === 'cardlist' ? 'text-white' : 'text-neutral-200'}`}>Card List</button>
             <button onClick={mAction(onShowBacking)} className="text-left py-2.5 px-3 rounded hover:bg-white/5 tracking-wide font-medium" style={{ color: currentPage === 'backing' ? '#e8d5a8' : '#c9a86a' }}>Backing</button>
             <button onClick={mAction(onShowRMT)}      className="text-left py-2.5 px-3 rounded hover:bg-white/5 tracking-wide font-medium" style={{ color: currentPage === 'rmt' ? '#e8d5a8' : '#c9a86a' }}>RMT</button>
-            <button onClick={mAction(onShowPledge)}   className="text-left py-2.5 px-3 rounded hover:bg-white/5 tracking-wide font-medium" style={{ color: currentPage === 'pledge' ? '#e8d5a8' : '#c9a86a' }}>Pledge</button>
+            {isSignedIn && (
+              <button onClick={mAction(onShowPledge)} className="text-left py-2.5 px-3 rounded hover:bg-white/5 tracking-wide font-medium" style={{ color: currentPage === 'pledge' ? '#e8d5a8' : '#c9a86a' }}>🛒 Shop</button>
+            )}
             <button onClick={mAction(onShowCommunity)} className={`text-left py-2.5 px-3 rounded hover:bg-white/5 tracking-wide font-medium ${currentPage === 'community' ? 'text-white' : 'text-neutral-200'}`}>Community</button>
             <button onClick={mAction(onShowDeckBuilder)} className={`text-left py-2.5 px-3 rounded hover:bg-white/5 tracking-wide font-medium ${currentPage === 'deckbuilder' ? 'text-white' : 'text-neutral-200'}`}>Deck Builder</button>
           </div>
@@ -3701,7 +3712,7 @@ const AZA_COIN_PACKAGES = [
   { id: 'aza_huge',   name: 'Sovereign Vault',   usd: 149.99, aza: 5500, bonus: 20, accent: '#ffd166' },
 ];
 
-const PlayerHub = ({ client, session, profile, refreshProfile, onSignedOut, onShowBacking }) => {
+const PlayerHub = ({ client, session, profile, refreshProfile, onSignedOut, onShowBacking, onShowShop }) => {
   const [buyingId, setBuyingId] = useState(null);
   const [buyMsg, setBuyMsg] = useState('');
   const [storeTab, setStoreTab] = useState('packs'); // 'packs' | 'aza'
@@ -4056,6 +4067,20 @@ const PlayerHub = ({ client, session, profile, refreshProfile, onSignedOut, onSh
           </div>
         ) : (
           <>
+            {/* ===== 🛒 Shop banner — Founder & Node packages (ex-Pledge page) ===== */}
+            {onShowShop && (
+              <button
+                onClick={onShowShop}
+                className="w-full mb-6 px-5 py-4 rounded-lg border text-left flex items-center justify-between gap-4 transition hover:shadow-lg"
+                style={{ borderColor: 'rgba(201,168,106,0.5)', background: 'linear-gradient(90deg, rgba(60,40,10,0.45), rgba(20,12,4,0.55))', boxShadow: '0 6px 22px rgba(201,168,106,0.12)' }}
+              >
+                <span>
+                  <span className="block text-yellow-100 font-serif font-bold text-lg">🛒 The Shop — Founder &amp; Node Packages</span>
+                  <span className="block text-stone-400 text-xs mt-0.5">Vault Key, Scavenger, Node Licenses and more — secure Stripe checkout, delivered to this account.</span>
+                </span>
+                <span className="shrink-0 text-[11px] tracking-widest uppercase font-bold text-amber-200 border border-amber-400/50 rounded px-3 py-2">Enter →</span>
+              </button>
+            )}
             {/* ===== Logged-in profile card ===== */}
             <div className="grid md:grid-cols-3 gap-4 mb-8">
               {/* Identity + currency */}
@@ -4916,6 +4941,11 @@ const SCP_STANDARDS = ['Build — not destroy — communities', 'Respect players
 //   color / border / glow — visual treatment
 //   badge           — optional ribbon ("Most Popular", "Legendary"...)
 //   ctaUrl          — optional href; if set, the CTA links there. Otherwise "Coming Soon" (disabled).
+// Tiers purchasable through Stripe (pledge-checkout edge function). The three
+// top founder tiers (dominion-founder / titan-node / eternal) are deliberately
+// NOT here — they stay Coming Soon. Keep this list in sync with the TIERS
+// price table inside supabase/functions/pledge-checkout.
+const SHOP_STRIPE_TIERS = ['vault-key', 'scavenger', 'starter-node', 'outpost-operator', 'foundation-contributor'];
 const PLEDGE_TIERS = [
   {
     id: 'survivor',
@@ -6828,12 +6858,48 @@ const AdminPanelModal = ({ open, onClose, client }) => {
   );
 };
 
-// ===== PLEDGE PAGE =====
-// Manifesto on the future of digital ownership + tier scaffold for buy-ins.
-// Reached from the navbar's "Pledge" button.
-const PledgePage = () => {
+// ===== SHOP PAGE (ex-Pledge) =====
+// Manifesto on the future of digital ownership + Founder & Node packages.
+// Reached from the signed-in navbar's "Shop" button. Buy Now tiers create a
+// Stripe Checkout Session via the pledge-checkout edge function; the three
+// top founder tiers stay Coming Soon.
+const PledgePage = ({ client, session, onSignIn }) => {
   // Learn-more modal toggle for the PSN lore drop-down.
   const [psnOpen, setPsnOpen] = useState(false);
+  // Stripe checkout state — which tier's button is busy + last error/notice.
+  const [buyingId, setBuyingId] = useState('');
+  const [shopMsg, setShopMsg] = useState(null);
+  useEffect(() => {
+    try {
+      const q = new URLSearchParams(window.location.search);
+      if (q.get('pledge_paid')) setShopMsg({ ok: true, text: '✓ Payment received — your package is confirmed! Benefits are delivered to your Mythic Spellbook account.' });
+      else if (q.get('pledge_cancel')) setShopMsg({ ok: false, text: 'Checkout cancelled — your card was not charged.' });
+    } catch (e) {}
+  }, []);
+  const buyTier = async (tier) => {
+    if (!session) { setShopMsg({ ok: false, text: 'Sign in first — your package is delivered to your account.' }); if (onSignIn) onSignIn(); return; }
+    if (buyingId) return;
+    setBuyingId(tier.id); setShopMsg(null);
+    try {
+      const r = await fetch(window.MS_SUPABASE_URL + '/functions/v1/pledge-checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + session.access_token,
+          'apikey': window.MS_SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({ tier_id: tier.id }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (j && j.url) { window.location.href = j.url; return; }
+      setShopMsg({ ok: false, text:
+        j.error === 'sold_out' ? 'That package is sold out — all seats are taken.'
+        : j.error === 'stripe_not_configured' ? 'Checkout is opening soon — payments aren’t switched on quite yet.'
+        : 'Could not start checkout — please try again.' });
+    } catch (e) { setShopMsg({ ok: false, text: 'Could not start checkout — please try again.' }); }
+    setBuyingId('');
+    try { const h = document.getElementById('shop-tiers-head'); if (h) h.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
+  };
   // Section wrapper that gives each block the same dark glass treatment.
   const Block = ({ tone = 'neutral', children }) => {
     const tones = {
@@ -6866,7 +6932,7 @@ const PledgePage = () => {
 
           {/* ===== Header ===== */}
           <div className="text-center mb-12">
-            <div className="text-amber-300/80 text-xs tracking-[0.4em] uppercase mb-3">— The Pledge —</div>
+            <div className="text-amber-300/80 text-xs tracking-[0.4em] uppercase mb-3">— The Shop —</div>
             <DistressedHeading className="text-5xl md:text-7xl font-serif font-bold text-yellow-100 mb-5">
               The Future of Ownership Is Changing
             </DistressedHeading>
@@ -7053,10 +7119,15 @@ const PledgePage = () => {
           {/* ===== Tier grid ===== */}
           <div className="mb-12">
             <div className="text-center mb-8">
-              <div className="text-amber-300/80 text-xs tracking-[0.4em] uppercase mb-3">— Founder & Node Packages —</div>
+              <div id="shop-tiers-head" className="text-amber-300/80 text-xs tracking-[0.4em] uppercase mb-3">— Founder & Node Packages —</div>
               <DistressedHeading className="text-4xl md:text-5xl font-serif font-bold text-yellow-100 mb-3">
-                Choose Your Pledge
+                Choose Your Package
               </DistressedHeading>
+              {shopMsg && (
+                <div className={`max-w-2xl mx-auto mt-4 px-4 py-3 rounded border text-sm font-semibold ${shopMsg.ok ? 'border-emerald-500/60 text-emerald-200 bg-emerald-900/25' : 'border-amber-500/60 text-amber-200 bg-amber-950/30'}`}>
+                  {shopMsg.text}
+                </div>
+              )}
               <p className="text-stone-400 max-w-2xl mx-auto text-sm md:text-base leading-relaxed">
                 Every tier supports the platform, funds youth initiatives, and unlocks in-world value. Cash-out limits, Cinder bonuses, Node power, and royalty participation scale with the tier.
               </p>
@@ -7156,7 +7227,7 @@ const PledgePage = () => {
                     {/* Price */}
                     <div className="mb-6">
                       <div className="flex items-baseline justify-between">
-                        <span className="text-stone-500 text-[10px] uppercase tracking-[0.3em]">Pledge</span>
+                        <span className="text-stone-500 text-[10px] uppercase tracking-[0.3em]">Price</span>
                         <span className="font-serif font-black text-3xl md:text-4xl" style={{ color: tier.accent === '#9aa3b2' ? '#fef3c7' : tier.accent, textShadow: `0 0 24px ${tier.accent}55` }}>
                           {priceText}
                         </span>
@@ -7218,7 +7289,10 @@ const PledgePage = () => {
                         <p className="text-stone-300 text-xs leading-relaxed italic">{tier.audience}</p>
                       </div>
 
-                      {/* CTA */}
+                      {/* CTA — three flavors:
+                          1. ctaUrl (Survivor "Play Free") → plain link
+                          2. Stripe-buyable tier → Buy Now → pledge-checkout edge fn
+                          3. Top founder tiers (Dominion/Titan/Eternal) → Coming Soon */}
                       {tier.ctaUrl ? (
                         <a
                           href={tier.ctaUrl}
@@ -7226,12 +7300,21 @@ const PledgePage = () => {
                         >
                           {tier.ctaLabel || 'Start Here'}
                         </a>
+                      ) : SHOP_STRIPE_TIERS.includes(tier.id) ? (
+                        <button
+                          onClick={() => buyTier(tier)}
+                          disabled={buyingId === tier.id}
+                          className="w-full px-4 py-3 bg-gradient-to-r from-orange-600 to-red-700 text-yellow-100 font-bold rounded tracking-widest uppercase text-xs hover:shadow-lg hover:shadow-orange-500/40 transition border border-orange-400/50 disabled:opacity-60 disabled:cursor-wait"
+                          title={session ? 'Secure checkout via Stripe' : 'Sign in first — your package is delivered to your account'}
+                        >
+                          {buyingId === tier.id ? 'Opening Checkout…' : 'Buy Now'}
+                        </button>
                       ) : (
                         <button
                           disabled
                           className="w-full px-4 py-3 font-bold rounded tracking-widest uppercase text-xs cursor-not-allowed border bg-black/60 transition"
                           style={{ borderColor: tier.accent + '60', color: tier.accent }}
-                          title="Pledge intake opens soon"
+                          title="Founder intake opens soon"
                         >
                           Coming Soon
                         </button>
@@ -7243,7 +7326,7 @@ const PledgePage = () => {
               })}
             </div>
             <p className="text-center text-stone-500 text-xs uppercase tracking-widest mt-8">
-              Pledge intake opens soon — join the Community for early notice. Cash-out limits and royalty participation governed by Terms of Service.
+              Secure checkout via Stripe · packages are delivered to your Mythic Spellbook account. Dominion, Titan &amp; Eternal Founder intake opens soon. Cash-out limits and royalty participation governed by Terms of Service.
             </p>
           </div>
 
@@ -11087,10 +11170,12 @@ const HubReferralPanel = ({ client, session, refreshProfile }) => {
     if (error || !res.ok) {
       setMsg({ err: true, text: res.error === 'self_referral' ? "That's your own code — share it, don't redeem it!"
         : res.error === 'already_redeemed' ? 'This account has already redeemed a referral code.'
+        : res.error === 'same_ip' ? 'A referral was already redeemed from this network — referrals must come from new players on their own connection.'
+        : res.error === 'ip_limit' ? 'This network has hit its referral limit for today — try again later.'
         : res.error === 'bad_code' ? "That code doesn't exist — check the spelling." : 'Could not redeem — try again.' });
       return;
     }
-    setMsg({ err: false, text: '✓ Code accepted — ' + res.referrer_name + ' just earned their referral rewards. Welcome to the network!' });
+    setMsg({ err: false, text: '✓ Code accepted — you and ' + res.referrer_name + ' BOTH earned 5,000 🔥 Cinder, a Birth of the Universe I Booster Pack, and 5 👑 Aza Coins. Claim yours under Rewards & Gifts on your in-game Profile!' });
     setMe(me ? { ...me, redeemed: c.toUpperCase() } : me);
     try { localStorage.removeItem('ms_ref_code'); } catch (e) {}
     if (refreshProfile) refreshProfile();
@@ -11112,7 +11197,7 @@ const HubReferralPanel = ({ client, session, refreshProfile }) => {
           <button onClick={() => me && copy('link', shareLink)} className="text-[11px] tracking-widest uppercase font-bold text-emerald-200 border border-emerald-400/50 rounded px-3 py-2 hover:bg-emerald-500/15 transition">{copied === 'link' ? '✓ Copied' : 'Copy invite link'}</button>
         </div>
         <div className="text-stone-300 text-sm mb-4 leading-relaxed">
-          Every player who redeems your code earns you <strong className="text-orange-300">5,000 🔥 Cinder</strong>, <strong className="text-purple-300">1 Birth Of Universe One pack</strong>, and <strong className="text-sky-300">5 👑 Aza Coin</strong> — delivered straight into your game on next sign-in.
+          Invite a friend to Mythic Spellbook and you'll <strong className="text-emerald-300">both</strong> be rewarded! Earn <strong className="text-orange-300">5,000 🔥 Cinder</strong>, <strong className="text-purple-300">1 Birth of the Universe I Booster Pack</strong>, and <strong className="text-sky-300">5 👑 Aza Coins</strong> when your referral qualifies — a 🎁 Claim button appears under Rewards & Gifts on your in-game Profile.
         </div>
 
         {/* MT airdrop progression */}
@@ -11249,8 +11334,12 @@ function App() {
   // panel prefills it after the visitor signs in.
   useEffect(() => {
     try {
-      const ref = new URLSearchParams(window.location.search).get('ref');
+      const q = new URLSearchParams(window.location.search);
+      const ref = q.get('ref');
       if (ref && /^[A-Za-z0-9-]{4,20}$/.test(ref)) localStorage.setItem('ms_ref_code', ref.toUpperCase());
+      // Returning from Stripe checkout → land on the Shop so the paid/cancelled
+      // banner (inside PledgePage) is actually visible.
+      if (q.get('pledge_paid') || q.get('pledge_cancel')) setCurrentPage('pledge');
     } catch (e) {}
   }, []);
 
@@ -11341,7 +11430,7 @@ function App() {
   const showDeckBuilder = () => { setCurrentPage('deckbuilder'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
   // News page — patch notes / devlogs / announcements. Add new posts to NEWS_POSTS at top of file.
   const showNews = () => { setCurrentPage('news'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
-  // Pledge page — ownership manifesto + tier scaffold.
+  // Shop page (ex-Pledge) — Founder & Node packages with Stripe checkout.
   const showPledge = () => { setCurrentPage('pledge'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
   // Card List page — Palworld-inspired browsable catalog + Coming Drops.
   const showCardList = () => { setCurrentPage('cardlist'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
@@ -11388,6 +11477,7 @@ function App() {
             refreshProfile={refreshProfile}
             onSignedOut={() => { /* stay on hub; the page rerenders to the sign-in form */ }}
             onShowBacking={showBacking}
+            onShowShop={showPledge}
           />
           <Footer />
         </div>
@@ -11414,8 +11504,8 @@ function App() {
         /* ===== NEWS PAGE — patch notes / devlogs / announcements (edit NEWS_POSTS at top of file) ===== */
         <NewsPage />
       ) : currentPage === 'pledge' ? (
-        /* ===== PLEDGE PAGE — ownership manifesto + tier scaffold (edit PLEDGE_TIERS at top of file) ===== */
-        <PledgePage />
+        /* ===== SHOP PAGE (ex-Pledge) — Founder & Node packages, Stripe checkout (edit PLEDGE_TIERS at top of file) ===== */
+        <PledgePage client={client} session={session} onSignIn={showHub} />
       ) : currentPage === 'backing' ? (
         /* ===== CINDER BACKING — account-connected staking/backing platform ===== */
         <div className="pt-14">
