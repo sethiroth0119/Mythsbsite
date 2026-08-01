@@ -75,7 +75,7 @@
   .ga-article { transition: transform 0.25s ease, box-shadow 0.25s ease; }
   .ga-article:hover { transform: translateY(-4px); box-shadow: 0 14px 40px rgba(0,0,0,0.55); }
   html { scroll-behavior: smooth; }
-  /* ── Cinder Backing platform (design-handoff tokens) ── */
+  /* ── Emergency Broadcast platform (design-handoff tokens) ── */
   @keyframes emberPulse { 0%,100% { opacity: .7; } 50% { opacity: 1; } }
   .cbk { font-family: 'IBM Plex Sans', sans-serif; color: #F2F3F5; }
   .cbk ::selection { background: rgba(255,106,43,.35); }
@@ -793,8 +793,8 @@ const Navbar = ({ onNavigate, deckCount, survivors, loyalFaction, isSignedIn, di
           <button onClick={() => { if (onShowSurvivor) onShowSurvivor(); }} className={`whitespace-nowrap hover:text-white transition tracking-wide font-medium ${currentPage === 'survivor' ? 'text-white' : ''}`}>Survivor</button>
           {/* Card List — browsable catalog + Coming Drops. */}
           <button onClick={() => { if (onShowCardList) onShowCardList(); }} className={`whitespace-nowrap hover:text-white transition tracking-wide font-medium ${currentPage === 'cardlist' ? 'text-white' : ''}`}>Card List</button>
-          {/* Backing — Cinder Backing staking platform (account-connected). */}
-          <button onClick={() => { if (onShowBacking) onShowBacking(); }} className="whitespace-nowrap transition tracking-wide font-medium hover:text-white" style={{ color: currentPage === 'backing' ? '#e8d5a8' : '#c9a86a' }}>Backing</button>
+          {/* Broadcast — Emergency Broadcast social platform (account-connected). */}
+          <button onClick={() => { if (onShowBacking) onShowBacking(); }} className="whitespace-nowrap transition tracking-wide font-medium hover:text-white" style={{ color: currentPage === 'backing' ? '#e8d5a8' : '#c9a86a' }}>📡 Broadcast</button>
           {/* 🪙 RMT — Real Money Trading manifesto + Build a Career economy. Gold accent when active. */}
           <button onClick={() => { if (onShowRMT) onShowRMT(); }} className="whitespace-nowrap transition tracking-wide font-medium hover:text-white" style={{ color: currentPage === 'rmt' ? '#e8d5a8' : '#c9a86a' }}>RMT</button>
           <button onClick={() => { if (onShowCommunity) onShowCommunity(); }} className={`whitespace-nowrap hover:text-white transition tracking-wide font-medium ${currentPage === 'community' ? 'text-white' : ''}`}>Community</button>
@@ -863,7 +863,7 @@ const Navbar = ({ onNavigate, deckCount, survivors, loyalFaction, isSignedIn, di
             <button onClick={mAction(onShowNews)}     className={`text-left py-2.5 px-3 rounded hover:bg-white/5 tracking-wide font-medium ${currentPage === 'news' ? 'text-white' : 'text-neutral-200'}`}>News</button>
             <button onClick={mAction(onShowSurvivor)} className={`text-left py-2.5 px-3 rounded hover:bg-white/5 tracking-wide font-medium ${currentPage === 'survivor' ? 'text-white' : 'text-neutral-200'}`}>Survivor</button>
             <button onClick={mAction(onShowCardList)} className={`text-left py-2.5 px-3 rounded hover:bg-white/5 tracking-wide font-medium ${currentPage === 'cardlist' ? 'text-white' : 'text-neutral-200'}`}>Card List</button>
-            <button onClick={mAction(onShowBacking)} className="text-left py-2.5 px-3 rounded hover:bg-white/5 tracking-wide font-medium" style={{ color: currentPage === 'backing' ? '#e8d5a8' : '#c9a86a' }}>Backing</button>
+            <button onClick={mAction(onShowBacking)} className="text-left py-2.5 px-3 rounded hover:bg-white/5 tracking-wide font-medium" style={{ color: currentPage === 'backing' ? '#e8d5a8' : '#c9a86a' }}>📡 Broadcast</button>
             <button onClick={mAction(onShowRMT)}      className="text-left py-2.5 px-3 rounded hover:bg-white/5 tracking-wide font-medium" style={{ color: currentPage === 'rmt' ? '#e8d5a8' : '#c9a86a' }}>RMT</button>
             {isSignedIn && (
               <button onClick={mAction(onShowPledge)} className="text-left py-2.5 px-3 rounded hover:bg-white/5 tracking-wide font-medium" style={{ color: currentPage === 'pledge' ? '#e8d5a8' : '#c9a86a' }}>🛒 Shop</button>
@@ -3720,7 +3720,7 @@ const AZA_COIN_PACKAGES = [
   { id: 'aza_huge',   name: 'Sovereign Vault',   usd: 149.99, aza: 5500, bonus: 20, accent: '#ffd166' },
 ];
 
-const PlayerHub = ({ client, session, profile, refreshProfile, onSignedOut, onShowBacking, onShowShop }) => {
+const PlayerHub = ({ client, session, profile, refreshProfile, onSignedOut, onShowBacking, onShowShop, onShowProfile }) => {
   const [buyingId, setBuyingId] = useState(null);
   const [buyMsg, setBuyMsg] = useState('');
   const [storeTab, setStoreTab] = useState('packs'); // 'packs' | 'aza'
@@ -4075,6 +4075,20 @@ const PlayerHub = ({ client, session, profile, refreshProfile, onSignedOut, onSh
           </div>
         ) : (
           <>
+            {/* ===== 📡 Broadcast profile — the player's social hub ===== */}
+            {onShowProfile && (
+              <button
+                onClick={() => onShowProfile(null)}
+                className="w-full mb-4 px-5 py-4 rounded-lg border text-left flex items-center justify-between gap-4 transition hover:shadow-lg"
+                style={{ borderColor: 'rgba(255,106,43,0.5)', background: 'linear-gradient(90deg, rgba(60,26,10,0.5), rgba(20,12,4,0.55))', boxShadow: '0 6px 22px rgba(255,106,43,0.12)' }}
+              >
+                <span>
+                  <span className="block text-yellow-100 font-serif font-bold text-lg">📡 My Broadcast Profile</span>
+                  <span className="block text-stone-400 text-xs mt-0.5">Your decks, heroes, cities, businesses, match history and posts — all in one public profile.</span>
+                </span>
+                <span className="shrink-0 text-[11px] tracking-widest uppercase font-bold text-orange-200 border border-orange-400/50 rounded px-3 py-2">Open →</span>
+              </button>
+            )}
             {/* ===== 🛒 Shop banner — Founder & Node packages (ex-Pledge page) ===== */}
             {onShowShop && (
               <button
@@ -4160,7 +4174,7 @@ const PlayerHub = ({ client, session, profile, refreshProfile, onSignedOut, onSh
               </div>
             </div>
 
-            {/* ===== Cinder Backing — account-connected staking summary ===== */}
+            {/* ===== Emergency Broadcast — account-connected summary ===== */}
             <HubBackingPanel client={client} session={session} onShowBacking={onShowBacking} />
 
             {/* ===== Referrals — share code, earn rewards + MT airdrop progress ===== */}
@@ -6880,6 +6894,451 @@ const AdminPanelModal = ({ open, onClose, client }) => {
   );
 };
 
+// ═══════════════════════════════════════════════════════════════════════
+// 📡 PLAYER PROFILE — the social hub half of Emergency Broadcast.
+// Steam + YouTube + Discord for Mythic Spellbook: everything on the left is
+// pulled LIVE from the game (decks, heroes, records, nodes, businesses,
+// matches) via the eb_profile RPC; everything social (posts, clips, follows,
+// top 8, banner, showcase, placements) lives in the eb_* tables.
+// Sections with no data yet render an honest empty state — never filler.
+// ═══════════════════════════════════════════════════════════════════════
+const EB_INK = { bg: '#14161B', card: '#191C23', line: '#262B34', dim: '#9BA1AB', ember: '#FF6A2B', gold: '#e8d5a8' };
+const ebCard = { background: EB_INK.card, border: '1px solid ' + EB_INK.line, borderRadius: 14 };
+
+// Pulls the published card catalog + art/sprite maps once, and resolves any
+// in-game id to an image. Same sources the Player Hub uses.
+const useGameArt = (client) => {
+  const [artMap, setArtMap] = useState(null);
+  const [spriteMap, setSpriteMap] = useState(null);
+  useEffect(() => {
+    if (!client) return;
+    let dead = false;
+    const pull = async (filename, setter) => {
+      try {
+        const base = filename.replace(/\.json$/, '');
+        const idx = await client.storage.from('public-catalog').download(base + '.index.json');
+        if (!idx.error && idx.data) {
+          const idxObj = JSON.parse(await idx.data.text());
+          const shards = Array.isArray(idxObj.shards) ? idxObj.shards : [];
+          const merged = {};
+          for (const s of shards) {
+            try {
+              const { data, error } = await client.storage.from('public-catalog').download(s);
+              if (error || !data) continue;
+              Object.assign(merged, JSON.parse(await data.text()) || {});
+            } catch (e) {}
+          }
+          if (!dead && Object.keys(merged).length) { setter(merged); return; }
+        }
+        const { data, error } = await client.storage.from('public-catalog').download(filename);
+        if (error || !data) return;
+        const txt = await data.text();
+        if (!dead && txt) setter(JSON.parse(txt));
+      } catch (e) {}
+    };
+    pull('cardArt.json', setArtMap);
+    pull('sprites.json', setSpriteMap);
+    return () => { dead = true; };
+  }, [client]);
+
+  const resolve = (rawId) => {
+    if (!rawId) return null;
+    // Deck entries look like "unit:goblin" — try the full id and the bare tail.
+    const ids = [String(rawId), String(rawId).split(':').pop()];
+    const firstFrame = (s) => {
+      if (!s) return null;
+      if (typeof s === 'string') return s;
+      if (Array.isArray(s)) return s[0] || null;
+      if (Array.isArray(s.idle) && s.idle.length) return s.idle[0];
+      for (const k of Object.keys(s)) if (Array.isArray(s[k]) && typeof s[k][0] === 'string') return s[k][0];
+      return null;
+    };
+    for (const id of ids) { if (artMap && artMap[id]) return artMap[id]; }
+    if (spriteMap) {
+      for (const id of ids) {
+        for (const k of ['h_' + id, 'u_' + id, id]) {
+          const f = firstFrame(spriteMap[k]);
+          if (f) return f;
+        }
+      }
+    }
+    return null;
+  };
+  return resolve;
+};
+
+const EbEmpty = ({ children }) => (
+  <div style={{ color: EB_INK.dim, fontSize: 13, padding: '18px 4px', textAlign: 'center', fontStyle: 'italic' }}>{children}</div>
+);
+const EbSection = ({ title, count, children, action }) => (
+  <div style={{ ...ebCard, padding: '18px 20px', marginBottom: 16 }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 12 }}>
+      <div style={{ fontSize: 11, letterSpacing: '.22em', textTransform: 'uppercase', color: EB_INK.gold, fontWeight: 800 }}>
+        {title}{count != null ? <span style={{ color: EB_INK.dim, marginLeft: 8 }}>{count}</span> : null}
+      </div>
+      {action || null}
+    </div>
+    {children}
+  </div>
+);
+
+const PlayerProfilePage = ({ client, session, profileKey, onBack, onOpenProfile }) => {
+  const [p, setP] = useState(null);
+  const [err, setErr] = useState('');
+  const [tab, setTab] = useState('feed');
+  const [busy, setBusy] = useState(false);
+  const [draft, setDraft] = useState('');
+  const resolveArt = useGameArt(client);
+
+  const load = async () => {
+    if (!client || !profileKey) return;
+    const { data, error } = await client.rpc('eb_profile', { p_key: String(profileKey) });
+    if (error || !data || !data.ok) { setErr('Profile not found.'); setP(null); return; }
+    setErr(''); setP(data);
+  };
+  useEffect(() => { load(); }, [client, profileKey]);
+
+  if (err) return (
+    <div style={{ minHeight: '70vh', background: EB_INK.bg, padding: '90px 20px', textAlign: 'center', color: EB_INK.dim }}>
+      <div style={{ fontSize: 18, marginBottom: 12 }}>{err}</div>
+      <button onClick={onBack} style={{ background: 'none', border: '1px solid ' + EB_INK.line, color: EB_INK.gold, borderRadius: 8, padding: '8px 16px', cursor: 'pointer' }}>← Back</button>
+    </div>
+  );
+  if (!p) return <div style={{ minHeight: '70vh', background: EB_INK.bg, padding: 90, textAlign: 'center', color: EB_INK.dim }}>Loading profile…</div>;
+
+  const rec = p.records || {};
+  const wins = rec.wins | 0, losses = rec.losses | 0, battles = rec.battles | 0;
+  const winRate = battles > 0 ? Math.round((wins / battles) * 100) : 0;
+  const comp = p.competitive || {};
+  const decks = p.decks && typeof p.decks === 'object' ? p.decks : {};
+  const deckKeys = Object.keys(decks);
+  const heroes = p.heroes && typeof p.heroes === 'object' ? p.heroes : {};
+  const favIds = Array.isArray(p.favorite_hero_ids) && p.favorite_hero_ids.length
+    ? p.favorite_hero_ids : Object.keys(heroes).slice(0, 6);
+
+  const doFollow = async () => {
+    if (!session) return;
+    setBusy(true);
+    try {
+      if (p.i_follow) await client.from('eb_follows').delete().eq('follower_id', session.user.id).eq('followee_id', p.user_id);
+      else await client.from('eb_follows').insert({ follower_id: session.user.id, followee_id: p.user_id });
+      await load();
+    } catch (e) {}
+    setBusy(false);
+  };
+  const doPost = async () => {
+    const body = draft.trim();
+    if (!body || !session) return;
+    setBusy(true);
+    try {
+      await client.from('eb_posts').insert({ user_id: session.user.id, body: body.slice(0, 1000), kind: 'strategy' });
+      setDraft(''); await load();
+    } catch (e) {}
+    setBusy(false);
+  };
+
+  const Stat = ({ label, value, tone }) => (
+    <div style={{ textAlign: 'center', minWidth: 74 }}>
+      <div style={{ fontSize: 20, fontWeight: 800, color: tone || '#EDEFF3' }}>{value}</div>
+      <div style={{ fontSize: 10, letterSpacing: '.16em', textTransform: 'uppercase', color: EB_INK.dim, marginTop: 2 }}>{label}</div>
+    </div>
+  );
+  const TabBtn = ({ id, label }) => (
+    <button onClick={() => setTab(id)} style={{
+      background: tab === id ? 'rgba(255,106,43,.14)' : 'transparent',
+      border: '1px solid ' + (tab === id ? 'rgba(255,106,43,.5)' : EB_INK.line),
+      color: tab === id ? EB_INK.ember : EB_INK.dim,
+      borderRadius: 999, padding: '7px 15px', fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap',
+    }}>{label}</button>
+  );
+
+  return (
+    <div style={{ background: EB_INK.bg, minHeight: '100vh', color: '#EDEFF3', fontFamily: "'IBM Plex Sans',system-ui,sans-serif" }}>
+      {/* ── Banner ── */}
+      <div style={{
+        height: 210, position: 'relative',
+        background: p.banner_url ? `center/cover no-repeat url("${p.banner_url}")`
+          : 'linear-gradient(120deg,#2A1608,#14161B 60%,#1A1030)',
+        borderBottom: '1px solid ' + EB_INK.line,
+      }}>
+        <button onClick={onBack} style={{ position: 'absolute', top: 84, left: 20, background: 'rgba(0,0,0,.6)', border: '1px solid ' + EB_INK.line, color: EB_INK.gold, borderRadius: 8, padding: '7px 14px', fontSize: 12, cursor: 'pointer' }}>← Broadcast</button>
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg,transparent 40%,rgba(20,22,27,.95))' }} />
+      </div>
+
+      <div style={{ maxWidth: 1120, margin: '0 auto', padding: '0 20px 60px' }}>
+        {/* ── Identity row ── */}
+        <div style={{ display: 'flex', gap: 18, alignItems: 'flex-end', marginTop: -46, flexWrap: 'wrap' }}>
+          <div style={{
+            width: 108, height: 108, borderRadius: 16, border: '3px solid ' + EB_INK.bg, flexShrink: 0,
+            background: p.avatar_url ? `center/cover no-repeat url("${p.avatar_url}")` : 'linear-gradient(140deg,#FF6A2B,#7a2d10)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 40, fontWeight: 800, color: '#14060A',
+          }}>{p.avatar_url ? '' : String(p.display_name || '?').slice(0, 1).toUpperCase()}</div>
+          <div style={{ flex: '1 1 260px', minWidth: 0, paddingBottom: 4 }}>
+            <div style={{ fontSize: 27, fontWeight: 800, lineHeight: 1.15 }}>{p.display_name}</div>
+            <div style={{ color: EB_INK.dim, fontSize: 13, marginTop: 3 }}>
+              {p.handle ? '@' + p.handle : ''}{p.handle && p.tagline ? ' · ' : ''}{p.tagline}
+            </div>
+            <div style={{ display: 'flex', gap: 16, marginTop: 8, fontSize: 13 }}>
+              <span><b>{p.followers}</b> <span style={{ color: EB_INK.dim }}>followers</span></span>
+              <span><b>{p.following}</b> <span style={{ color: EB_INK.dim }}>following</span></span>
+              {comp.rankTierId ? <span style={{ color: EB_INK.gold }}>🏅 {comp.rankTierId}</span> : null}
+            </div>
+          </div>
+          {!p.is_me && session ? (
+            <button onClick={doFollow} disabled={busy} style={{
+              background: p.i_follow ? 'transparent' : EB_INK.ember,
+              color: p.i_follow ? EB_INK.dim : '#14060A',
+              border: '1px solid ' + (p.i_follow ? EB_INK.line : EB_INK.ember),
+              borderRadius: 10, padding: '10px 22px', fontWeight: 700, fontSize: 13, cursor: 'pointer', marginBottom: 4,
+            }}>{p.i_follow ? 'Following' : '+ Follow'}</button>
+          ) : null}
+        </div>
+
+        {/* ── Stat strip ── */}
+        <div style={{ ...ebCard, display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'space-around', padding: '16px 18px', marginTop: 20 }}>
+          <Stat label="Wins" value={wins} tone="#7ee2a8" />
+          <Stat label="Losses" value={losses} tone="#f0655a" />
+          <Stat label="Win rate" value={winRate + '%'} />
+          <Stat label="Battles" value={battles} />
+          <Stat label="Decks" value={deckKeys.length} />
+          <Stat label="Cities" value={(p.nodes_owned || []).length} tone={EB_INK.gold} />
+          <Stat label="Businesses" value={(p.businesses || []).length} tone={EB_INK.gold} />
+        </div>
+
+        {/* ── Achievement showcase ── */}
+        {Array.isArray(p.showcase) && p.showcase.length > 0 && (
+          <EbSection title="🏆 Achievement Showcase">
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              {p.showcase.map((a, i) => (
+                <div key={i} style={{ border: '1px solid ' + EB_INK.line, borderRadius: 10, padding: '10px 14px', minWidth: 120 }}>
+                  <div style={{ fontSize: 20 }}>{a.icon || '🏅'}</div>
+                  <div style={{ fontWeight: 700, fontSize: 13, marginTop: 4 }}>{a.label}</div>
+                  {a.value ? <div style={{ color: EB_INK.dim, fontSize: 12 }}>{a.value}</div> : null}
+                </div>
+              ))}
+            </div>
+          </EbSection>
+        )}
+
+        {/* ── Tabs ── */}
+        <div style={{ display: 'flex', gap: 8, margin: '22px 0 16px', flexWrap: 'wrap' }}>
+          <TabBtn id="feed" label="📣 Broadcast" />
+          <TabBtn id="decks" label={'🃏 Decks (' + deckKeys.length + ')'} />
+          <TabBtn id="heroes" label="🦸 Heroes" />
+          <TabBtn id="clips" label={'🎬 Clips (' + (p.clips || []).length + ')'} />
+          <TabBtn id="world" label="🏙 World" />
+          <TabBtn id="social" label="👥 Friends" />
+        </div>
+
+        {/* ── FEED — strategy posts ── */}
+        {tab === 'feed' && (
+          <>
+            {p.is_me && (
+              <div style={{ ...ebCard, padding: 16, marginBottom: 16 }}>
+                <textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={3}
+                  placeholder="Share a strategy, a deck tech, a callout…"
+                  style={{ width: '100%', background: '#0F1116', border: '1px solid ' + EB_INK.line, borderRadius: 10, color: '#EDEFF3', padding: 12, fontSize: 14, resize: 'vertical', fontFamily: 'inherit' }} />
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
+                  <span style={{ color: EB_INK.dim, fontSize: 12 }}>{draft.length}/1000</span>
+                  <button onClick={doPost} disabled={busy || !draft.trim()} style={{ background: EB_INK.ember, color: '#14060A', border: 'none', borderRadius: 9, padding: '9px 20px', fontWeight: 700, fontSize: 13, cursor: 'pointer', opacity: (busy || !draft.trim()) ? .5 : 1 }}>Broadcast</button>
+                </div>
+              </div>
+            )}
+            <EbSection title="📣 Strategy Posts" count={(p.posts || []).length}>
+              {(p.posts || []).length === 0
+                ? <EbEmpty>{p.is_me ? 'Nothing broadcast yet — say something above.' : 'No posts yet.'}</EbEmpty>
+                : p.posts.map(po => (
+                  <div key={po.id} style={{ borderTop: '1px solid ' + EB_INK.line, padding: '14px 0' }}>
+                    <div style={{ whiteSpace: 'pre-wrap', fontSize: 14, lineHeight: 1.6 }}>{po.body}</div>
+                    <div style={{ color: EB_INK.dim, fontSize: 11, marginTop: 8 }}>
+                      {new Date(po.at).toLocaleString()} · ♥ {po.likes}
+                    </div>
+                  </div>
+                ))}
+            </EbSection>
+          </>
+        )}
+
+        {/* ── DECKS — real card art from the game catalog ── */}
+        {tab === 'decks' && (
+          <EbSection title="🃏 Deck Collection" count={deckKeys.length}>
+            {deckKeys.length === 0 ? <EbEmpty>No decks built yet.</EbEmpty> : deckKeys.map(k => {
+              const d = decks[k] || {};
+              const cards = Array.isArray(d.cards) ? d.cards : [];
+              const uniq = []; const seen = {};
+              for (const c of cards) { if (!seen[c]) { seen[c] = 1; uniq.push(c); } }
+              return (
+                <div key={k} style={{ borderTop: '1px solid ' + EB_INK.line, padding: '14px 0' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
+                    <div style={{ fontWeight: 700 }}>{d.name || k}</div>
+                    <div style={{ color: EB_INK.dim, fontSize: 12 }}>{cards.length} cards · {uniq.length} unique</div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {uniq.slice(0, 24).map((cid, i) => {
+                      const img = resolveArt(cid);
+                      return (
+                        <div key={i} title={String(cid).split(':').pop()} style={{
+                          width: 46, height: 64, borderRadius: 5, overflow: 'hidden',
+                          border: '1px solid ' + EB_INK.line, background: '#0F1116',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: EB_INK.dim,
+                        }}>
+                          {img ? <img src={img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                               : <span style={{ padding: 2, textAlign: 'center', lineHeight: 1.1 }}>{String(cid).split(':').pop().slice(0, 8)}</span>}
+                        </div>
+                      );
+                    })}
+                    {uniq.length > 24 ? <div style={{ alignSelf: 'center', color: EB_INK.dim, fontSize: 12 }}>+{uniq.length - 24} more</div> : null}
+                  </div>
+                </div>
+              );
+            })}
+          </EbSection>
+        )}
+
+        {/* ── HEROES — sprites pulled from the game ── */}
+        {tab === 'heroes' && (
+          <EbSection title="🦸 Favorite Heroes" count={favIds.length}>
+            {favIds.length === 0 ? <EbEmpty>No heroes recruited yet.</EbEmpty> : (
+              <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+                {favIds.map(hid => {
+                  const h = heroes[hid] || {};
+                  const img = resolveArt(hid);
+                  return (
+                    <div key={hid} style={{ width: 132, ...ebCard, padding: 10, textAlign: 'center' }}>
+                      <div style={{ height: 108, borderRadius: 8, background: '#0F1116', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', marginBottom: 8 }}>
+                        {img ? <img src={img} alt="" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', imageRendering: 'pixelated' }} /> : <span style={{ fontSize: 30 }}>🦸</span>}
+                      </div>
+                      <div style={{ fontWeight: 700, fontSize: 13, textTransform: 'capitalize' }}>{hid}</div>
+                      <div style={{ color: EB_INK.dim, fontSize: 11, marginTop: 2 }}>
+                        Lv {h.level || 1}{h.wins ? ' · ' + h.wins + 'W' : ''}{h.bond ? ' · ♥' + h.bond : ''}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </EbSection>
+        )}
+
+        {/* ── CLIPS ── */}
+        {tab === 'clips' && (
+          <EbSection title="🎬 Short Clips" count={(p.clips || []).length}>
+            {(p.clips || []).length === 0
+              ? <EbEmpty>No clips yet — clips saved after a match will appear here.</EbEmpty>
+              : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(210px,1fr))', gap: 12 }}>
+                  {p.clips.map(c => (
+                    <a key={c.id} href={c.url} target="_blank" rel="noopener noreferrer" style={{ ...ebCard, overflow: 'hidden', textDecoration: 'none', color: 'inherit' }}>
+                      <div style={{ height: 118, background: c.thumb_url ? `center/cover no-repeat url("${c.thumb_url}")` : '#0F1116', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>{c.thumb_url ? '' : '🎬'}</div>
+                      <div style={{ padding: 10 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700 }}>{c.title}</div>
+                        <div style={{ color: EB_INK.dim, fontSize: 11, marginTop: 3 }}>{c.views} views{c.duration_s ? ' · ' + c.duration_s + 's' : ''}</div>
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              )}
+          </EbSection>
+        )}
+
+        {/* ── WORLD — nodes, businesses, placements, matches ── */}
+        {tab === 'world' && (
+          <>
+            <EbSection title="🏙 City Affiliation">
+              {(p.nodes_owned || []).length === 0 && !p.camp ? <EbEmpty>Not affiliated with a City yet.</EbEmpty> : (
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                  {p.camp ? (
+                    <div style={{ border: '1px solid ' + EB_INK.line, borderRadius: 10, padding: '10px 14px' }}>
+                      <div style={{ fontSize: 11, color: EB_INK.dim, letterSpacing: '.14em' }}>REGISTERED TO</div>
+                      <div style={{ fontWeight: 700 }}>{p.camp.camp_name || 'Camp'} · Node {p.camp.node_id}</div>
+                      <div style={{ color: EB_INK.dim, fontSize: 12 }}>Prestige {p.camp.prestige | 0} · Contributed {p.camp.contrib | 0}</div>
+                    </div>
+                  ) : null}
+                  {(p.nodes_owned || []).map((n, i) => (
+                    <div key={i} style={{ border: '1px solid rgba(255,106,43,.4)', borderRadius: 10, padding: '10px 14px' }}>
+                      <div style={{ fontSize: 11, color: EB_INK.ember, letterSpacing: '.14em' }}>OWNS</div>
+                      <div style={{ fontWeight: 700 }}>Node {n.node_id}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </EbSection>
+
+            <EbSection title="🏢 Businesses Owned" count={(p.businesses || []).length}>
+              {(p.businesses || []).length === 0 ? <EbEmpty>No businesses in Just Business yet.</EbEmpty> : p.businesses.map((b, i) => (
+                <div key={i} style={{ borderTop: '1px solid ' + EB_INK.line, padding: '12px 0' }}>
+                  <div style={{ fontWeight: 700 }}>{b.name} {b.tag ? <span style={{ color: EB_INK.dim }}>[{b.tag}]</span> : null}</div>
+                  <div style={{ color: EB_INK.dim, fontSize: 12, marginTop: 2 }}>{b.role}{b.faction ? ' · ' + b.faction : ''}</div>
+                  {(b.operations || []).length > 0 && (
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+                      {b.operations.map((o, j) => (
+                        <span key={j} style={{ border: '1px solid ' + EB_INK.line, borderRadius: 999, padding: '3px 10px', fontSize: 11, color: EB_INK.gold }}>
+                          {o.op_type} · Lv{o.level}{o.workers ? ' · ' + o.workers + '👷' : ''}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </EbSection>
+
+            <EbSection title="🏆 Tournament Placements" count={(p.placements || []).length}>
+              {(p.placements || []).length === 0 ? <EbEmpty>No tournament results recorded yet.</EbEmpty> : p.placements.map((pl, i) => (
+                <div key={i} style={{ borderTop: '1px solid ' + EB_INK.line, padding: '10px 0', display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                  <div>
+                    <div style={{ fontWeight: 700 }}>{pl.event_name} {pl.verified ? <span title="Studio-verified" style={{ color: '#7ee2a8' }}>✓</span> : null}</div>
+                    <div style={{ color: EB_INK.dim, fontSize: 12 }}>{pl.event_date || ''}{pl.note ? ' · ' + pl.note : ''}</div>
+                  </div>
+                  <div style={{ color: EB_INK.gold, fontWeight: 800 }}>#{pl.placement}{pl.entrants ? <span style={{ color: EB_INK.dim, fontWeight: 400 }}> / {pl.entrants}</span> : null}</div>
+                </div>
+              ))}
+            </EbSection>
+
+            <EbSection title="⚔ Match History" count={(p.matches || []).length}>
+              {(p.matches || []).length === 0 ? <EbEmpty>No ranked matches recorded yet.</EbEmpty> : p.matches.map((m, i) => (
+                <div key={i} style={{ borderTop: '1px solid ' + EB_INK.line, padding: '10px 0', display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 13 }}>
+                  <span><b style={{ color: m.won ? '#7ee2a8' : '#f0655a' }}>{m.won ? 'WIN' : 'LOSS'}</b> <span style={{ color: EB_INK.dim }}>vs</span> {m.foe}</span>
+                  <span style={{ color: EB_INK.dim, fontSize: 12 }}>{m.my_hero || '?'} · {m.turns || 0} turns · {new Date(m.at).toLocaleDateString()}</span>
+                </div>
+              ))}
+            </EbSection>
+          </>
+        )}
+
+        {/* ── SOCIAL — top 8 + friends ── */}
+        {tab === 'social' && (
+          <>
+            <EbSection title="⭐ Top 8 Friends" count={(p.top_friends || []).length}>
+              {(p.top_friends || []).length === 0 ? <EbEmpty>No Top 8 picked yet.</EbEmpty> : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(110px,1fr))', gap: 10 }}>
+                  {p.top_friends.map(f => (
+                    <button key={f.slot} onClick={() => onOpenProfile && onOpenProfile(f.handle || f.user_id)} style={{ ...ebCard, padding: 10, textAlign: 'center', cursor: 'pointer', color: 'inherit' }}>
+                      <div style={{ width: 54, height: 54, margin: '0 auto 8px', borderRadius: 10, background: f.avatar_url ? `center/cover no-repeat url("${f.avatar_url}")` : 'linear-gradient(140deg,#FF6A2B,#7a2d10)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: '#14060A' }}>
+                        {f.avatar_url ? '' : String(f.name || '?').slice(0, 1).toUpperCase()}
+                      </div>
+                      <div style={{ fontSize: 12, fontWeight: 700 }}>{f.name}</div>
+                      <div style={{ fontSize: 10, color: EB_INK.dim }}>#{f.slot}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </EbSection>
+            <EbSection title="👥 Friends" count={(p.friends || []).length}>
+              {(p.friends || []).length === 0 ? <EbEmpty>No friends added in-game yet.</EbEmpty> : (
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {p.friends.map((f, i) => (
+                    <button key={i} onClick={() => onOpenProfile && onOpenProfile(f.user_id)} style={{ border: '1px solid ' + EB_INK.line, background: 'transparent', color: '#EDEFF3', borderRadius: 999, padding: '6px 14px', fontSize: 12, cursor: 'pointer' }}>{f.name}</button>
+                  ))}
+                </div>
+              )}
+            </EbSection>
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
 // ===== SHOP SUCCESS MODAL =====
 // Shown after Stripe confirms a Founder & Node package purchase. Lists what
 // was actually delivered (straight from the server's fulfillment summary, not
@@ -8442,7 +8901,7 @@ const GaSignup = () => {
 };
 
 // ═══════════════════════════════════════════════════════════════════════
-// CINDER BACKING — staking/backing platform (design_handoff_node_telemetry)
+// EMERGENCY BROADCAST — the game's social platform (ex-Cinder Backing)
 // Platform chrome: neutral dark slate + ember accent. Game telemetry panels
 // (Node Power / Node Bank / Vital Signs) use the game's violet/amber palette
 // per the handoff so they read as embedded game readouts.
@@ -8708,11 +9167,10 @@ const CBK_VIP_TIERS = ['VIP', 'VIP Gold', 'VIP Elite'];
 
 // The seven Builder tracks from the handoff's "Become a Builder" wizard.
 const CBK_BUILDER_TYPES = [
-  { type: 'Node', icon: '🗼', title: 'Node Operator', desc: 'Run a Mythic Spellbook Node — host tournaments, grow population, keep uptime.' },
-  { type: 'Vendor', icon: '🏪', title: 'Venra Vendor', desc: 'Sell goods and services in the Venra marketplace and hire Workers.' },
+  { type: 'City', icon: '🏙', title: 'City', desc: 'Run a Mythic Spellbook City — host tournaments, grow population, keep the lights on.' },
   { type: 'Worker', icon: '🛠', title: 'Venra Worker', desc: 'Workforce member — build tools, take jobs, ship projects for the ecosystem.' },
-  { type: 'Mentor', icon: '🎓', title: 'Mentor', desc: 'Coach players and Builders; publish guides and run training sessions.' },
-  { type: 'Guild', icon: '⚔', title: 'Guild', desc: 'Lead a community guild — raids, charity drives, member training.' },
+  { type: 'Coach', icon: '🎓', title: 'Coach', desc: 'Coach players and Builders; publish guides and run training sessions.' },
+  { type: 'Operations', icon: '⚔', title: 'Operations', desc: 'Lead an Operation — raids, charity drives, member training.' },
   { type: 'Creator', icon: '🎥', title: 'Content Creator', desc: 'Stream, post, and produce Mythic Spellbook content — guides, highlights, tournaments.' },
   { type: 'Program', icon: '📋', title: 'Program', desc: 'Run an apprenticeship, creator, or educational program.' },
 ];
@@ -8751,12 +9209,10 @@ const CBK_IMPACT = [
 // a preview of where the platform goes. District Nodes are REAL (from the
 // game DB) and replace the prototype's fake node profiles entirely.
 const CBK_DEMO_PROFILES = [
-  { id: 'forgeline', name: 'Forgeline Supply Co.', type: 'Vendor', demo: true, hue: 12, tier: 'SILVER', backers: 194, points: 8130, tagline: 'Venra marketplace vendor crafting physical playmats, tokens, and deck gear.', perks: ['10% backer discount storewide', 'First access to limited drops', 'Backer-only product votes'], milestones: [{ title: 'Ship 1,000 verified orders', desc: 'Completed with 4.9★ average rating.', status: 'done' }, { title: 'Launch faction playmat line', desc: '12 of 39 faction designs released.', status: 'active' }, { title: 'Open second fulfillment hub', desc: 'Requires Gold tier standing.', status: 'locked' }] },
-  { id: 'runestone', name: 'Runestone Market', type: 'Vendor', demo: true, hue: 150, tier: 'BRONZE', backers: 88, points: 3420, tagline: 'Curated singles marketplace with verified card grading for collectors.', perks: ['Free grading on 5 cards per season', 'Backer-only auction previews', 'Discounted escrow trades'], milestones: [{ title: 'Verified vendor onboarding', desc: 'Completed marketplace verification.', status: 'done' }, { title: 'Grade 500 cards', desc: '210 of 500 graded and verified.', status: 'active' }, { title: 'Launch collector vault service', desc: 'Requires 150 backers.', status: 'locked' }] },
   { id: 'kael', name: 'Kael Draven', type: 'Worker', demo: true, hue: 195, tier: 'GOLD', backers: 322, points: 14560, tagline: 'Venra builder shipping open tooling: deck analytics, replay parsing, node dashboards.', perks: ['Early builds of every tool', 'Backer credit in release notes', 'Vote on the next tool roadmap'], milestones: [{ title: 'Ship replay analyzer v1', desc: 'Released and verified by platform review.', status: 'done' }, { title: 'Node health dashboard beta', desc: 'In verified testing with 12 Nodes.', status: 'active' }, { title: 'Open-source the analytics core', desc: 'Unlocks builder grant allocation.', status: 'locked' }] },
   { id: 'sera', name: 'Sera Voss', type: 'Worker', demo: true, hue: 330, tier: 'BRONZE', backers: 76, points: 5210, tagline: 'Node engineer specializing in matchmaking infrastructure and latency tuning.', perks: ['Monthly infra office hours', 'Backer badge on your profile', 'Early access to matchmaking patch notes'], milestones: [{ title: 'Verified worker onboarding', desc: 'Completed skills verification.', status: 'done' }, { title: 'Cut region latency 20%', desc: 'Currently at 13% verified improvement.', status: 'active' }, { title: 'Certify 5 partner Nodes', desc: 'Requires Silver tier standing.', status: 'locked' }] },
-  { id: 'orlan', name: 'Magister Orlan', type: 'Mentor', demo: true, hue: 45, tier: 'SILVER', backers: 240, points: 9870, tagline: 'Top-100 Colosseum veteran mentoring competitive players across 39 factions.', perks: ['Backer-only strategy library', 'Priority booking for coaching sessions', 'Monthly deck-tech AMA'], milestones: [{ title: 'Mentor 100 verified students', desc: 'Completed — 71% climbed a rank tier.', status: 'done' }, { title: 'Publish faction mastery guides', desc: '24 of 39 guides verified.', status: 'active' }, { title: 'Coach a team to top-8 finish', desc: 'Unlocks mentor excellence reward.', status: 'locked' }] },
-  { id: 'ironwood', name: 'Ironwood Guild', type: 'Guild', demo: true, hue: 100, tier: 'SILVER', backers: 158, points: 7810, tagline: 'Player guild running charity drives, world-boss raids, and new-member training.', perks: ['Guild raid invitations', 'Backer badge on your profile', 'Charity drive co-sponsor credits'], milestones: [{ title: 'Verified guild onboarding', desc: 'Completed platform verification.', status: 'done' }, { title: 'Complete 10 charity drives', desc: '7 of 10 verified drives complete.', status: 'active' }, { title: 'Reach 5,000 guild members', desc: 'Unlocks guild hall expansion.', status: 'locked' }] },
+  { id: 'orlan', name: 'Magister Orlan', type: 'Coach', demo: true, hue: 45, tier: 'SILVER', backers: 240, points: 9870, tagline: 'Top-100 Colosseum veteran mentoring competitive players across 39 factions.', perks: ['Backer-only strategy library', 'Priority booking for coaching sessions', 'Monthly deck-tech AMA'], milestones: [{ title: 'Mentor 100 verified students', desc: 'Completed — 71% climbed a rank tier.', status: 'done' }, { title: 'Publish faction mastery guides', desc: '24 of 39 guides verified.', status: 'active' }, { title: 'Coach a team to top-8 finish', desc: 'Unlocks mentor excellence reward.', status: 'locked' }] },
+  { id: 'ironwood', name: 'Ironwood Operations', type: 'Operations', demo: true, hue: 100, tier: 'SILVER', backers: 158, points: 7810, tagline: 'Player operation running charity drives, world-boss raids, and new-member training.', perks: ['Operation raid invitations', 'Backer badge on your profile', 'Charity drive co-sponsor credits'], milestones: [{ title: 'Verified operation onboarding', desc: 'Completed platform verification.', status: 'done' }, { title: 'Complete 10 charity drives', desc: '7 of 10 verified drives complete.', status: 'active' }, { title: 'Reach 5,000 operation members', desc: 'Unlocks operations hall expansion.', status: 'locked' }] },
   { id: 'lyra_ash', name: 'Lyra Ashwood', type: 'Creator', demo: true, hue: 320, tier: 'GOLD', backers: 298, points: 13120, tagline: 'Full-time Mythic Spellbook creator — daily streams, deck guides, and tournament casts.', perks: ['Backer shout-outs on stream', 'Early access to guide videos + VODs', 'Monthly backer-only watch party'], milestones: [{ title: 'Reach 100K followers', desc: 'Verified across streaming platforms.', status: 'done' }, { title: 'Faction spotlight series', desc: '22 of 39 faction videos published.', status: 'active' }, { title: 'Host a creator-run tournament', desc: 'Unlocks creator event allocation.', status: 'locked' }] },
   { id: 'bootcamp', name: 'New Builder Bootcamp', type: 'Program', demo: true, hue: 260, tier: 'SILVER', backers: 176, points: 7350, tagline: 'Six-week program turning Venra newcomers into verified ecosystem builders.', perks: ['Nominate candidates for each cohort', 'Backer showcase at demo day', 'Access to cohort project previews'], milestones: [{ title: 'Graduate first cohort', desc: '18 builders verified and placed.', status: 'done' }, { title: 'Cohort 2 — 30 builders', desc: 'Week 4 of 6 in progress.', status: 'active' }, { title: 'Launch alumni grant track', desc: 'Requires 250 program backers.', status: 'locked' }] },
 ];
@@ -8809,7 +9265,7 @@ const cbkNodeProfile = (cat, own, recon, power) => {
     real: true,
     nodeDbId: nodeId,
     ownerUserId: own ? own.user_id : null,
-    type: 'Node',
+    type: 'City',
     name: cat.name || cat.nodeName || `District ${nodeId}`,
     code: cat.nodeType || cat.type || cat.purpose || 'PRN',
     ownerName,
@@ -9781,7 +10237,7 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
           <img src="./assets/artwork/gameicons/Cinder.png" alt="Cinder" style={{ width: 34, height: 44, objectFit: 'contain' }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
           <div>
             <div style={{ ...grotesk, fontWeight: 700, fontSize: 16, letterSpacing: '.06em' }}>CINDER</div>
-            <div style={{ fontSize: 10, letterSpacing: '.22em', color: '#9BA1AB' }}>BACKING</div>
+            <div style={{ fontSize: 10, letterSpacing: '.22em', color: '#9BA1AB' }}>BROADCAST</div>
           </div>
         </div>
         <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 12px', padding: '9px 12px', borderRadius: 10, border: '1px solid #262A32', cursor: 'pointer', textAlign: 'left', fontFamily: "'IBM Plex Sans',sans-serif", fontSize: 13, fontWeight: 500, background: '#14161B', color: '#C6CAD1' }}>← Back to Mythic Spellbook</button>
@@ -9872,8 +10328,8 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
               {!session ? (
                 <div style={{ ...card, border: '1px solid #33261A', background: 'linear-gradient(160deg,#1A130C,#14161B 55%)', padding: 28, textAlign: 'center' }}>
                   <img src="./assets/artwork/gameicons/Cinder.png" alt="" style={{ width: 46, height: 62, objectFit: 'contain', margin: '0 auto 12px', animation: 'emberPulse 2.4s infinite' }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
-                  <div style={{ ...grotesk, fontSize: 24, fontWeight: 700 }}>Back the Builders of the Sparta Ecosystem</div>
-                  <div style={{ color: '#9BA1AB', fontSize: 14, marginTop: 8, maxWidth: 520, margin: '8px auto 0', lineHeight: 1.6 }}>Lock Cinder behind verified Nodes, vendors, builders, and mentors — without ever giving up ownership. Sign in with your Mythic Spellbook account to connect your balance, your backings, and your claimed district nodes.</div>
+                  <div style={{ ...grotesk, fontSize: 24, fontWeight: 700 }}>Emergency Broadcast — the Sparta Ecosystem's signal</div>
+                  <div style={{ color: '#9BA1AB', fontSize: 14, marginTop: 8, maxWidth: 520, margin: '8px auto 0', lineHeight: 1.6 }}>Lock Cinder behind verified Cities, Operations, Coaches and Creators — without ever giving up ownership. Sign in with your Mythic Spellbook account to connect your balance, your backings, and your claimed district nodes.</div>
                   <button onClick={onSignIn} style={{ marginTop: 18, background: '#FF6A2B', color: '#14060A', border: 'none', borderRadius: 10, padding: '12px 26px', fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>Connect account</button>
                 </div>
               ) : (
@@ -11391,7 +11847,7 @@ const HubReferralPanel = ({ client, session, refreshProfile }) => {
   );
 };
 
-// Compact Cinder Backing summary panel for the Player Hub — the "shows in
+// Compact Emergency Broadcast summary panel for the Player Hub — the "shows in
 // Your Account, Your Inventory" hook. Reads the same cinder_backings table
 // + the player's claimed district nodes.
 const HubBackingPanel = ({ client, session, onShowBacking }) => {
@@ -11417,7 +11873,7 @@ const HubBackingPanel = ({ client, session, onShowBacking }) => {
       <div className="flex items-center justify-between gap-2 px-5 py-3 border-b border-stone-700/50 bg-black/30 flex-wrap">
         <div className="flex items-center gap-2">
           <CinderIcon size={18} />
-          <span className="text-amber-300 text-xs tracking-[0.3em] uppercase font-bold">Cinder Backing</span>
+          <span className="text-amber-300 text-xs tracking-[0.3em] uppercase font-bold">📡 Emergency Broadcast</span>
           <span className="text-[10px] text-emerald-300 border border-emerald-500/40 bg-emerald-500/10 rounded-full px-2 py-0.5 tracking-widest uppercase">Connected</span>
         </div>
         <button onClick={onShowBacking} className="text-[11px] tracking-widest uppercase font-bold text-amber-200 border border-amber-400/50 rounded px-3 py-1.5 hover:bg-amber-500/15 transition">Open Platform →</button>
@@ -11476,6 +11932,8 @@ function App() {
   // ===== Page router — 'home' shows the marketing landing page; 'hub' shows
   // ===== the Player Hub (stats + Vendor Market). Toggled by the navbar button.
   const [currentPage, setCurrentPage] = useState('home');
+  // 📡 Which player's Broadcast profile is open (handle or user id).
+  const [profileKey, setProfileKey] = useState(null);
 
   // ===== Supabase session — lifted up so the navbar can show "Player Profile"
   // ===== when the player is signed in. Refresh triggers a re-pull of the row.
@@ -11494,6 +11952,9 @@ function App() {
       // Returning from Stripe checkout → land on the Shop so the paid/cancelled
       // banner (inside PledgePage) is actually visible.
       if (q.get('pledge_paid') || q.get('pledge_cancel')) setCurrentPage('pledge');
+      // 📡 Shareable profile links: mythicspellbook.xyz/?u=handle
+      const u = q.get('u');
+      if (u && /^[@A-Za-z0-9_-]{2,40}$/.test(u)) { setProfileKey(u); setCurrentPage('playerprofile'); }
     } catch (e) {}
   }, []);
 
@@ -11586,9 +12047,17 @@ function App() {
   const showNews = () => { setCurrentPage('news'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
   // Shop page (ex-Pledge) — Founder & Node packages with Stripe checkout.
   const showPledge = () => { setCurrentPage('pledge'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+  // 📡 Open a player's Broadcast profile. `key` = @handle, user id, or null
+  // for "my own" (resolved from the session).
+  const showProfile = (key) => {
+    const k = key || (session && session.user ? session.user.id : null);
+    if (!k) { setCurrentPage('hub'); return; }
+    setProfileKey(k); setCurrentPage('playerprofile');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
   // Card List page — Palworld-inspired browsable catalog + Coming Drops.
   const showCardList = () => { setCurrentPage('cardlist'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
-  // Cinder Backing platform — account-connected staking/backing page.
+  // Emergency Broadcast — account-connected social platform page.
   const showBacking = () => { setCurrentPage('backing'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
 
   const isSignedIn = !!session;
@@ -11632,6 +12101,7 @@ function App() {
             onSignedOut={() => { /* stay on hub; the page rerenders to the sign-in form */ }}
             onShowBacking={showBacking}
             onShowShop={showPledge}
+            onShowProfile={showProfile}
           />
           <Footer />
         </div>
@@ -11657,11 +12127,20 @@ function App() {
       ) : currentPage === 'news' ? (
         /* ===== NEWS PAGE — patch notes / devlogs / announcements (edit NEWS_POSTS at top of file) ===== */
         <NewsPage />
+      ) : currentPage === 'playerprofile' ? (
+        /* ===== 📡 PLAYER PROFILE — the social hub (Emergency Broadcast) ===== */
+        <PlayerProfilePage
+          client={client}
+          session={session}
+          profileKey={profileKey}
+          onBack={showBacking}
+          onOpenProfile={showProfile}
+        />
       ) : currentPage === 'pledge' ? (
         /* ===== SHOP PAGE (ex-Pledge) — Founder & Node packages, Stripe checkout (edit PLEDGE_TIERS at top of file) ===== */
         <PledgePage client={client} session={session} onSignIn={showHub} />
       ) : currentPage === 'backing' ? (
-        /* ===== CINDER BACKING — account-connected staking/backing platform ===== */
+        /* ===== EMERGENCY BROADCAST — the game's social platform ===== */
         <div className="pt-14">
           <CinderBackingPage
             client={client}
