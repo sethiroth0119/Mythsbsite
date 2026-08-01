@@ -9835,7 +9835,39 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
   const [mmTx, setMmTx] = useState(null);           // {label} while a tx is pending
   const [stakeTier, setStakeTier] = useState(0);
   const [stakeAmt, setStakeAmt] = useState('');
-  const hasMM = typeof window !== 'undefined' && !!window.ethereum;
+  // MetaMask injects window.ethereum ASYNCHRONOUSLY. Reading it once during
+  // render reported "not installed" on a cold load, so Connect MetaMask opened
+  // the metamask.io download page for people who already had the extension.
+  // Detect it reactively: listen for the injection event and poll briefly.
+  const [hasMM, setHasMM] = useState(typeof window !== 'undefined' && !!window.ethereum);
+  useEffect(() => {
+    if (hasMM || typeof window === 'undefined') return;
+    let tries = 0;
+    const seen = () => { if (window.ethereum) { setHasMM(true); return true; } return false; };
+    if (seen()) return;
+    const t = setInterval(() => { if (seen() || ++tries > 24) clearInterval(t); }, 250);
+    const onInit = () => seen();
+    window.addEventListener('ethereum#initialized', onInit);
+    return () => { clearInterval(t); window.removeEventListener('ethereum#initialized', onInit); };
+  }, [hasMM]);
+
+  // Already authorised on a previous visit? Show the address straight away.
+  // eth_accounts is the SILENT form - it never opens a MetaMask popup, it just
+  // reports accounts the user already granted.
+  useEffect(() => {
+    if (!hasMM) return;
+    let dead = false;
+    (async () => {
+      try {
+        const a = await window.ethereum.request({ method: 'eth_accounts' });
+        if (dead || !a || !a.length) return;
+        setMmAddr(a[0]);
+        const c = await window.ethereum.request({ method: 'eth_chainId' });
+        if (!dead) setMmChainOk(c === CBK_BASE_CHAIN_HEX);
+      } catch (e) {}
+    })();
+    return () => { dead = true; };
+  }, [hasMM]);
   // Disclaimer gate: first wallet interaction on this device shows the Token
   // & Blockchain Disclaimer; accepting continues straight into MetaMask.
   const [discOpen, setDiscOpen] = useState(false);       // gating (accept/decline)
@@ -9855,9 +9887,12 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
     go();
   };
   const mmConnectNow = async () => {
-    if (!hasMM) { window.open('https://metamask.io/download/', '_blank'); return; }
+    // Live check - never send someone to the download page on stale state.
+    const eth = (typeof window !== 'undefined') ? window.ethereum : null;
+    if (!eth) { window.open('https://metamask.io/download/', '_blank'); return; }
+    if (!hasMM) setHasMM(true);
     try {
-      const accts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+      const accts = await eth.request({ method: 'eth_requestAccounts' });
       if (!accts || !accts.length) return;
       setMmAddr(accts[0]);
       const chain = await window.ethereum.request({ method: 'eth_chainId' });
