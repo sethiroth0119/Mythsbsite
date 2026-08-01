@@ -7135,7 +7135,10 @@ const PlayerProfilePage = ({ client, session, profileKey, onBack, onOpenProfile,
   const winRate = battles > 0 ? Math.round((wins / battles) * 100) : 0;
   const comp = p.competitive || {};
   const decks = p.decks && typeof p.decks === 'object' ? p.decks : {};
-  const deckKeys = Object.keys(decks);
+  // Every hero is auto-given a "<Hero>'s Starter Deck". Those aren't decks the
+  // player built, so they don't belong on a public profile - only real,
+  // player-made decks are shown (and counted in the Decks stat).
+  const deckKeys = Object.keys(decks).filter(k => !/starter\s*deck/i.test(String((decks[k] || {}).name || '')));
   const heroes = p.heroes && typeof p.heroes === 'object' ? p.heroes : {};
   const favIds = Array.isArray(p.favorite_hero_ids) && p.favorite_hero_ids.length
     ? p.favorite_hero_ids : Object.keys(heroes).slice(0, 6);
