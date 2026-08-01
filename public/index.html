@@ -6862,6 +6862,100 @@ const AdminPanelModal = ({ open, onClose, client }) => {
   );
 };
 
+// ===== SHOP SUCCESS MODAL =====
+// Shown after Stripe confirms a Founder & Node package purchase. Lists what
+// was actually delivered (straight from the server's fulfillment summary, not
+// a hardcoded guess) and points the buyer at the in-game claim.
+const ShopSuccessModal = ({ info, onClose }) => {
+  if (!info) return null;
+  const g = info.granted || {};
+  const rows = [];
+  if ((g.packs | 0) > 0) rows.push({ icon: '🎴', label: g.packs + '× Birth of the Universe I Booster Pack' + (g.packs > 1 ? 's' : '') });
+  if ((g.cinder | 0) > 0) rows.push({ icon: '🔥', label: Number(g.cinder).toLocaleString() + ' Cinder' });
+  if ((g.aza | 0) > 0) rows.push({ icon: '👑', label: Number(g.aza).toLocaleString() + ' Aza Coin' });
+  const amount = info.amount_cents ? '$' + (Number(info.amount_cents) / 100).toFixed(2) : '';
+  return (
+    <div
+      className="fixed inset-0 flex items-center justify-center p-4"
+      style={{ zIndex: 9999, background: 'rgba(4,2,8,0.88)', backdropFilter: 'blur(10px)' }}
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
+      <style>{'@keyframes msShopPop{0%{opacity:0;transform:translateY(18px) scale(0.96)}100%{opacity:1;transform:translateY(0) scale(1)}}@keyframes msShopGlow{0%,100%{opacity:0.5}50%{opacity:1}}'}</style>
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="relative w-full max-w-lg rounded-xl border overflow-hidden"
+        style={{
+          borderColor: 'rgba(201,168,106,0.55)',
+          background: 'linear-gradient(180deg, rgba(30,20,46,0.98) 0%, rgba(10,6,16,0.99) 100%)',
+          boxShadow: '0 30px 80px rgba(0,0,0,0.85), 0 0 70px rgba(201,168,106,0.20)',
+          animation: 'msShopPop 420ms cubic-bezier(.22,.61,.36,1) both',
+        }}
+      >
+        {/* Gold top rule + ambient glow */}
+        <div className="h-px w-full" style={{ background: 'linear-gradient(90deg, transparent, #d4af37, transparent)' }} />
+        <div className="absolute inset-x-0 top-0 h-40 pointer-events-none" style={{
+          background: 'radial-gradient(ellipse at 50% 0%, rgba(201,168,106,0.22) 0%, transparent 70%)',
+          animation: 'msShopGlow 3.2s ease-in-out infinite',
+        }} />
+
+        <div className="relative px-7 pt-7 pb-6 text-center">
+          <img
+            src="./assets/artwork/Mythic%20Spellbook%20Logo.png?v=1"
+            alt="Mythic Spellbook"
+            className="mx-auto mb-4"
+            style={{ maxWidth: '230px', width: '70%', height: 'auto', filter: 'drop-shadow(0 8px 26px rgba(0,0,0,0.75))' }}
+            onError={(e) => { e.target.style.display = 'none'; }}
+          />
+          <div className="text-emerald-300 text-[11px] tracking-[0.4em] uppercase font-bold mb-2">✓ Payment Successful</div>
+          <div className="font-serif font-bold text-yellow-100 text-3xl leading-tight mb-1" style={{ textShadow: '0 2px 14px rgba(0,0,0,0.8)' }}>
+            Congratulations, Founder!
+          </div>
+          <p className="text-stone-300 text-sm leading-relaxed mt-3">
+            Your purchase of <strong className="text-amber-200">{info.tier_name || 'your package'}</strong>
+            {amount ? <span className="text-stone-400"> ({amount})</span> : null} is confirmed. Thank you for helping build this world.
+          </p>
+
+          {rows.length > 0 && (
+            <div className="mt-5 rounded-lg border p-4 text-left" style={{ borderColor: 'rgba(201,168,106,0.32)', background: 'rgba(0,0,0,0.4)' }}>
+              <div className="text-amber-300/90 text-[10px] tracking-[0.3em] uppercase font-bold mb-3">Delivered to your account</div>
+              <ul className="space-y-2">
+                {rows.map((r, i) => (
+                  <li key={i} className="flex items-center gap-3 text-stone-100 text-sm">
+                    <span className="text-lg leading-none">{r.icon}</span>
+                    <span className="font-semibold">{r.label}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="text-stone-400 text-xs leading-relaxed mt-3 pt-3 border-t" style={{ borderColor: 'rgba(120,113,108,0.3)' }}>
+                Claim them in-game under <strong className="text-amber-200">Profile → 🎁 Rewards &amp; Gifts</strong>. Tier perks that live outside the inbox — cosmetics, badges and Node Power — are applied by the studio.
+              </p>
+            </div>
+          )}
+
+          <div className="mt-6 flex flex-col sm:flex-row gap-3">
+            <a
+              href={PLAY_URL}
+              className="flex-1 text-center px-4 py-3 bg-gradient-to-r from-orange-600 to-red-700 text-yellow-100 font-bold rounded tracking-widest uppercase text-xs hover:shadow-lg hover:shadow-orange-500/40 transition border border-orange-400/50"
+            >
+              Claim In Game
+            </a>
+            <button
+              onClick={onClose}
+              className="flex-1 px-4 py-3 font-bold rounded tracking-widest uppercase text-xs border transition hover:bg-white/5"
+              style={{ borderColor: 'rgba(201,168,106,0.45)', color: '#e8d5a8' }}
+            >
+              Close
+            </button>
+          </div>
+          <p className="text-stone-600 text-[10px] tracking-widest uppercase mt-4">A receipt has been emailed by Stripe</p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ===== SHOP PAGE (ex-Pledge) =====
 // Manifesto on the future of digital ownership + Founder & Node packages.
 // Reached from the signed-in navbar's "Shop" button. Buy Now tiers create a
@@ -6873,6 +6967,8 @@ const PledgePage = ({ client, session, onSignIn }) => {
   // Stripe checkout state — which tier's button is busy + last error/notice.
   const [buyingId, setBuyingId] = useState('');
   const [shopMsg, setShopMsg] = useState(null);
+  // Confirmed purchase → success modal ({tier_name, amount_cents, granted}).
+  const [paidInfo, setPaidInfo] = useState(null);
   // Returning from Stripe: verify the session server-side (the Worker re-reads
   // it from Stripe with the secret key and records the purchase) — never trust
   // the ?pledge_paid flag on its own, a URL can be typed by anyone.
@@ -6892,7 +6988,8 @@ const PledgePage = ({ client, session, onSignIn }) => {
         const j = await r.json().catch(() => ({}));
         if (dead) return;
         if (j && j.ok) {
-          setShopMsg({ ok: true, text: '✓ Payment confirmed — ' + (j.tier_name || 'your package') + ' is now on your account. Welcome aboard, Founder.' });
+          setShopMsg(null);
+          setPaidInfo({ tier_name: j.tier_name, amount_cents: j.amount_cents, granted: j.granted });
           try { window.history.replaceState({}, '', window.location.pathname); } catch (e) {}
         } else {
           setShopMsg({ ok: true, text: '✓ Payment received — thank you! Your package will appear on your account shortly.' });
@@ -7360,6 +7457,7 @@ const PledgePage = ({ client, session, onSignIn }) => {
       </section>
       <Footer />
       <PsnLoreModal open={psnOpen} onClose={() => setPsnOpen(false)} />
+      <ShopSuccessModal info={paidInfo} onClose={() => setPaidInfo(null)} />
     </div>
   );
 };
