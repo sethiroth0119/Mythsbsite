@@ -9380,46 +9380,20 @@ const CBK_BUILDER_TYPES = [
 ];
 // Community campaigns + events. Participation (not committed Cinder) drives
 // reward eligibility; joins/RSVPs persist per account in cinder_participation.
-const CBK_CAMPAIGNS = [
-  { id: 'sector7', builder: 'Emberwatch Node', hue: 24, title: 'Rebuild Sector Seven', desc: 'Help reconstruct the storm-damaged district. Contribute resources, run supply missions, defend the site.', cur: 68, max: 100, unit: 'projects', participants: 341, reward: 'Node decoration + Reward Cinder', ends: 'Aug 2' },
-  { id: 'bughunt', builder: 'Kael Draven', hue: 195, title: 'Bug Hunt Weekend', desc: 'Stress-test the node health dashboard beta. Verified reports earn training credits.', cur: 122, max: 200, unit: 'reports', participants: 89, reward: 'Training credits + tester title', ends: 'Jul 27' },
-  { id: 'festival', builder: 'Forgeline Supply Co.', hue: 12, title: 'Marketplace Festival', desc: 'A week of vendor showcases, limited drops, and worker hiring booths across the Venra market.', cur: 12, max: 20, unit: 'showcases', participants: 214, reward: 'Marketplace coupons', ends: 'Aug 9' },
-  { id: 'training', builder: 'New Builder Bootcamp', hue: 260, title: 'Help Train New Workers', desc: 'Pair with a cohort-2 builder for mentoring sessions. Every verified session moves the goal.', cur: 31, max: 60, unit: 'sessions', participants: 47, reward: 'Mentor credit + profile frame', ends: 'Aug 15' },
-];
-const CBK_EVENTS = [
-  { id: 'worldboss', icon: '🐉', title: 'World Boss: Ashen Colossus', type: 'World event · Ironwood Guild', date: 'Jul 26' },
-  { id: 'careerfair', icon: '🛠', title: 'Venra Career Fair', type: 'Ecosystem event', date: 'Aug 1' },
-  { id: 'conference', icon: '🎪', title: 'Builder Conference — Summer', type: 'Builder conference', date: 'Aug 8' },
-  { id: 'charity', icon: '❤', title: 'Charity Drive: School Supplies', type: 'Charity · Ironwood Guild', date: 'Aug 12' },
-];
-const CBK_GOV_VOTES = [
-  { id: 'season', q: 'Which seasonal festival theme should headline August?', meta: 'Community vote · closes Jul 28', options: ['Emberfall Festival', 'Tides of Venra', 'Night Market Week'], base: [412, 351, 298] },
-  { id: 'format', q: 'Next Colosseum tournament format?', meta: 'Community vote · closes Aug 3', options: ['Draft (sealed pool)', 'Standard constructed', 'Two-headed giant'], base: [288, 264, 197] },
-  { id: 'decor', q: 'Community Node decoration for Season 9 winners?', meta: 'Community vote · closes Aug 10', options: ['Phoenix beacon', 'Obsidian archway', 'Ember garden'], base: [344, 271, 233] },
-];
+const CBK_CAMPAIGNS = [];  // mockup campaigns removed — real campaigns only
+const CBK_EVENTS = [];  // mockup events removed — real events only
+const CBK_GOV_VOTES = [];  // mockup governance votes removed — real votes only
 const CBK_FOUNDER_ITEMS = ['Founder badge', 'Profile frame', 'Founder card back', 'Founder title'];
 // Per-milestone airdrop allocation, scaled by VIP tier.
 const CBK_DROP_BASE = { $1M: 1500, $2M: 2000, $5M: 2500, $10M: 3000, $25M: 3000 };
 const CBK_TIER_MULT = { 'VIP': 1, 'VIP Gold': 2, 'VIP Elite': 4 };
-const CBK_IMPACT = [
-  { icon: '🎴', title: 'Stormcaller Promo Card', kind: 'Card', from: 'Bug Hunt Weekend' },
-  { icon: '🖼', title: 'Emberwatch Profile Frame', kind: 'Cosmetic', from: 'Season 8 backing' },
-  { icon: '🏷', title: '15% Forgeline Coupon', kind: 'Marketplace coupon', from: 'Festival participation' },
-  { icon: '🎓', title: '2 Training Credits', kind: 'Training', from: 'Mentor session' },
-];
+const CBK_IMPACT = [];  // mockup reward items removed — real rewards only
 
 // Showcase (non-node) builder profiles from the handoff prototype — the
 // Vendor/Worker/Mentor/Guild/Creator/Program half of the ecosystem, kept as
 // a preview of where the platform goes. District Nodes are REAL (from the
 // game DB) and replace the prototype's fake node profiles entirely.
-const CBK_DEMO_PROFILES = [
-  { id: 'kael', name: 'Kael Draven', type: 'Worker', demo: true, hue: 195, tier: 'GOLD', backers: 322, points: 14560, tagline: 'Venra builder shipping open tooling: deck analytics, replay parsing, node dashboards.', perks: ['Early builds of every tool', 'Backer credit in release notes', 'Vote on the next tool roadmap'], milestones: [{ title: 'Ship replay analyzer v1', desc: 'Released and verified by platform review.', status: 'done' }, { title: 'Node health dashboard beta', desc: 'In verified testing with 12 Nodes.', status: 'active' }, { title: 'Open-source the analytics core', desc: 'Unlocks builder grant allocation.', status: 'locked' }] },
-  { id: 'sera', name: 'Sera Voss', type: 'Worker', demo: true, hue: 330, tier: 'BRONZE', backers: 76, points: 5210, tagline: 'Node engineer specializing in matchmaking infrastructure and latency tuning.', perks: ['Monthly infra office hours', 'Backer badge on your profile', 'Early access to matchmaking patch notes'], milestones: [{ title: 'Verified worker onboarding', desc: 'Completed skills verification.', status: 'done' }, { title: 'Cut region latency 20%', desc: 'Currently at 13% verified improvement.', status: 'active' }, { title: 'Certify 5 partner Nodes', desc: 'Requires Silver tier standing.', status: 'locked' }] },
-  { id: 'orlan', name: 'Magister Orlan', type: 'Coach', demo: true, hue: 45, tier: 'SILVER', backers: 240, points: 9870, tagline: 'Top-100 Colosseum veteran mentoring competitive players across 39 factions.', perks: ['Backer-only strategy library', 'Priority booking for coaching sessions', 'Monthly deck-tech AMA'], milestones: [{ title: 'Mentor 100 verified students', desc: 'Completed — 71% climbed a rank tier.', status: 'done' }, { title: 'Publish faction mastery guides', desc: '24 of 39 guides verified.', status: 'active' }, { title: 'Coach a team to top-8 finish', desc: 'Unlocks mentor excellence reward.', status: 'locked' }] },
-  { id: 'ironwood', name: 'Ironwood Operations', type: 'Operations', demo: true, hue: 100, tier: 'SILVER', backers: 158, points: 7810, tagline: 'Player operation running charity drives, world-boss raids, and new-member training.', perks: ['Operation raid invitations', 'Backer badge on your profile', 'Charity drive co-sponsor credits'], milestones: [{ title: 'Verified operation onboarding', desc: 'Completed platform verification.', status: 'done' }, { title: 'Complete 10 charity drives', desc: '7 of 10 verified drives complete.', status: 'active' }, { title: 'Reach 5,000 operation members', desc: 'Unlocks operations hall expansion.', status: 'locked' }] },
-  { id: 'lyra_ash', name: 'Lyra Ashwood', type: 'Creator', demo: true, hue: 320, tier: 'GOLD', backers: 298, points: 13120, tagline: 'Full-time Mythic Spellbook creator — daily streams, deck guides, and tournament casts.', perks: ['Backer shout-outs on stream', 'Early access to guide videos + VODs', 'Monthly backer-only watch party'], milestones: [{ title: 'Reach 100K followers', desc: 'Verified across streaming platforms.', status: 'done' }, { title: 'Faction spotlight series', desc: '22 of 39 faction videos published.', status: 'active' }, { title: 'Host a creator-run tournament', desc: 'Unlocks creator event allocation.', status: 'locked' }] },
-  { id: 'bootcamp', name: 'New Builder Bootcamp', type: 'Program', demo: true, hue: 260, tier: 'SILVER', backers: 176, points: 7350, tagline: 'Six-week program turning Venra newcomers into verified ecosystem builders.', perks: ['Nominate candidates for each cohort', 'Backer showcase at demo day', 'Access to cohort project previews'], milestones: [{ title: 'Graduate first cohort', desc: '18 builders verified and placed.', status: 'done' }, { title: 'Cohort 2 — 30 builders', desc: 'Week 4 of 6 in progress.', status: 'active' }, { title: 'Launch alumni grant track', desc: 'Requires 250 program backers.', status: 'locked' }] },
-];
+const CBK_DEMO_PROFILES = [];  // mockup builders removed — Discover shows only real builders + real district Cities
 
 const cbkFmt = (n) => Math.round(n || 0).toLocaleString('en-US');
 const cbkInitials = (name) => (name || '?').split(' ').filter(w => /[A-Za-z0-9]/.test(w[0])).slice(0, 2).map(w => w[0].toUpperCase()).join('') || '?';
@@ -10011,7 +9985,7 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
     perks: ['Backer badge on your profile', 'Early supporter recognition'],
     createdAt: b.created_at,
   }));
-  const allProfiles = [...realNodes, ...myBuilderProfiles, ...CBK_DEMO_PROFILES];
+  const allProfiles = [...realNodes, ...myBuilderProfiles];
   const findProfile = (id) => allProfiles.find(p => p.id === id);
   const myNodes = session ? realNodes.filter(n => n.ownerUserId === session.user.id) : [];
   const ownsNode = (p) => !!(p && p.real && session && p.ownerUserId === session.user.id);
@@ -10733,7 +10707,7 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
                   <div style={{ ...card, padding: 20 }}>
                     <div style={{ ...grotesk, fontWeight: 600, fontSize: 16, marginBottom: 12 }}>Upcoming events</div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                      {CBK_EVENTS.slice(0, 3).map(ev => (
+                      {CBK_EVENTS.length === 0 ? <div style={{ color: '#9BA1AB', fontSize: 13, fontStyle: 'italic', padding: '18px 4px', textAlign: 'center' }}>'No events scheduled yet.'</div> : CBK_EVENTS.slice(0, 3).map(ev => (
                         <div key={ev.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 13, alignItems: 'center' }}>
                           <div><div style={{ fontWeight: 600 }}>{ev.icon} {ev.title}</div><div style={{ fontSize: 11, color: '#9BA1AB' }}>{ev.type}</div></div>
                           <span style={{ fontSize: 12, color: '#FF8A55', whiteSpace: 'nowrap' }}>{ev.date}</span>
@@ -10760,7 +10734,7 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
           {/* ═══ DISCOVER ═══ */}
           {screen === 'discover' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search live district nodes, vendors, builders, mentors, programs…"
+              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search Cities, Coaches, Operations, Creators…"
                 style={{ width: '100%', background: '#14161B', border: '1px solid #262A32', borderRadius: 12, padding: '13px 16px', color: '#F2F3F5', fontSize: 14, outline: 'none' }} />
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {filters.map(f => (
@@ -11063,7 +11037,7 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
               {/* Impact rewards earned through participation */}
               <div style={{ ...grotesk, fontWeight: 600, fontSize: 16 }}>My impact rewards</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))', gap: 14 }}>
-                {CBK_IMPACT.map(ir => (
+                {CBK_IMPACT.length === 0 ? <div style={{ color: '#9BA1AB', fontSize: 13, fontStyle: 'italic', padding: '18px 4px', textAlign: 'center' }}>'Rewards you earn from backing will show up here.'</div> : CBK_IMPACT.map(ir => (
                   <div key={ir.title} style={{ ...card, padding: 16, display: 'flex', gap: 12, alignItems: 'center' }}>
                     <span style={{ fontSize: 20 }}>{ir.icon}</span>
                     <div style={{ minWidth: 0 }}>
@@ -11387,7 +11361,7 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               <div style={{ color: '#9BA1AB', fontSize: 14 }}>Builders create campaigns. Participation — not committed Cinder — determines reward eligibility.</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(330px,1fr))', gap: 16 }}>
-                {CBK_CAMPAIGNS.map(c => {
+                {CBK_CAMPAIGNS.length === 0 ? <div style={{ color: '#9BA1AB', fontSize: 13, fontStyle: 'italic', padding: '18px 4px', textAlign: 'center' }}>'No campaigns running yet.'</div> : CBK_CAMPAIGNS.map(c => {
                   const on = joined('campaign', c.id);
                   const extra = parts.filter(p => p.kind === 'campaign' && p.ref_id === c.id).length;
                   return (
@@ -11418,7 +11392,7 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
               <div style={{ ...card, padding: 20 }}>
                 <div style={{ ...grotesk, fontWeight: 600, fontSize: 16, marginBottom: 14 }}>Community events</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {CBK_EVENTS.map(e => {
+                  {CBK_EVENTS.length === 0 ? <div style={{ color: '#9BA1AB', fontSize: 13, fontStyle: 'italic', padding: '18px 4px', textAlign: 'center' }}>'No events scheduled yet.'</div> : CBK_EVENTS.map(e => {
                     const on = joined('event', e.id);
                     return (
                       <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 14, background: '#1B1E24', border: '1px solid #262A32', borderRadius: 12, padding: '13px 16px', flexWrap: 'wrap' }}>
@@ -11441,7 +11415,7 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               <div style={{ color: '#9BA1AB', fontSize: 14, lineHeight: 1.6 }}>Qualified Backers vote on approved community matters. Company governance, treasury, employment, and legal decisions remain outside this system.</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(340px,1fr))', gap: 16 }}>
-                {CBK_GOV_VOTES.map(v => {
+                {CBK_GOV_VOTES.length === 0 ? <div style={{ color: '#9BA1AB', fontSize: 13, fontStyle: 'italic', padding: '18px 4px', textAlign: 'center' }}>'No votes open right now.'</div> : CBK_GOV_VOTES.map(v => {
                   const pollId = 'gov-' + v.id;
                   const mine = myVote(pollId);
                   const counts = voteCounts(pollId, v.options.length, v.base);
