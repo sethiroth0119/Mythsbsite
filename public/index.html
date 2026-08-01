@@ -9774,6 +9774,12 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
   // Unread alert count for the nav badge — polled lightly, and refreshed
   // whenever the player opens the Alerts screen (which marks them read).
   const [ebUnread, setEbUnread] = useState(0);
+  // A deep link (?u= / ?feed=1) or a Hub button asked for a specific screen.
+  useEffect(() => {
+    if (!entry || !entry.screen) return;
+    if (entry.key) setEbKey(entry.key);
+    setScreen(entry.screen);
+  }, [entry]);
   useEffect(() => {
     if (!client || !session) { setEbUnread(0); return; }
     let dead = false;
@@ -12415,8 +12421,8 @@ function App() {
   // ===== Page router — 'home' shows the marketing landing page; 'hub' shows
   // ===== the Player Hub (stats + Vendor Market). Toggled by the navbar button.
   const [currentPage, setCurrentPage] = useState('home');
-  // 📡 Which player's Broadcast profile is open (handle or user id).
-  const [profileKey, setProfileKey] = useState(null);
+  // 📡 Which Broadcast screen a deep link asked for: {screen, key}.
+  const [ebEntry, setEbEntry] = useState(null);
 
   // ===== Supabase session — lifted up so the navbar can show "Player Profile"
   // ===== when the player is signed in. Refresh triggers a re-pull of the row.
@@ -12436,9 +12442,12 @@ function App() {
       // banner (inside PledgePage) is actually visible.
       if (q.get('pledge_paid') || q.get('pledge_cancel')) setCurrentPage('pledge');
       // 📡 Shareable profile links: mythicspellbook.xyz/?u=handle
+      // ?u=<handle|id> and ?feed=1 open Emergency Broadcast itself, focused on
+      // the requested screen. Previously these rendered standalone pages that
+      // duplicated the platform and had no nav to get back into it.
       const u = q.get('u');
-      if (u && /^[@A-Za-z0-9_-]{2,40}$/.test(u)) { setProfileKey(u); setCurrentPage('playerprofile'); }
-      else if (q.get('feed')) setCurrentPage('ebfeed');
+      if (u && /^[@A-Za-z0-9_-]{2,40}$/.test(u)) { setEbEntry({ screen: 'player', key: u }); setCurrentPage('backing'); }
+      else if (q.get('feed')) { setEbEntry({ screen: 'feed' }); setCurrentPage('backing'); }
     } catch (e) {}
   }, []);
 
@@ -12531,16 +12540,14 @@ function App() {
   const showNews = () => { setCurrentPage('news'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
   // Shop page (ex-Pledge) — Founder & Node packages with Stripe checkout.
   const showPledge = () => { setCurrentPage('pledge'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
-  // 📡 Open a player's Broadcast profile. `key` = @handle, user id, or null
-  // for "my own" (resolved from the session).
-  const showProfile = (key) => {
-    const k = key || (session && session.user ? session.user.id : null);
-    if (!k) { setCurrentPage('hub'); return; }
-    setProfileKey(k); setCurrentPage('playerprofile');
+  // 📡 Open Emergency Broadcast focused on a screen. Everything social lives
+  // inside the platform now, so these all route to the same page.
+  const showEb = (screen, key) => {
+    setEbEntry({ screen: screen, key: key || null });
+    setCurrentPage('backing');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
-  const showDirectory = () => { setCurrentPage('ebdirectory'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
-  const showFeed = () => { setCurrentPage('ebfeed'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+  const showProfile = (key) => showEb('player', key || (session && session.user ? session.user.id : null));
   // Card List page — Palworld-inspired browsable catalog + Coming Drops.
   const showCardList = () => { setCurrentPage('cardlist'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
   // Emergency Broadcast — account-connected social platform page.
@@ -12588,8 +12595,8 @@ function App() {
             onShowBacking={showBacking}
             onShowShop={showPledge}
             onShowProfile={showProfile}
-            onShowDirectory={showDirectory}
-            onShowFeed={showFeed}
+            onShowDirectory={() => showEb('people')}
+            onShowFeed={() => showEb('feed')}
           />
           <Footer />
         </div>
@@ -12615,22 +12622,6 @@ function App() {
       ) : currentPage === 'news' ? (
         /* ===== NEWS PAGE — patch notes / devlogs / announcements (edit NEWS_POSTS at top of file) ===== */
         <NewsPage />
-      ) : currentPage === 'ebfeed' ? (
-        /* ===== 📡 THE FEED — Emergency Broadcast front page ===== */
-        <EbFeedPage client={client} session={session} onBack={showBacking}
-          onOpenProfile={showProfile} onSignIn={showHub} />
-      ) : currentPage === 'ebdirectory' ? (
-        /* ===== 📡 BROADCAST DIRECTORY — player discovery ===== */
-        <EbDirectoryPage client={client} onBack={showBacking} onOpenProfile={showProfile} />
-      ) : currentPage === 'playerprofile' ? (
-        /* ===== 📡 PLAYER PROFILE — the social hub (Emergency Broadcast) ===== */
-        <PlayerProfilePage
-          client={client}
-          session={session}
-          profileKey={profileKey}
-          onBack={showBacking}
-          onOpenProfile={showProfile}
-        />
       ) : currentPage === 'pledge' ? (
         /* ===== SHOP PAGE (ex-Pledge) — Founder & Node packages, Stripe checkout (edit PLEDGE_TIERS at top of file) ===== */
         <PledgePage client={client} session={session} onSignIn={showHub} />
@@ -12638,6 +12629,7 @@ function App() {
         /* ===== EMERGENCY BROADCAST — the game's social platform ===== */
         <div className="pt-14">
           <CinderBackingPage
+            entry={ebEntry}
             client={client}
             session={session}
             profile={profile}
