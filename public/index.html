@@ -793,6 +793,8 @@ const Navbar = ({ onNavigate, deckCount, survivors, loyalFaction, isSignedIn, di
           <button onClick={() => { if (onShowSurvivor) onShowSurvivor(); }} className={`whitespace-nowrap hover:text-white transition tracking-wide font-medium ${currentPage === 'survivor' ? 'text-white' : ''}`}>Survivor</button>
           {/* Card List — browsable catalog + Coming Drops. */}
           <button onClick={() => { if (onShowCardList) onShowCardList(); }} className={`whitespace-nowrap hover:text-white transition tracking-wide font-medium ${currentPage === 'cardlist' ? 'text-white' : ''}`}>Card List</button>
+          {/* Lore — interactive New America lore map (static page under /lore/). */}
+          <a href="./lore/" className="whitespace-nowrap hover:text-white transition tracking-wide font-medium" style={{ color: '#c9a86a' }}>🗺 Lore</a>
           {/* Broadcast — Emergency Broadcast social platform (account-connected). */}
           <button onClick={() => { if (onShowBacking) onShowBacking(); }} className="whitespace-nowrap transition tracking-wide font-medium hover:text-white" style={{ color: currentPage === 'backing' ? '#e8d5a8' : '#c9a86a' }}>📡 Broadcast</button>
           {/* 🪙 RMT — Real Money Trading manifesto + Build a Career economy. Gold accent when active. */}
@@ -863,6 +865,7 @@ const Navbar = ({ onNavigate, deckCount, survivors, loyalFaction, isSignedIn, di
             <button onClick={mAction(onShowNews)}     className={`text-left py-2.5 px-3 rounded hover:bg-white/5 tracking-wide font-medium ${currentPage === 'news' ? 'text-white' : 'text-neutral-200'}`}>News</button>
             <button onClick={mAction(onShowSurvivor)} className={`text-left py-2.5 px-3 rounded hover:bg-white/5 tracking-wide font-medium ${currentPage === 'survivor' ? 'text-white' : 'text-neutral-200'}`}>Survivor</button>
             <button onClick={mAction(onShowCardList)} className={`text-left py-2.5 px-3 rounded hover:bg-white/5 tracking-wide font-medium ${currentPage === 'cardlist' ? 'text-white' : 'text-neutral-200'}`}>Card List</button>
+            <a href="./lore/" className="text-left py-2.5 px-3 rounded hover:bg-white/5 tracking-wide font-medium" style={{ color: '#c9a86a' }}>🗺 Lore</a>
             <button onClick={mAction(onShowBacking)} className="text-left py-2.5 px-3 rounded hover:bg-white/5 tracking-wide font-medium" style={{ color: currentPage === 'backing' ? '#e8d5a8' : '#c9a86a' }}>📡 Broadcast</button>
             <button onClick={mAction(onShowRMT)}      className="text-left py-2.5 px-3 rounded hover:bg-white/5 tracking-wide font-medium" style={{ color: currentPage === 'rmt' ? '#e8d5a8' : '#c9a86a' }}>RMT</button>
             {isSignedIn && (
@@ -1863,8 +1866,9 @@ const WhyEconomy = () => (
 // Reads the admin-published territory-wars node graph from the shared
 // card_catalog (anon-readable) and renders a live war-map section below
 // the sign-up CTA. Clicking any node or the bottom CTA sends the visitor
-// straight to the game. Falls back to a built-in demo map while loading
-// or when no catalog has been published yet.
+// straight to the game. There is NO demo fallback — while loading, when no
+// catalog has been published, or when a signed-out visitor can't read the
+// RLS-gated card_catalog, it renders an empty canvas rather than invented nodes.
 const WarMapPreview = ({ hubMode = false }) => {
   const [twData,      setTwData]      = useState(null);
   const [loading,     setLoading]     = useState(true);
@@ -2166,7 +2170,7 @@ const WarMapPreview = ({ hubMode = false }) => {
           <div style={{ marginTop:'auto', paddingTop:'1.5rem', color:'#1e3040',
             fontSize:'0.52rem', letterSpacing:'0.2em', lineHeight:1.6,
             fontFamily:'JetBrains Mono,monospace', textTransform:'uppercase' }}>
-            {twData ? '// LIVE MAP DATA' : '// DEMO MAP'}<br/>
+            {twData ? '// LIVE MAP DATA' : '// NO MAP DATA'}<br/>
             // SIGN IN TO SEE<br/>
             // YOUR CORP STATUS
           </div>
@@ -3711,13 +3715,19 @@ const WEBSITE_PACK_CATALOG = [
 ];
 
 // ===== Aza Coin top-up packages — real money → Aza Coin =====
-// Mirrors the in-game SOVEREIGN_PACKAGES. Mock checkout for now; replace the
-// `handleBuyAza` flow with Stripe Checkout / Apple Pay / etc. before going live.
+// ⚠ PRICING IS SERVER-AUTHORITATIVE. The Worker's AZA_PACKS decides what Stripe
+// charges and what gets credited; the ids below are the ONLY thing sent to it,
+// and these numbers are display-only. They must stay identical to AZA_PACKS in
+// game-deploy/worker.js and SOVEREIGN_PACKAGES in the game — any drift here just
+// misleads the buyer, it cannot change the charge.
+// Peg: 1 Aza Coin = $1 USD (5000 Cinder = $1). sp_starter is a deliberate
+// first-purchase sweetener at 2 Aza for $1.99; every other tier is on-peg.
 const AZA_COIN_PACKAGES = [
-  { id: 'aza_small',  name: 'Pocket Pouch',      usd: 4.99,   aza: 100,  bonus: 0,  accent: '#88c8e0' },
-  { id: 'aza_medium', name: 'Survivor\'s Purse',  usd: 19.99,  aza: 525,  bonus: 5,  accent: '#a0a8ff', featured: true },
-  { id: 'aza_large',  name: 'Royal Cache',       usd: 49.99,  aza: 1650, bonus: 10, accent: '#b888ff' },
-  { id: 'aza_huge',   name: 'Sovereign Vault',   usd: 149.99, aza: 5500, bonus: 20, accent: '#ffd166' },
+  { id: 'sp_starter', name: 'Starter Cache',        usd: 1.99,   aza: 2,   bonus: 0, accent: '#88c8e0' },
+  { id: 'sp_adv',     name: "Adventurer's Coffer",  usd: 4.99,   aza: 5,   bonus: 0, accent: '#a0a8ff' },
+  { id: 'sp_hero',    name: "Hero's Vault",         usd: 19.99,  aza: 20,  bonus: 0, accent: '#b888ff', featured: true },
+  { id: 'sp_champ',   name: "Champion's Trove",     usd: 49.99,  aza: 50,  bonus: 0, accent: '#d0a0ff' },
+  { id: 'sp_legend',  name: "Legend's Hoard",       usd: 149.99, aza: 150, bonus: 0, accent: '#ffd166' },
 ];
 
 const PlayerHub = ({ client, session, profile, refreshProfile, onSignedOut, onShowBacking, onShowShop, onShowProfile, onShowDirectory, onShowFeed }) => {
@@ -3900,32 +3910,35 @@ const PlayerHub = ({ client, session, profile, refreshProfile, onSignedOut, onSh
     setBuyingId(null);
   };
 
-  // ----- Aza Coin TOP-UP (mock USD checkout → credits sovereigns column) -----
-  // In production: replace the mock confirm with a real Stripe Checkout Session
-  // and confirm the credit only after the webhook fires successful.
+  // ----- Aza Coin TOP-UP — real Stripe Checkout, server-authoritative -----
+  // This used to be a window.confirm saying "MOCK PURCHASE" that then wrote the
+  // new balance straight into user_profiles.sovereigns — i.e. it handed out paid
+  // currency for free to anyone signed in. Now the Worker builds the Checkout
+  // Session from its own price table, Stripe takes the payment, and crediting
+  // happens only after /api/buy/confirm re-reads the session from Stripe with the
+  // secret key. NOTHING is credited client-side here, by design.
+  // The Worker's success_url returns to the game, which owns the confirm-and-credit
+  // step (and the aza_purchases UNIQUE row that makes it exactly-once).
   const handleBuyAza = async (pkg) => {
-    if (!client || !session || !profile) return;
-    const totalAza = pkg.aza + (pkg.aza * (pkg.bonus || 0) / 100);
-    const ok = window.confirm(
-      ` MOCK PURCHASE\n\n` +
-      `Package: ${pkg.name}\n` +
-      `Price: $${pkg.usd.toFixed(2)} (USD)\n` +
-      `You'll receive: ${Math.round(totalAza).toLocaleString()} Aza Coin` +
-      (pkg.bonus ? ` (+${pkg.bonus}% bonus)` : '') + `\n\n` +
-      `Confirm? (no real charge in this build)`
-    );
-    if (!ok) return;
+    if (!session) { setBuyMsg('Sign in first — Aza Coin is credited to your account.'); return; }
+    if (buyingId) return;
     setBuyMsg(''); setBuyingId(pkg.id);
-    const have = profile.sovereigns || 0;
-    const newBalance = have + Math.round(totalAza);
-    const { error } = await client.from('user_profiles').update({
-      sovereigns: newBalance, updated_at: new Date().toISOString(),
-    }).eq('user_id', session.user.id);
-    if (error) {
-      setBuyMsg('Top-up failed — ' + error.message);
-    } else {
-      if (refreshProfile) refreshProfile();
-      setBuyMsg(` Credited ${Math.round(totalAza).toLocaleString()} Aza Coin to your account.`);
+    try {
+      const r = await fetch(SHOP_API + '/api/buy/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+        body: JSON.stringify({ pack: pkg.id }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (j && j.url) { window.location.href = j.url; return; }   // → Stripe
+      setBuyMsg(
+        j.error === 'stripe_not_configured' ? 'Card payments are not switched on yet — top up inside the game instead.'
+        : j.error === 'unauthorized' ? 'Your session expired — sign out and back in, then try again.'
+        : j.error === 'bad_pack' ? 'That package is no longer available.'
+        : 'Could not start checkout' + (j.error ? ' — ' + j.error : '') + '.'
+      );
+    } catch (e) {
+      setBuyMsg('Could not reach checkout — check your connection and try again.');
     }
     setBuyingId(null);
   };
@@ -4384,7 +4397,7 @@ const PlayerHub = ({ client, session, profile, refreshProfile, onSignedOut, onSh
                 /* ===== Aza Coin top-up store ===== */
                 <div>
                   <div className="mb-5 p-4 bg-sky-950/30 border-l-4 border-sky-500/60 rounded-r text-sky-100 text-sm">
-                    <strong className="text-sky-200">Aza Coin</strong> is the premium currency — earned through bundles, not gameplay. Use it to grab packs at a discount or skip the grind for high-tier gear. <span className="text-sky-300 italic">Mock checkout — no real charges in this build.</span>
+                    <strong className="text-sky-200">Aza Coin</strong> is the premium currency — earned through bundles, not gameplay. Use it to grab packs at a discount or skip the grind for high-tier gear. <span className="text-sky-300 italic">Checkout is handled by Stripe; you'll finish the purchase in the game, where your coins are credited.</span>
                   </div>
                   <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
                     {AZA_COIN_PACKAGES.map(pkg => {
@@ -6964,6 +6977,16 @@ const useGameArt = (client) => {
     return () => { dead = true; };
   }, [client]);
 
+  // Returns { src, kind } — NEVER a bare URL, because the two maps hold
+  // structurally different images and the caller cannot tell them apart from the
+  // pixels alone:
+  //   kind 'card'   — cardArt: a FULLY-RENDERED card, frame + empty nameplate +
+  //                   stat boxes baked in (verified: all 87 published entries).
+  //   kind 'sprite' — sprites: a bare transparent character cutout, no frame.
+  // They need opposite treatment. Cropping a card down to its art window is
+  // right; doing the same to a sprite decapitates it — which is exactly why the
+  // earlier `height:152%` crop had to be reverted. The kind is DERIVED from
+  // which map answered rather than stored per card, so it can never go stale.
   const resolve = (rawId) => {
     if (!rawId) return null;
     // Deck entries look like "unit:goblin" — try the full id and the bare tail.
@@ -6976,12 +6999,12 @@ const useGameArt = (client) => {
       for (const k of Object.keys(s)) if (Array.isArray(s[k]) && typeof s[k][0] === 'string') return s[k][0];
       return null;
     };
-    for (const id of ids) { if (artMap && artMap[id]) return artMap[id]; }
+    for (const id of ids) { if (artMap && artMap[id]) return { src: artMap[id], kind: 'card' }; }
     if (spriteMap) {
       for (const id of ids) {
         for (const k of ['h_' + id, 'u_' + id, id]) {
           const f = firstFrame(spriteMap[k]);
-          if (f) return f;
+          if (f) return { src: f, kind: 'sprite' };
         }
       }
     }
@@ -7032,6 +7055,13 @@ const EbProfileEditor = ({ client, session, p, onClose, onSaved }) => {
     if (handle && !/^[A-Za-z0-9_-]{3,20}$/.test(handle)) {
       setMsg('Handle must be 3–20 letters, numbers, _ or -.'); setBusy(false); return;
     }
+    // supabase-js RETURNS errors, it does not throw them, so the try/catch below
+    // catches nothing a rejected write does. Every call has to check .error or a
+    // refused save closes this modal looking exactly like a successful one.
+    const fail = (what, error) => {
+      const m = String((error && error.message) || error || 'unknown error');
+      setMsg('Could not save ' + what + ' — ' + m.slice(0, 100)); setBusy(false);
+    };
     try {
       const { error } = await client.from('eb_profiles').upsert({
         user_id: session.user.id,
@@ -7041,15 +7071,21 @@ const EbProfileEditor = ({ client, session, p, onClose, onSaved }) => {
         favorite_hero_ids: favs,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'user_id' });
-      if (error) { setMsg(/duplicate|unique/i.test(error.message) ? 'That handle is taken.' : 'Could not save — ' + error.message.slice(0, 80)); setBusy(false); return; }
-      // Top 8 — rewrite the whole board so slots stay 1..8 in pick order.
-      await client.from('eb_top_friends').delete().eq('user_id', session.user.id);
-      if (top.length) {
-        await client.from('eb_top_friends').insert(top.slice(0, 8).map((fid, i) => ({ user_id: session.user.id, friend_id: fid, slot: i + 1 })));
+      if (error) {
+        if (/duplicate|unique/i.test(error.message || '')) { setMsg('That handle is taken.'); setBusy(false); return; }
+        return fail('your profile', error);
       }
-      onSaved(); onClose();
-    } catch (e) { setMsg('Could not save — try again.'); }
+      // Top 8 — rewrite the whole board so slots stay 1..8 in pick order.
+      const { error: delErr } = await client.from('eb_top_friends').delete().eq('user_id', session.user.id);
+      if (delErr) return fail('your Top 8', delErr);
+      if (top.length) {
+        const { error: insErr } = await client.from('eb_top_friends')
+          .insert(top.slice(0, 8).map((fid, i) => ({ user_id: session.user.id, friend_id: fid, slot: i + 1 })));
+        if (insErr) return fail('your Top 8', insErr);
+      }
+    } catch (e) { return fail('your profile', e); }
     setBusy(false);
+    onSaved(); onClose();
   };
   const toggle = (arr, setArr, id, max) => {
     if (arr.includes(id)) setArr(arr.filter(x => x !== id));
@@ -7325,7 +7361,7 @@ const PlayerProfilePage = ({ client, session, profileKey, onBack, onOpenProfile,
                   </div>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                     {uniq.slice(0, 24).map((cid, i) => {
-                      const img = resolveArt(cid);
+                      const art = resolveArt(cid);
                       const md = resolveArt.meta ? resolveArt.meta(cid) : null;
                       const label = (md && md.name) || String(cid).split(':').pop();
                       return (
@@ -7335,12 +7371,13 @@ const PlayerProfilePage = ({ client, session, profileKey, onBack, onOpenProfile,
                           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                           fontSize: 8, color: EB_INK.dim, textAlign: 'center', padding: 2,
                         }}>
-                          {/* ⚠ The published cardArt map MIXES two kinds of image:
-                              bare illustrations and fully-rendered cards (frame +
-                              nameplate). No crop is right for both — cropping to
-                              the art region beheads the bare illustrations. Shown
-                              uncropped; the real fix is art-only images at source. */}
-                          {img ? <img src={img} alt={label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (
+                          {/* A card image is a whole card, so cover-fitting it into
+                              a card-shaped tile is correct. A sprite is a bare
+                              cutout with no frame — cover would crop its head and
+                              feet off, so it is contained inside the tile instead. */}
+                          {art ? <img src={art.src} alt={label} style={art.kind === 'sprite'
+                            ? { maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', imageRendering: 'pixelated' }
+                            : { width: '100%', height: '100%', objectFit: 'cover' }} /> : (
                             <>
                               <span style={{ fontSize: 18, lineHeight: 1 }}>{(md && md.icon) || '🃏'}</span>
                               <span style={{ marginTop: 3, lineHeight: 1.1, overflow: 'hidden' }}>{label.slice(0, 14)}</span>
@@ -7364,11 +7401,16 @@ const PlayerProfilePage = ({ client, session, profileKey, onBack, onOpenProfile,
               <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
                 {favIds.map(hid => {
                   const h = heroes[hid] || {};
-                  const img = resolveArt(hid);
+                  const art = resolveArt(hid);
                   return (
                     <div key={hid} style={{ width: 132, ...ebCard, padding: 10, textAlign: 'center' }}>
                       <div style={{ height: 108, borderRadius: 8, background: '#0F1116', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', marginBottom: 8 }}>
-                        {img ? <img src={img} alt="" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', imageRendering: 'pixelated' }} /> : <span style={{ fontSize: 30 }}>🦸</span>}
+                        {/* pixelated suits an upscaled sprite cutout; a rendered
+                            card is a smooth illustration and must not get it. */}
+                        {art ? <img src={art.src} alt="" style={{
+                          maxWidth: '100%', maxHeight: '100%', objectFit: 'contain',
+                          ...(art.kind === 'sprite' ? { imageRendering: 'pixelated' } : null),
+                        }} /> : <span style={{ fontSize: 30 }}>🦸</span>}
                       </div>
                       <div style={{ fontWeight: 700, fontSize: 13, textTransform: 'capitalize' }}>{hid}</div>
                       <div style={{ color: EB_INK.dim, fontSize: 11, marginTop: 2 }}>
@@ -7473,7 +7515,15 @@ const PlayerProfilePage = ({ client, session, profileKey, onBack, onOpenProfile,
         {tab === 'social' && (
           <>
             <EbSection title="⭐ Top 8 Friends" count={(p.top_friends || []).length}>
-              {(p.top_friends || []).length === 0 ? <EbEmpty>No Top 8 picked yet.</EbEmpty> : (
+              {p.is_me && (
+                <button onClick={() => setEditing(true)} style={{
+                  background: EB_INK.ember, color: '#14060A', border: 'none', borderRadius: 9,
+                  padding: '9px 16px', fontWeight: 700, fontSize: 13, cursor: 'pointer', marginBottom: 12,
+                }}>⭐ {(p.top_friends || []).length ? 'Edit your Top 8' : 'Pick your Top 8'}</button>
+              )}
+              {(p.top_friends || []).length === 0 ? (
+                <EbEmpty>{p.is_me ? 'Tap “Pick your Top 8” to feature up to 8 friends here.' : 'No Top 8 picked yet.'}</EbEmpty>
+              ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(110px,1fr))', gap: 10 }}>
                   {p.top_friends.map(f => (
                     <button key={f.slot} onClick={() => onOpenProfile && onOpenProfile(f.handle || f.user_id)} style={{ ...ebCard, padding: 10, textAlign: 'center', cursor: 'pointer', color: 'inherit' }}>
@@ -7820,12 +7870,27 @@ const EbFeedPage = ({ client, session, onBack, onOpenProfile, onSignIn, embedded
               </div>
 
               {it.kind === 'clip' ? (
-                <a href={it.clip_url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', color: 'inherit' }}>
-                  {(() => { const th = ebClipThumb(it); return (
-                    <div style={{ height: 170, borderRadius: 10, background: th ? `center/cover no-repeat url("${th}")` : '#0F1116', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32, marginBottom: 8 }}>{th ? '▶' : '🎬'}</div>
-                  ); })()}
-                  <div style={{ fontWeight: 700, fontSize: 14 }}>{it.body}</div>
-                </a>
+                (() => {
+                  const url = String(it.clip_url || '');
+                  // Uploaded gameplay clips are direct video files (or live in our
+                  // battle-clips storage bucket) — play them inline. External links
+                  // (YouTube/Twitch/Streamable) keep the thumbnail-link treatment.
+                  const direct = /\.(webm|mp4|mov|m4v)(\?|$)/i.test(url) || /\/storage\/v1\/object\/public\/battle-clips\//.test(url);
+                  if (direct) return (
+                    <div style={{ marginBottom: 8 }}>
+                      <video src={url} controls playsInline preload="metadata" style={{ width: '100%', maxHeight: 360, borderRadius: 10, background: '#000', display: 'block' }} />
+                      <div style={{ fontWeight: 700, fontSize: 14, marginTop: 8 }}>{it.body}</div>
+                    </div>
+                  );
+                  return (
+                    <a href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', color: 'inherit' }}>
+                      {(() => { const th = ebClipThumb(it); return (
+                        <div style={{ height: 170, borderRadius: 10, background: th ? `center/cover no-repeat url("${th}")` : '#0F1116', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32, marginBottom: 8 }}>{th ? '▶' : '🎬'}</div>
+                      ); })()}
+                      <div style={{ fontWeight: 700, fontSize: 14 }}>{it.body}</div>
+                    </a>
+                  );
+                })()
               ) : (
                 <div style={{ whiteSpace: 'pre-wrap', fontSize: 14, lineHeight: 1.6 }}>{it.body}</div>
               )}
@@ -9614,6 +9679,24 @@ const CBK_DISCLAIMER = [
 const cbkDisclaimerAccepted = () => { try { return !!localStorage.getItem(CBK_DISCLAIMER_KEY); } catch (e) { return false; } };
 const cbkAcceptDisclaimer = () => { try { localStorage.setItem(CBK_DISCLAIMER_KEY, new Date().toISOString()); } catch (e) {} };
 
+// 🦊 Pick the MetaMask provider specifically.
+// Every wallet extension writes window.ethereum and the LAST one to load wins,
+// so on a machine with Coinbase Wallet / Phantom / Rabby installed alongside it,
+// "Connect MetaMask" was driving whichever one happened to be on top — or doing
+// nothing at all if that wallet was locked. EIP-5749 exposes the full set on
+// window.ethereum.providers; when it's there, pick ours out of it.
+const cbkMetaMaskProvider = () => {
+  if (typeof window === 'undefined') return null;
+  const eth = window.ethereum;
+  if (!eth) return null;
+  const list = Array.isArray(eth.providers) ? eth.providers.filter(Boolean) : null;
+  if (list && list.length) {
+    // Brave injects itself with isMetaMask=true, so prefer a real MetaMask first.
+    return list.find(p => p.isMetaMask && !p.isBraveWallet) || list.find(p => p.isMetaMask) || eth;
+  }
+  return eth;
+};
+
 const TokenDisclaimerModal = ({ onAccept, onClose, readOnly }) => (
   <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(5,6,8,.78)', backdropFilter: 'blur(5px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 80, padding: 18 }}>
     <div onClick={(e) => e.stopPropagation()} style={{ background: '#14161B', border: '1px solid #33261A', borderRadius: 18, width: '100%', maxWidth: 640, maxHeight: '88vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 80px rgba(0,0,0,.6)', fontFamily: "'IBM Plex Sans',sans-serif", color: '#F2F3F5' }}>
@@ -9970,6 +10053,10 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
   // only; every debit/credit runs through the server-side RPCs.
   const [mtBal, setMtBal] = useState(0);
   const [wallet, setWallet] = useState(null);
+  // Declared up here (not down with the other modal state) because the MetaMask
+  // handlers below report failures through it — keeping it after them would leave
+  // them depending on declaration order to stay out of the TDZ.
+  const [notice, setNotice] = useState(null);
   // ── MetaMask wallet (on-chain staking) ──
   const [mmAddr, setMmAddr] = useState(null);       // connected account
   const [mmChainOk, setMmChainOk] = useState(true); // on Base mainnet?
@@ -9983,11 +10070,11 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
   // render reported "not installed" on a cold load, so Connect MetaMask opened
   // the metamask.io download page for people who already had the extension.
   // Detect it reactively: listen for the injection event and poll briefly.
-  const [hasMM, setHasMM] = useState(typeof window !== 'undefined' && !!window.ethereum);
+  const [hasMM, setHasMM] = useState(!!cbkMetaMaskProvider());
   useEffect(() => {
     if (hasMM || typeof window === 'undefined') return;
     let tries = 0;
-    const seen = () => { if (window.ethereum) { setHasMM(true); return true; } return false; };
+    const seen = () => { if (cbkMetaMaskProvider()) { setHasMM(true); return true; } return false; };
     if (seen()) return;
     const t = setInterval(() => { if (seen() || ++tries > 24) clearInterval(t); }, 250);
     const onInit = () => seen();
@@ -10003,10 +10090,12 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
     let dead = false;
     (async () => {
       try {
-        const a = await window.ethereum.request({ method: 'eth_accounts' });
+        const eth = cbkMetaMaskProvider();
+        if (!eth) return;
+        const a = await eth.request({ method: 'eth_accounts' });
         if (dead || !a || !a.length) return;
         setMmAddr(a[0]);
-        const c = await window.ethereum.request({ method: 'eth_chainId' });
+        const c = await eth.request({ method: 'eth_chainId' });
         if (!dead) setMmChainOk(c === CBK_BASE_CHAIN_HEX);
       } catch (e) {}
     })();
@@ -10032,40 +10121,59 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
   };
   const mmConnectNow = async () => {
     // Live check - never send someone to the download page on stale state.
-    const eth = (typeof window !== 'undefined') ? window.ethereum : null;
+    const eth = cbkMetaMaskProvider();
     if (!eth) { window.open('https://metamask.io/download/', '_blank'); return; }
     if (!hasMM) setHasMM(true);
     try {
       const accts = await eth.request({ method: 'eth_requestAccounts' });
-      if (!accts || !accts.length) return;
+      if (!accts || !accts.length) {
+        // Connected, but every account is hidden behind the lock screen.
+        setNotice('MetaMask returned no account — unlock the extension and click Connect again.');
+        return;
+      }
       setMmAddr(accts[0]);
-      const chain = await window.ethereum.request({ method: 'eth_chainId' });
+      const chain = await eth.request({ method: 'eth_chainId' });
       if (chain !== CBK_BASE_CHAIN_HEX) {
         setMmChainOk(false);
         try {
-          await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: CBK_BASE_CHAIN_HEX }] });
+          await eth.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: CBK_BASE_CHAIN_HEX }] });
           setMmChainOk(true);
         } catch (sw) {
           if (sw && sw.code === 4902) {
             try {
-              await window.ethereum.request({ method: 'wallet_addEthereumChain', params: [{ chainId: CBK_BASE_CHAIN_HEX, chainName: 'Base', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: [CBK_RPC], blockExplorerUrls: ['https://basescan.org'] }] });
+              await eth.request({ method: 'wallet_addEthereumChain', params: [{ chainId: CBK_BASE_CHAIN_HEX, chainName: 'Base', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: [CBK_RPC], blockExplorerUrls: ['https://basescan.org'] }] });
               setMmChainOk(true);
-            } catch (e2) {}
+            } catch (e2) { setNotice('Could not add the Base network to MetaMask — add it manually, then reconnect.'); }
+          } else if (!(sw && sw.code === 4001)) {
+            setNotice('Could not switch MetaMask to Base — switch networks manually, then reconnect.');
           }
         }
       } else setMmChainOk(true);
-    } catch (e) { /* user rejected — fine */ }
+    } catch (e) {
+      // 4001 = the user clicked Reject. That is a decision, not a fault: stay quiet.
+      // -32002 = a connect prompt is ALREADY open and MetaMask refuses a second
+      // one. This was being swallowed, so the button looked completely dead every
+      // click after the first while the popup sat unnoticed behind the window.
+      if (e && (e.code === 4001 || e.code === 'ACTION_REJECTED')) return;
+      if (e && e.code === -32002) {
+        setNotice('MetaMask is already asking you to connect — open the extension (click the 🦊 in your toolbar) to finish.');
+        return;
+      }
+      setNotice('MetaMask could not connect: ' + ((e && e.message) || 'unknown error').slice(0, 120));
+    }
   };
   // React to account/chain switches in the extension.
   useEffect(() => {
     if (!hasMM) return;
+    const eth = cbkMetaMaskProvider();
+    if (!eth) return;
     const onAccts = (a) => setMmAddr(a && a.length ? a[0] : null);
     const onChain = (c) => setMmChainOk(c === CBK_BASE_CHAIN_HEX);
-    window.ethereum.on && window.ethereum.on('accountsChanged', onAccts);
-    window.ethereum.on && window.ethereum.on('chainChanged', onChain);
+    eth.on && eth.on('accountsChanged', onAccts);
+    eth.on && eth.on('chainChanged', onChain);
     return () => {
-      window.ethereum.removeListener && window.ethereum.removeListener('accountsChanged', onAccts);
-      window.ethereum.removeListener && window.ethereum.removeListener('chainChanged', onChain);
+      eth.removeListener && eth.removeListener('accountsChanged', onAccts);
+      eth.removeListener && eth.removeListener('chainChanged', onChain);
     };
   }, [hasMM]);
   // On-chain reads: wallet MT balance + live tiers + the wallet's positions.
@@ -10115,7 +10223,9 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
     if (!mmAddr) { await mmConnect(); return null; }
     setMmTx({ label });
     try {
-      const hash = await window.ethereum.request({ method: 'eth_sendTransaction', params: [{ from: mmAddr, to, data }] });
+      const eth = cbkMetaMaskProvider();
+      if (!eth) { setMmTx(null); setNotice('MetaMask is no longer available — reconnect your wallet.'); return null; }
+      const hash = await eth.request({ method: 'eth_sendTransaction', params: [{ from: mmAddr, to, data }] });
       const rec = await cbkWaitReceipt(hash);
       setMmTx(null);
       if (rec.status !== '0x1') { setNotice(label + ' reverted on-chain.'); return null; }
@@ -10149,7 +10259,6 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
   const [modal, setModal] = useState(null);      // lock-Cinder backing modal
   const [buyModal, setBuyModal] = useState(null); // buy-tokens preview modal
   const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState(null);
   // Local PREVIEW overlay for the token-sale loop (per-account).
   const uid = session && session.user ? session.user.id : 'anon';
   const [prev, setPrev] = useState(() => { try { return JSON.parse(localStorage.getItem('ms_cbk_prev_' + uid) || '{}'); } catch (e) { return {}; } });
@@ -10164,8 +10273,9 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
   // ── War-map node catalog — the SAME source the war map renders
   // (card_catalog.moves.__territory_wars__.nodes), so node names, levels,
   // XP, and Cinder rates always match the game. card_catalog is readable by
-  // authenticated users only, so signed-out visitors get the demo profiles
-  // and a sign-in hint rather than an empty node list.
+  // authenticated users only, so a signed-out visitor gets ZERO rows with status
+  // 200 — silently, not as an error — and sees an empty list plus a sign-in hint.
+  // (The demo profiles this used to fall back to are gone.)
   useEffect(() => {
     if (!client) return;
     let dead = false;
@@ -10896,6 +11006,10 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
               <span style={{ display: 'inline-flex', width: 18 }}>{n.icon}</span>{n.label}
             </button>
           ))}
+          {/* Lore — external link to the interactive New America lore map. */}
+          <a href="./lore/" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 10, textDecoration: 'none', fontFamily: "'IBM Plex Sans',sans-serif", fontSize: 14, fontWeight: 500, background: 'transparent', color: '#C6CAD1' }}>
+            <span style={{ display: 'inline-flex', width: 18 }}>🗺</span>Lore
+          </a>
         </nav>
         <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ background: 'linear-gradient(160deg,#1B1207,#14161B)', border: '1px solid #33261A', borderRadius: 12, padding: 14 }}>
@@ -10962,6 +11076,7 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
           {navDefs.map(n => (
             <button key={n.key} onClick={() => go(n.key)} style={{ borderRadius: 99, padding: '7px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: "'IBM Plex Sans',sans-serif", background: n.key === activeKey ? 'rgba(255,106,43,.14)' : '#14161B', color: n.key === activeKey ? '#FF8A55' : '#C6CAD1', border: '1px solid ' + (n.key === activeKey ? 'rgba(255,106,43,.4)' : '#262A32') }}>{n.label}</button>
           ))}
+          <a href="./lore/" style={{ borderRadius: 99, padding: '7px 14px', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', textDecoration: 'none', fontFamily: "'IBM Plex Sans',sans-serif", background: '#14161B', color: '#C6CAD1', border: '1px solid #262A32' }}>🗺 Lore</a>
         </div>
 
         <div style={{ padding: '24px 22px 48px', maxWidth: 1180, width: '100%', margin: '0 auto' }}>
@@ -11186,7 +11301,7 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
                   <div style={{ ...card, padding: 20 }}>
                     <div style={{ ...grotesk, fontWeight: 600, fontSize: 16, marginBottom: 12 }}>Upcoming events</div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                      {CBK_EVENTS.length === 0 ? <div style={{ color: '#9BA1AB', fontSize: 13, fontStyle: 'italic', padding: '18px 4px', textAlign: 'center' }}>'No events scheduled yet.'</div> : CBK_EVENTS.slice(0, 3).map(ev => (
+                      {CBK_EVENTS.length === 0 ? <div style={{ color: '#9BA1AB', fontSize: 13, fontStyle: 'italic', padding: '18px 4px', textAlign: 'center' }}>No events scheduled yet.</div> : CBK_EVENTS.slice(0, 3).map(ev => (
                         <div key={ev.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 13, alignItems: 'center' }}>
                           <div><div style={{ fontWeight: 600 }}>{ev.icon} {ev.title}</div><div style={{ fontSize: 11, color: '#9BA1AB' }}>{ev.type}</div></div>
                           <span style={{ fontSize: 12, color: '#FF8A55', whiteSpace: 'nowrap' }}>{ev.date}</span>
@@ -11516,7 +11631,7 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
               {/* Impact rewards earned through participation */}
               <div style={{ ...grotesk, fontWeight: 600, fontSize: 16 }}>My impact rewards</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))', gap: 14 }}>
-                {CBK_IMPACT.length === 0 ? <div style={{ color: '#9BA1AB', fontSize: 13, fontStyle: 'italic', padding: '18px 4px', textAlign: 'center' }}>'Rewards you earn from backing will show up here.'</div> : CBK_IMPACT.map(ir => (
+                {CBK_IMPACT.length === 0 ? <div style={{ color: '#9BA1AB', fontSize: 13, fontStyle: 'italic', padding: '18px 4px', textAlign: 'center' }}>Rewards you earn from backing will show up here.</div> : CBK_IMPACT.map(ir => (
                   <div key={ir.title} style={{ ...card, padding: 16, display: 'flex', gap: 12, alignItems: 'center' }}>
                     <span style={{ fontSize: 20 }}>{ir.icon}</span>
                     <div style={{ minWidth: 0 }}>
@@ -11840,7 +11955,7 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               <div style={{ color: '#9BA1AB', fontSize: 14 }}>Builders create campaigns. Participation — not committed Cinder — determines reward eligibility.</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(330px,1fr))', gap: 16 }}>
-                {CBK_CAMPAIGNS.length === 0 ? <div style={{ color: '#9BA1AB', fontSize: 13, fontStyle: 'italic', padding: '18px 4px', textAlign: 'center' }}>'No campaigns running yet.'</div> : CBK_CAMPAIGNS.map(c => {
+                {CBK_CAMPAIGNS.length === 0 ? <div style={{ color: '#9BA1AB', fontSize: 13, fontStyle: 'italic', padding: '18px 4px', textAlign: 'center' }}>No campaigns running yet.</div> : CBK_CAMPAIGNS.map(c => {
                   const on = joined('campaign', c.id);
                   const extra = parts.filter(p => p.kind === 'campaign' && p.ref_id === c.id).length;
                   return (
@@ -11871,7 +11986,7 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
               <div style={{ ...card, padding: 20 }}>
                 <div style={{ ...grotesk, fontWeight: 600, fontSize: 16, marginBottom: 14 }}>Community events</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {CBK_EVENTS.length === 0 ? <div style={{ color: '#9BA1AB', fontSize: 13, fontStyle: 'italic', padding: '18px 4px', textAlign: 'center' }}>'No events scheduled yet.'</div> : CBK_EVENTS.map(e => {
+                  {CBK_EVENTS.length === 0 ? <div style={{ color: '#9BA1AB', fontSize: 13, fontStyle: 'italic', padding: '18px 4px', textAlign: 'center' }}>No events scheduled yet.</div> : CBK_EVENTS.map(e => {
                     const on = joined('event', e.id);
                     return (
                       <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 14, background: '#1B1E24', border: '1px solid #262A32', borderRadius: 12, padding: '13px 16px', flexWrap: 'wrap' }}>
@@ -11894,7 +12009,7 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               <div style={{ color: '#9BA1AB', fontSize: 14, lineHeight: 1.6 }}>Qualified Backers vote on approved community matters. Company governance, treasury, employment, and legal decisions remain outside this system.</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(340px,1fr))', gap: 16 }}>
-                {CBK_GOV_VOTES.length === 0 ? <div style={{ color: '#9BA1AB', fontSize: 13, fontStyle: 'italic', padding: '18px 4px', textAlign: 'center' }}>'No votes open right now.'</div> : CBK_GOV_VOTES.map(v => {
+                {CBK_GOV_VOTES.length === 0 ? <div style={{ color: '#9BA1AB', fontSize: 13, fontStyle: 'italic', padding: '18px 4px', textAlign: 'center' }}>No votes open right now.</div> : CBK_GOV_VOTES.map(v => {
                   const pollId = 'gov-' + v.id;
                   const mine = myVote(pollId);
                   const counts = voteCounts(pollId, v.options.length, v.base);
