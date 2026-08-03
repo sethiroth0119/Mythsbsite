@@ -4329,7 +4329,8 @@ const PlayerHub = ({ client, session, profile, refreshProfile, onSignedOut, onSh
               <WarMapPreview hubMode={true} />
             </div>
 
-            {/* ===== Vendor Market section ===== */}
+            {/* ===== Vendor Market section — REMOVED from the site per request ===== */}
+            {false && (
             <div className="bg-black/60 border-2 border-orange-500/35 rounded-lg p-6 md:p-8" style={{ boxShadow: '0 0 36px rgba(255,140,40,0.12)' }}>
               <div className="flex items-center gap-3 mb-2">
                 <AzaIcon size={32} />
@@ -4436,6 +4437,7 @@ const PlayerHub = ({ client, session, profile, refreshProfile, onSignedOut, onSh
                 </div>
               )}
             </div>
+            )}
           </>
         )}
       </div>
@@ -6591,14 +6593,65 @@ const AdminCardManager = ({ client }) => {
 // Admin-only. Pulls every user profile and every node registration the
 // signed-in admin can read (RLS enforces "richaegisop@gmail.com" only).
 const AdminPanelModal = ({ open, onClose, client }) => {
-  const [tab, setTab] = useState('registrations'); // 'registrations' | 'creators' | 'users'
+  const [tab, setTab] = useState('registrations'); // 'registrations' | 'creators' | 'cards' | 'users' | 'reports'
   const [registrations, setRegistrations] = useState([]);
   const [creators, setCreators] = useState([]);
   const [users, setUsers] = useState([]);
+  const [reports, setReports] = useState([]);
+  const [bans, setBans] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [selectedReg, setSelectedReg] = useState(null);
   const [selectedCreator, setSelectedCreator] = useState(null);
+
+  // Reload just the moderation tables (after resolve / delete / unban).
+  const reloadMod = async () => {
+    if (!client) return;
+    const [rep, bn] = await Promise.all([
+      client.from('eb_reports').select('*').order('created_at', { ascending: false }).limit(200),
+      client.from('eb_bans').select('*').order('created_at', { ascending: false }).limit(200),
+    ]);
+    if (!rep.error) setReports(rep.data || []);
+    if (!bn.error)  setBans(bn.data || []);
+  };
+  const resolveReport = async (r) => {
+    try {
+      const { error } = await client.from('eb_reports').update({ status: 'resolved' }).eq('id', r.id);
+      if (error) { alert('Could not resolve — ' + error.message); return; }
+      setReports(list => list.map(x => x.id === r.id ? { ...x, status: 'resolved' } : x));
+    } catch (e) {}
+  };
+  const deleteReportedPost = async (r) => {
+    if (!r.post_id) { alert('This report has no linked post id.'); return; }
+    if (!window.confirm('Delete the reported post?')) return;
+    try {
+      const { error } = await client.from('eb_posts').delete().eq('id', r.post_id);
+      if (error) { alert('Could not delete post — ' + error.message); return; }
+      await resolveReport(r);
+      alert('Post deleted and report resolved.');
+    } catch (e) {}
+  };
+  const banFromReport = async (r) => {
+    if (!r.reported_user_id) { alert('This report has no reported-user id.'); return; }
+    if (!window.confirm('Ban this account?')) return;
+    try {
+      const { error } = await client.from('eb_bans').upsert({
+        user_id: r.reported_user_id, reason: 'Report: ' + String(r.reason || '').slice(0, 200),
+      }, { onConflict: 'user_id' });
+      if (error) { alert('Could not ban — ' + error.message); return; }
+      await resolveReport(r);
+      await reloadMod();
+      alert('Account banned.');
+    } catch (e) {}
+  };
+  const unban = async (b) => {
+    if (!window.confirm('Unban this account? They will be able to post again.')) return;
+    try {
+      const { error } = await client.from('eb_bans').delete().eq('user_id', b.user_id);
+      if (error) { alert('Could not unban — ' + error.message); return; }
+      setBans(list => list.filter(x => x.user_id !== b.user_id));
+    } catch (e) {}
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -6618,15 +6671,20 @@ const AdminPanelModal = ({ open, onClose, client }) => {
     if (!open || !client) return;
     setLoading(true); setError('');
     (async () => {
-      const [regs, profs, crts] = await Promise.all([
+      const [regs, profs, crts, rep, bn] = await Promise.all([
         client.from('node_registrations').select('*').order('created_at', { ascending: false }),
         client.from('user_profiles').select('*').order('created_at', { ascending: false }),
         client.from('creator_applications').select('*').order('created_at', { ascending: false }),
+        client.from('eb_reports').select('*').order('created_at', { ascending: false }).limit(200),
+        client.from('eb_bans').select('*').order('created_at', { ascending: false }).limit(200),
       ]);
       const errs = [];
       if (regs.error)  errs.push('Registrations: ' + regs.error.message); else setRegistrations(regs.data || []);
       if (profs.error) errs.push('Users: '         + profs.error.message); else setUsers(profs.data || []);
       if (crts.error)  errs.push('Creators: '      + crts.error.message);  else setCreators(crts.data || []);
+      // Moderation tables may not exist until the SQL migration is run — tolerate that quietly.
+      if (!rep.error) setReports(rep.data || []); else if (!/relation|does not exist/i.test(rep.error.message || '')) errs.push('Reports: ' + rep.error.message);
+      if (!bn.error)  setBans(bn.data || []);     else if (!/relation|does not exist/i.test(bn.error.message || '')) errs.push('Bans: ' + bn.error.message);
       if (errs.length) setError(errs.join(' · '));
       setLoading(false);
     })();
@@ -6661,6 +6719,7 @@ const AdminPanelModal = ({ open, onClose, client }) => {
               { id: 'registrations', label: `Node Registrations (${registrations.length})` },
               { id: 'creators',      label: `Creator Apps (${creators.length})` },
               { id: 'cards',         label: `Card Manager` },
+              { id: 'reports',       label: `Reports (${reports.filter(r => r.status !== 'resolved').length}) · Bans (${bans.length})` },
               { id: 'users',         label: `Users (${users.length})` },
             ].map((t) => (
               <button
@@ -6754,6 +6813,78 @@ const AdminPanelModal = ({ open, onClose, client }) => {
 
           {/* ===== Card Manager tab ===== */}
           {tab === 'cards' && <AdminCardManager client={client} />}
+
+          {/* ===== Reports & Bans tab ===== */}
+          {tab === 'reports' && (
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-yellow-100 font-bold text-sm uppercase tracking-widest">Reported posts</div>
+                <button onClick={reloadMod} className="px-3 py-1.5 bg-black/60 border border-stone-600/50 text-stone-300 text-[10px] uppercase tracking-widest font-bold rounded hover:bg-stone-800/50 transition">Refresh</button>
+              </div>
+              <div className="overflow-x-auto mb-8">
+                {reports.length === 0 ? (
+                  <div className="text-stone-500 text-sm py-8 text-center">No reports. The feed is clean.</div>
+                ) : (
+                  <table className="min-w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-stone-500 text-[10px] uppercase tracking-widest border-b border-stone-700/50">
+                        <th className="py-2 pr-3">Reported</th>
+                        <th className="py-2 pr-3">Reason</th>
+                        <th className="py-2 pr-3">Post</th>
+                        <th className="py-2 pr-3">Status</th>
+                        <th className="py-2"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {reports.map((r) => (
+                        <tr key={r.id} className={`border-b border-stone-800/50 hover:bg-stone-900/40 ${r.status === 'resolved' ? 'opacity-45' : ''}`}>
+                          <td className="py-2.5 pr-3 text-stone-400 font-mono text-xs whitespace-nowrap">{fmtDate(r.created_at)}</td>
+                          <td className="py-2.5 pr-3 text-red-200 text-xs max-w-[180px] break-words">{r.reason || '—'}</td>
+                          <td className="py-2.5 pr-3 text-stone-300 text-xs max-w-[260px] break-words">{r.post_body || <span className="text-stone-600 italic">(no text)</span>}</td>
+                          <td className="py-2.5 pr-3 text-xs">{r.status === 'resolved' ? <span className="text-emerald-300">resolved</span> : <span className="text-amber-300">open</span>}</td>
+                          <td className="py-2.5">
+                            <div className="flex gap-1.5 flex-wrap">
+                              {r.status !== 'resolved' && <button onClick={() => deleteReportedPost(r)} className="px-2.5 py-1 bg-red-800/40 border border-red-500/50 text-red-100 text-[10px] uppercase tracking-widest font-bold rounded hover:bg-red-700/50 transition">Delete post</button>}
+                              {r.status !== 'resolved' && r.reported_user_id && <button onClick={() => banFromReport(r)} className="px-2.5 py-1 bg-red-900/40 border border-red-500/40 text-red-200 text-[10px] uppercase tracking-widest font-bold rounded hover:bg-red-800/50 transition">Ban</button>}
+                              {r.status !== 'resolved' && <button onClick={() => resolveReport(r)} className="px-2.5 py-1 bg-black/60 border border-stone-600/50 text-stone-300 text-[10px] uppercase tracking-widest font-bold rounded hover:bg-stone-800/50 transition">Dismiss</button>}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+
+              <div className="text-yellow-100 font-bold text-sm uppercase tracking-widest mb-3">Banned accounts</div>
+              <div className="overflow-x-auto">
+                {bans.length === 0 ? (
+                  <div className="text-stone-500 text-sm py-6 text-center">No banned accounts.</div>
+                ) : (
+                  <table className="min-w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-stone-500 text-[10px] uppercase tracking-widest border-b border-stone-700/50">
+                        <th className="py-2 pr-3">Banned</th>
+                        <th className="py-2 pr-3">Account</th>
+                        <th className="py-2 pr-3">Reason</th>
+                        <th className="py-2"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {bans.map((b) => (
+                        <tr key={b.user_id} className="border-b border-stone-800/50 hover:bg-stone-900/40">
+                          <td className="py-2.5 pr-3 text-stone-400 font-mono text-xs whitespace-nowrap">{fmtDate(b.created_at)}</td>
+                          <td className="py-2.5 pr-3 text-yellow-100">{b.display_name || (b.handle ? '@' + b.handle : '') || <span className="font-mono text-stone-400 text-xs">{(b.user_id || '').slice(0, 12)}…</span>}</td>
+                          <td className="py-2.5 pr-3 text-stone-300 text-xs max-w-[260px] break-words">{b.reason || '—'}</td>
+                          <td className="py-2.5"><button onClick={() => unban(b)} className="px-3 py-1 bg-emerald-800/30 border border-emerald-500/50 text-emerald-100 text-[10px] uppercase tracking-widest font-bold rounded hover:bg-emerald-700/40 transition">Unban</button></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* ===== Users tab ===== */}
           {tab === 'users' && (
@@ -6929,6 +7060,7 @@ const ebClipThumb = (c) => {
 };
 const EB_INK = { bg: '#14161B', card: '#191C23', line: '#262B34', dim: '#9BA1AB', ember: '#FF6A2B', gold: '#e8d5a8' };
 const ebCard = { background: EB_INK.card, border: '1px solid ' + EB_INK.line, borderRadius: 14 };
+const ebMenuItem = { display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', color: '#EDEFF3', fontSize: 13, fontWeight: 600, padding: '10px 14px', cursor: 'pointer', fontFamily: 'inherit' };
 
 // Pulls the published card catalog + art/sprite maps once, and resolves any
 // in-game id to an image. Same sources the Player Hub uses.
@@ -7141,6 +7273,142 @@ const EbProfileEditor = ({ client, session, p, onClose, onSaved }) => {
   );
 };
 
+// Count a clip play at most once per URL per session (fire-and-forget).
+const EB_VIEWED = new Set();
+function ebCountView(client, url) {
+  if (!client || !url || EB_VIEWED.has(url)) return;
+  EB_VIEWED.add(url);
+  try { client.rpc('eb_clip_view', { p_url: url }); } catch (e) {}
+}
+const ebFmtNum = (n) => {
+  n = Number(n) || 0;
+  if (n >= 1e6) return (n / 1e6).toFixed(n >= 1e7 ? 0 : 1).replace(/\.0$/, '') + 'M';
+  if (n >= 1e3) return (n / 1e3).toFixed(n >= 1e4 ? 0 : 1).replace(/\.0$/, '') + 'K';
+  return String(Math.round(n));
+};
+
+// 📊 CREATOR ANALYTICS — a YouTube-Studio-style dashboard for the profile owner.
+// Every number is pulled from real data: views (eb_clips), likes (eb_post_likes),
+// comments (eb_posts replies), followers over time (eb_follows.created_at), and
+// creator-program earnings (creator_earnings). Owner-only.
+const CreatorAnalytics = ({ client, userId }) => {
+  const [d, setD] = useState(null);
+  useEffect(() => {
+    if (!client || !userId) return;
+    let dead = false;
+    (async () => {
+      const out = { views: 0, likes: 0, comments: 0, followers: 0, gained7: 0, gained30: 0, spark: [], posts: 0, clipCount: 0, cinder: 0, mt: 0, hasEarnings: true, perClip: [] };
+      try {
+        const mp = await client.from('eb_posts').select('id,reply_to').eq('user_id', userId);
+        const rows = mp.data || [];
+        const topIds = rows.filter(r => !r.reply_to).map(r => r.id);
+        const allIds = rows.map(r => r.id);
+        out.posts = topIds.length;
+        if (allIds.length) {
+          const lk = await client.from('eb_post_likes').select('post_id', { count: 'exact', head: true }).in('post_id', allIds);
+          out.likes = lk.count || 0;
+        }
+        if (topIds.length) {
+          const cm = await client.from('eb_posts').select('id', { count: 'exact', head: true }).in('reply_to', topIds).neq('user_id', userId);
+          out.comments = cm.count || 0;
+        }
+        const fl = await client.from('eb_follows').select('created_at').eq('followee_id', userId);
+        const fRows = fl.data || [];
+        out.followers = fRows.length;
+        const now = Date.now();
+        out.gained7 = fRows.filter(r => now - new Date(r.created_at).getTime() <= 7 * 864e5).length;
+        out.gained30 = fRows.filter(r => now - new Date(r.created_at).getTime() <= 30 * 864e5).length;
+        const days = 30, buckets = new Array(days).fill(0);
+        fRows.forEach(r => { const age = Math.floor((now - new Date(r.created_at).getTime()) / 864e5); if (age >= 0 && age < days) buckets[days - 1 - age]++; });
+        let cum = out.followers - buckets.reduce((a, b) => a + b, 0);
+        out.spark = buckets.map(b => (cum += b));
+        const cl = await client.from('eb_clips').select('title,views,url').eq('user_id', userId);
+        const cRows = cl.data || [];
+        out.clipCount = cRows.length;
+        out.views = cRows.reduce((s, c) => s + (c.views | 0), 0);
+        out.perClip = cRows.slice().sort((a, b) => (b.views | 0) - (a.views | 0)).slice(0, 10);
+        try {
+          const er = await client.from('creator_earnings').select('cinder,mt').eq('user_id', userId);
+          if (er.error) throw er.error;
+          (er.data || []).forEach(r => { out.cinder += Number(r.cinder) || 0; out.mt += Number(r.mt) || 0; });
+        } catch (e) { out.hasEarnings = false; }
+      } catch (e) {}
+      if (!dead) setD(out);
+    })();
+    return () => { dead = true; };
+  }, [client, userId]);
+
+  if (!d) return <div style={{ color: EB_INK.dim, padding: 20 }}>Loading analytics…</div>;
+
+  const Kpi = ({ icon, label, value, sub, tone }) => (
+    <div style={{ ...ebCard, padding: '15px 17px', flex: '1 1 150px', minWidth: 140 }}>
+      <div style={{ fontSize: 11.5, color: EB_INK.dim, display: 'flex', alignItems: 'center', gap: 6, letterSpacing: '.04em' }}>{icon} {label}</div>
+      <div style={{ fontSize: 27, fontWeight: 800, marginTop: 6, color: tone || '#EDEFF3' }}>{value}</div>
+      {sub ? <div style={{ fontSize: 11, color: EB_INK.dim, marginTop: 2 }}>{sub}</div> : null}
+    </div>
+  );
+  const spark = d.spark;
+  let sparkEl = null;
+  if (spark.length >= 2) {
+    const w = 600, h = 84, pad = 6, max = Math.max(...spark), min = Math.min(...spark), rng = (max - min) || 1;
+    const pts = spark.map((v, i) => (pad + (i / (spark.length - 1)) * (w - 2 * pad)).toFixed(1) + ',' + (h - pad - ((v - min) / rng) * (h - 2 * pad)).toFixed(1)).join(' ');
+    sparkEl = (
+      <svg viewBox={'0 0 ' + w + ' ' + h} style={{ width: '100%', height: 84, display: 'block' }} preserveAspectRatio="none">
+        <polyline points={pts + ' ' + (w - pad) + ',' + (h - pad) + ' ' + pad + ',' + (h - pad)} fill="rgba(255,106,43,.10)" stroke="none" />
+        <polyline points={pts} fill="none" stroke={EB_INK.ember} strokeWidth="2.5" vectorEffect="non-scaling-stroke" />
+      </svg>
+    );
+  }
+
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
+        <Kpi icon="👁" label="Clip views" value={ebFmtNum(d.views)} sub={d.clipCount + ' clip' + (d.clipCount === 1 ? '' : 's')} />
+        <Kpi icon="♥" label="Likes" value={ebFmtNum(d.likes)} sub="on your posts" tone="#ff8fa0" />
+        <Kpi icon="💬" label="Comments" value={ebFmtNum(d.comments)} sub="received" />
+        <Kpi icon="👥" label="Followers" value={ebFmtNum(d.followers)} sub={(d.gained30 >= 0 ? '+' + d.gained30 : d.gained30) + ' in 30d'} tone={EB_INK.gold} />
+      </div>
+
+      <EbSection title="🔥 Creator Earnings">
+        {!d.hasEarnings && (
+          <div style={{ color: EB_INK.dim, fontSize: 12, marginBottom: 10 }}>Earnings tracking is being set up — run the creator-analytics migration to enable it.</div>
+        )}
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <Kpi icon="🔥" label="Cinder earned" value={ebFmtNum(d.cinder)} sub="from the creator program" tone="#FF8C28" />
+          <Kpi icon="🪙" label="Mythic Token earned" value={ebFmtNum(d.mt)} sub="MT" tone="#b888ff" />
+        </div>
+        <div style={{ color: EB_INK.dim, fontSize: 11.5, marginTop: 10 }}>Earnings are credited by the creator program based on your views, engagement, and payouts. New credits appear here automatically.</div>
+      </EbSection>
+
+      <EbSection title="📈 Followers · last 30 days">
+        {d.followers === 0 ? <EbEmpty>No followers yet — keep posting to grow your audience.</EbEmpty> : (
+          <>
+            {sparkEl}
+            <div style={{ display: 'flex', gap: 20, marginTop: 8, fontSize: 12, color: EB_INK.dim }}>
+              <span><b style={{ color: '#EDEFF3' }}>{d.followers}</b> total</span>
+              <span><b style={{ color: '#7ee2a8' }}>+{d.gained7}</b> this week</span>
+              <span><b style={{ color: '#7ee2a8' }}>+{d.gained30}</b> this month</span>
+            </div>
+          </>
+        )}
+      </EbSection>
+
+      <EbSection title="🎬 Top clips by views" count={d.clipCount}>
+        {d.perClip.length === 0 ? <EbEmpty>No clips yet — share a match highlight to start earning views.</EbEmpty> : (
+          <div>
+            {d.perClip.map((c, i) => (
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, borderTop: i ? '1px solid ' + EB_INK.line : 'none', padding: '9px 0' }}>
+                <div style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 13 }}>{c.title || 'Untitled clip'}</div>
+                <div style={{ color: EB_INK.gold, fontWeight: 700, fontSize: 13, whiteSpace: 'nowrap' }}>{ebFmtNum(c.views | 0)} views</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </EbSection>
+    </div>
+  );
+};
+
 const PlayerProfilePage = ({ client, session, profileKey, onBack, onOpenProfile, embedded }) => {
   const [p, setP] = useState(null);
   const [err, setErr] = useState('');
@@ -7309,6 +7577,7 @@ const PlayerProfilePage = ({ client, session, profileKey, onBack, onOpenProfile,
         {/* ── Tabs ── */}
         <div style={{ display: 'flex', gap: 8, margin: '22px 0 16px', flexWrap: 'wrap' }}>
           <TabBtn id="feed" label="📣 Broadcast" />
+          {p.is_me && <TabBtn id="analytics" label="📊 Analytics" />}
           <TabBtn id="decks" label={'🃏 Decks (' + deckKeys.length + ')'} />
           <TabBtn id="heroes" label="🦸 Heroes" />
           <TabBtn id="clips" label={'🎬 Clips (' + (p.clips || []).length + ')'} />
@@ -7425,6 +7694,10 @@ const PlayerProfilePage = ({ client, session, profileKey, onBack, onOpenProfile,
         )}
 
         {/* ── CLIPS ── */}
+        {tab === 'analytics' && p.is_me && (
+          <CreatorAnalytics client={client} userId={p.user_id} />
+        )}
+
         {tab === 'clips' && (
           <EbSection title="🎬 Short Clips" count={(p.clips || []).length}>
             {(p.clips || []).length === 0
@@ -7432,7 +7705,7 @@ const PlayerProfilePage = ({ client, session, profileKey, onBack, onOpenProfile,
               : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(210px,1fr))', gap: 12 }}>
                   {p.clips.map(c => (
-                    <a key={c.id} href={c.url} target="_blank" rel="noopener noreferrer" style={{ ...ebCard, overflow: 'hidden', textDecoration: 'none', color: 'inherit' }}>
+                    <a key={c.id} href={c.url} target="_blank" rel="noopener noreferrer" onClick={() => ebCountView(client, c.url)} style={{ ...ebCard, overflow: 'hidden', textDecoration: 'none', color: 'inherit' }}>
                       {(() => { const th = ebClipThumb(c); return (
                         <div style={{ height: 118, background: th ? `center/cover no-repeat url("${th}")` : '#0F1116', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>{th ? '▶' : '🎬'}</div>
                       ); })()}
@@ -7564,6 +7837,8 @@ const EbTrainingPage = ({ client, session, isAdmin }) => {
   const [docs, setDocs] = useState(null);
   const [form, setForm] = useState(null);   // null = closed, else the row being edited
   const [busy, setBusy] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [viewing, setViewing] = useState(null); // doc being read in the inline PDF viewer
   const [msg, setMsg] = useState('');
 
   const load = async () => {
@@ -7598,6 +7873,29 @@ const EbTrainingPage = ({ client, session, isAdmin }) => {
   const del = async (d) => {
     if (!window.confirm('Delete "' + d.title + '"?')) return;
     try { await client.from('eb_docs').delete().eq('id', d.id); await load(); } catch (e) {}
+  };
+
+  // Upload a PDF straight from the admin's device to public Storage, then point
+  // the form's url at the resulting public link. Players read it via that url.
+  const uploadDoc = async (file) => {
+    if (!file || !session) return;
+    const isPdf = /pdf/i.test(file.type) || /\.pdf$/i.test(file.name || '');
+    if (!isPdf) { setMsg('Please choose a PDF file.'); return; }
+    if (file.size > 200 * 1024 * 1024) { setMsg('PDF is too large (200 MB max).'); return; }
+    setUploading(true); setMsg('');
+    try {
+      const safe = (file.name || 'document.pdf').replace(/[^A-Za-z0-9._-]/g, '_').slice(-60);
+      const path = session.user.id + '/' + Date.now() + '_' + safe;
+      const up = await client.storage.from('training-docs').upload(path, file, { contentType: 'application/pdf', upsert: false });
+      if (up && up.error) throw new Error(up.error.message);
+      const pub = client.storage.from('training-docs').getPublicUrl(path);
+      const url = (pub && pub.data && pub.data.publicUrl) || '';
+      setForm(f => ({ ...(f || {}), kind: 'pdf', url, _fileName: file.name }));
+    } catch (e) {
+      const m = String((e && e.message) || '');
+      setMsg('Upload failed — ' + m.slice(0, 90) + (/bucket|not found/i.test(m) ? ' (create the training-docs bucket — run the SQL)' : ''));
+    }
+    setUploading(false);
   };
 
   // YouTube links get a real thumbnail so the shelf reads like a video library.
@@ -7651,8 +7949,32 @@ const EbTrainingPage = ({ client, session, isAdmin }) => {
               <input type="number" value={form.sort_order} onChange={(e) => setForm({ ...form, sort_order: e.target.value })} style={inp} />
             </div>
           </div>
-          <div style={lbl}>{form.kind === 'video' ? 'YouTube URL' : form.kind === 'pdf' ? 'PDF URL' : 'URL'}</div>
-          <input value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} placeholder="https://…" style={inp} />
+          {form.kind === 'pdf' ? (
+            <>
+              <div style={lbl}>PDF file</div>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                <label style={{ cursor: uploading ? 'wait' : 'pointer', background: EB_INK.gold, color: '#14060A', borderRadius: 8, padding: '9px 16px', fontWeight: 700, fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <input type="file" accept="application/pdf,.pdf" style={{ display: 'none' }} disabled={uploading}
+                    onChange={(e) => { const f = e.target.files && e.target.files[0]; if (f) uploadDoc(f); e.target.value = ''; }} />
+                  {uploading ? '⏳ Uploading…' : (form.url ? '📄 Replace PDF' : '📄 Upload PDF from device')}
+                </label>
+                {form.url ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12, color: EB_INK.dim, minWidth: 0 }}>
+                    <span style={{ color: '#5FD08A', fontWeight: 700 }}>✓ attached</span>
+                    <a href={form.url} target="_blank" rel="noopener noreferrer" style={{ color: EB_INK.gold, textDecoration: 'underline', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 220 }}>{form._fileName || 'preview'}</a>
+                    <button onClick={() => setForm({ ...form, url: '', _fileName: '' })} title="Remove" style={{ background: 'none', border: '1px solid ' + EB_INK.line, color: EB_INK.dim, borderRadius: 6, padding: '2px 8px', cursor: 'pointer' }}>×</button>
+                  </span>
+                ) : null}
+              </div>
+              <div style={{ ...lbl, marginTop: 12 }}>…or paste a PDF link</div>
+              <input value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value, _fileName: '' })} placeholder="https://…" style={inp} />
+            </>
+          ) : (
+            <>
+              <div style={lbl}>{form.kind === 'video' ? 'YouTube URL' : 'URL'}</div>
+              <input value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} placeholder="https://…" style={inp} />
+            </>
+          )}
           <label style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 12, fontSize: 13, color: EB_INK.dim }}>
             <input type="checkbox" checked={form.published !== false} onChange={(e) => setForm({ ...form, published: e.target.checked })} />
             Published (visible to players)
@@ -7676,15 +7998,24 @@ const EbTrainingPage = ({ client, session, isAdmin }) => {
                 return (
                   <div key={d.id} style={{ ...ebCard, overflow: 'hidden', display: 'flex', flexDirection: 'column',
                     opacity: d.published === false ? .55 : 1 }}>
-                    <a href={d.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', color: 'inherit' }}>
-                      <div style={{ height: 116, background: yt ? `center/cover no-repeat url("https://img.youtube.com/vi/${yt}/hqdefault.jpg")` : '#0F1116',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30 }}>{yt ? '▶' : icon(d)}</div>
-                      <div style={{ padding: '12px 14px' }}>
-                        <div style={{ fontWeight: 700, fontSize: 14 }}>{d.title}</div>
-                        {d.summary ? <div style={{ color: EB_INK.dim, fontSize: 12, marginTop: 4, lineHeight: 1.5 }}>{d.summary}</div> : null}
-                        {d.published === false ? <div style={{ color: '#F0655A', fontSize: 11, marginTop: 6, fontWeight: 700 }}>DRAFT — hidden from players</div> : null}
-                      </div>
-                    </a>
+                    {(() => {
+                      const body = (
+                        <>
+                          <div style={{ height: 116, background: yt ? `center/cover no-repeat url("https://img.youtube.com/vi/${yt}/hqdefault.jpg")` : '#0F1116',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30 }}>{yt ? '▶' : icon(d)}</div>
+                          <div style={{ padding: '12px 14px' }}>
+                            <div style={{ fontWeight: 700, fontSize: 14 }}>{d.title}</div>
+                            {d.summary ? <div style={{ color: EB_INK.dim, fontSize: 12, marginTop: 4, lineHeight: 1.5 }}>{d.summary}</div> : null}
+                            {d.kind === 'pdf' ? <div style={{ color: EB_INK.gold, fontSize: 11, marginTop: 6, fontWeight: 700 }}>📖 Tap to read</div> : null}
+                            {d.published === false ? <div style={{ color: '#F0655A', fontSize: 11, marginTop: 6, fontWeight: 700 }}>DRAFT — hidden from players</div> : null}
+                          </div>
+                        </>
+                      );
+                      // PDFs open in the in-app reader; videos/links open in a new tab.
+                      return d.kind === 'pdf'
+                        ? <div onClick={() => setViewing(d)} style={{ cursor: 'pointer', color: 'inherit' }}>{body}</div>
+                        : <a href={d.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', color: 'inherit' }}>{body}</a>;
+                    })()}
                     {isAdmin && (
                       <div style={{ display: 'flex', gap: 8, padding: '0 14px 12px' }}>
                         <button onClick={() => { setForm(d); setMsg(''); }} style={{ background: 'none', border: '1px solid ' + EB_INK.line, color: EB_INK.gold, borderRadius: 7, padding: '5px 11px', fontSize: 11, cursor: 'pointer' }}>Edit</button>
@@ -7697,6 +8028,20 @@ const EbTrainingPage = ({ client, session, isAdmin }) => {
             </div>
           </div>
         ))}
+
+      {/* In-app PDF reader — players read guides without leaving the site. */}
+      {viewing && (
+        <div onClick={() => setViewing(null)} style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,.9)', display: 'flex', flexDirection: 'column', padding: 'clamp(8px,3vw,32px)' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ ...ebCard, flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', maxWidth: 1100, width: '100%', margin: '0 auto' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderBottom: '1px solid ' + EB_INK.line }}>
+              <div style={{ fontWeight: 800, fontSize: 15, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>📄 {viewing.title}</div>
+              <a href={viewing.url} target="_blank" rel="noopener noreferrer" style={{ color: EB_INK.gold, fontSize: 12, fontWeight: 700, textDecoration: 'none', border: '1px solid ' + EB_INK.line, borderRadius: 8, padding: '6px 12px' }}>Open ↗</a>
+              <button onClick={() => setViewing(null)} style={{ background: 'none', border: '1px solid ' + EB_INK.line, color: '#EDEFF3', borderRadius: 8, padding: '6px 12px', fontWeight: 700, cursor: 'pointer' }}>Close ✕</button>
+            </div>
+            <iframe src={viewing.url} title={viewing.title} style={{ flex: 1, width: '100%', border: 'none', background: '#525659' }} />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -7755,6 +8100,36 @@ const EbAlertsPage = ({ client, session, onOpenProfile, onSignIn }) => {
 // 📡 THE FEED — Emergency Broadcast's front page. Everyone's strategy posts
 // and clips in one stream. Public: signed-out visitors can read it, which is
 // the point (it's the shop window for the game).
+// ── Broadcast social layer (Phase 2): author cache, comment tree, reposts ──
+// eb_feed / eb_replies are fixed server RPCs, so comment media + nesting are
+// read straight from eb_posts (public-read) and authors are stitched in from
+// eb_profiles (avatar/handle) + user_profiles (display name).
+const EB_PROF_CACHE = {};
+async function ebEnrichAuthors(client, ids) {
+  const need = [...new Set((ids || []).filter(id => id && !EB_PROF_CACHE[id]))];
+  if (need.length) {
+    try {
+      const [pf, up] = await Promise.all([
+        client.from('eb_profiles').select('user_id,handle,avatar_url').in('user_id', need),
+        client.from('user_profiles').select('user_id,display_name').in('user_id', need),
+      ]);
+      const nameById = {}; ((pf && up && up.data) || []).forEach(r => { nameById[r.user_id] = r.display_name; });
+      const profById = {}; ((pf && pf.data) || []).forEach(r => { profById[r.user_id] = r; });
+      need.forEach(id => {
+        const p = profById[id] || {};
+        EB_PROF_CACHE[id] = { author: nameById[id] || (p.handle ? '@' + p.handle : 'Survivor'), handle: p.handle || null, avatar_url: p.avatar_url || null };
+      });
+    } catch (e) {}
+    need.forEach(id => { if (!EB_PROF_CACHE[id]) EB_PROF_CACHE[id] = { author: 'Survivor', handle: null, avatar_url: null }; });
+  }
+  const out = {};
+  (ids || []).forEach(id => { if (id) out[id] = EB_PROF_CACHE[id] || { author: 'Survivor', handle: null, avatar_url: null }; });
+  return out;
+}
+const ebIsImageUrl = (u) => /\.(png|jpe?g|gif|webp|avif|bmp)(\?|$)/i.test(String(u || '')) || /\/storage\/v1\/object\/public\/feed-media\//.test(String(u || ''));
+const ebIsVideoUrl = (u) => /\.(webm|mp4|mov|m4v)(\?|$)/i.test(String(u || '')) || /\/storage\/v1\/object\/public\/battle-clips\//.test(String(u || ''));
+const ebRepostId = (it) => { const m = String((it && it.clip_url) || '').match(/^repost:(.+)$/); return m ? m[1] : null; };
+
 const EbFeedPage = ({ client, session, onBack, onOpenProfile, onSignIn, embedded }) => {
   const [items, setItems] = useState(null);
   const [draft, setDraft] = useState('');
@@ -7763,30 +8138,97 @@ const EbFeedPage = ({ client, session, onBack, onOpenProfile, onSignIn, embedded
   // Threads are lazy: a post's replies are only fetched when it's expanded,
   // so the feed stays one query no matter how deep the conversations get.
   const [open_, setOpen] = useState({});
-  const [threads, setThreads] = useState({});
-  const [replyDraft, setReplyDraft] = useState({});
+  const [threads, setThreads] = useState({});   // topId -> flat array of enriched comment nodes
+  const [replyDraft, setReplyDraft] = useState({});  // topId -> reply text
+  const [replyTo, setReplyTo] = useState({});    // topId -> node id being replied to (default = topId)
+  const [replyMedia, setReplyMedia] = useState({}); // topId -> uploaded GIF/photo url
+  const [replyUp, setReplyUp] = useState({});    // topId -> uploading?
+  const [repostOrig, setRepostOrig] = useState({}); // origId -> enriched original post (or {missing:true})
 
+  // Pull a whole thread in one query via thread_root; fall back to a flat,
+  // single-level read if the column hasn't been migrated yet.
+  const loadThread = async (topId) => {
+    let rows = null;
+    try {
+      const r = await client.from('eb_posts').select('id,body,clip_url,reply_to,user_id,created_at').eq('thread_root', topId).order('created_at', { ascending: true });
+      if (r.error) throw r.error;
+      rows = r.data || [];
+    } catch (e) {
+      try {
+        const r2 = await client.from('eb_posts').select('id,body,clip_url,reply_to,user_id,created_at').eq('reply_to', topId).order('created_at', { ascending: true });
+        rows = r2.data || [];
+      } catch (e2) { rows = []; }
+    }
+    const authors = await ebEnrichAuthors(client, rows.map(r => r.user_id));
+    const nodes = rows.map(r => ({
+      id: r.id, body: r.body, clip_url: r.clip_url, reply_to: r.reply_to, author_id: r.user_id, at: r.created_at,
+      author: authors[r.user_id].author, handle: authors[r.user_id].handle, avatar_url: authors[r.user_id].avatar_url,
+    }));
+    setThreads(t => ({ ...t, [topId]: nodes }));
+  };
   const toggleThread = async (it) => {
     const isOpen = !!open_[it.id];
     setOpen({ ...open_, [it.id]: !isOpen });
     if (isOpen || threads[it.id]) return;
-    try {
-      const { data } = await client.rpc('eb_replies', { p_post: it.id });
-      setThreads(t => ({ ...t, [it.id]: Array.isArray(data) ? data : [] }));
-    } catch (e) { setThreads(t => ({ ...t, [it.id]: [] })); }
+    await loadThread(it.id);
   };
-  const sendReply = async (it) => {
-    const body = (replyDraft[it.id] || '').trim();
-    if (!body || !session) return;
-    setReplyDraft({ ...replyDraft, [it.id]: '' });
+  const sendReply = async (top) => {
+    const topId = top.id;
+    const text = (replyDraft[topId] || '').trim();
+    const media = replyMedia[topId] || '';
+    if ((!text && !media) || !session) return;
+    const targetId = replyTo[topId] || topId;   // reply-to-comment, else reply-to-post
+    const base = { user_id: session.user.id, body: text.slice(0, 1000), kind: 'post', reply_to: targetId };
+    if (media) base.clip_url = media;
+    setReplyDraft({ ...replyDraft, [topId]: '' });
+    setReplyMedia({ ...replyMedia, [topId]: '' });
+    setReplyTo({ ...replyTo, [topId]: topId });
     try {
-      await client.from('eb_posts').insert({
-        user_id: session.user.id, body: body.slice(0, 1000), kind: 'post', reply_to: it.id,
+      let r = await client.from('eb_posts').insert({ ...base, thread_root: topId });
+      if (r.error && /thread_root/i.test(r.error.message || '')) r = await client.from('eb_posts').insert(base);
+      if (r.error) { alert(/banned/i.test(r.error.message || '') ? 'You are banned from posting.' : ('Could not reply — ' + r.error.message)); return; }
+      await loadThread(topId);
+      setItems(list => (list || []).map(x => x.id === topId ? { ...x, replies: (x.replies | 0) + 1 } : x));
+    } catch (e) {}
+  };
+  const deleteComment = async (topId, node) => {
+    if (!window.confirm('Delete this comment?')) return;
+    try {
+      let q = client.from('eb_posts').delete().eq('id', node.id);
+      if (!isAdmin) q = q.eq('user_id', myId);
+      const { error } = await q;
+      if (error) { alert('Could not delete — ' + error.message); return; }
+      await loadThread(topId);
+    } catch (e) {}
+  };
+  const uploadReplyMedia = async (topId, file) => {
+    if (!file || !session) return;
+    if (!/^image\//.test(file.type)) { alert('Please choose an image or GIF.'); return; }
+    if (file.size > 8 * 1024 * 1024) { alert('Image is too large (8 MB max).'); return; }
+    setReplyUp(u => ({ ...u, [topId]: true }));
+    try {
+      const ext = (file.name.split('.').pop() || 'png').toLowerCase().replace(/[^a-z0-9]/g, '') || 'png';
+      const path = myId + '/' + Date.now() + '.' + ext;
+      const up = await client.storage.from('feed-media').upload(path, file, { contentType: file.type, upsert: false });
+      if (up && up.error) throw new Error(up.error.message);
+      const pub = client.storage.from('feed-media').getPublicUrl(path);
+      setReplyMedia(m => ({ ...m, [topId]: (pub && pub.data && pub.data.publicUrl) || '' }));
+    } catch (e) { alert('Upload failed — ' + String((e && e.message) || '').slice(0, 80)); }
+    setReplyUp(u => ({ ...u, [topId]: false }));
+  };
+  // Repost: a normal post whose clip_url carries a "repost:<origId>" marker, so
+  // eb_feed (which returns clip_url) surfaces it with zero RPC changes.
+  const doRepost = async (it) => {
+    if (!session) { onSignIn && onSignIn(); return; }
+    const origId = ebRepostId(it) || it.id;   // reposting a repost quotes the source
+    const c = window.prompt('Add a comment to your repost? (optional — leave blank to just repost)', '');
+    if (c === null) return;
+    try {
+      const { error } = await client.from('eb_posts').insert({
+        user_id: session.user.id, body: (c || '').slice(0, 1000), kind: 'post', clip_url: 'repost:' + origId,
       });
-      const { data } = await client.rpc('eb_replies', { p_post: it.id });
-      setThreads(t => ({ ...t, [it.id]: Array.isArray(data) ? data : [] }));
-      // Bump the visible count without refetching the whole feed.
-      setItems(list => (list || []).map(x => x.id === it.id ? { ...x, replies: (x.replies | 0) + 1 } : x));
+      if (error) { alert(/banned/i.test(error.message || '') ? 'You are banned from posting.' : ('Could not repost — ' + error.message)); return; }
+      await load(null);
     } catch (e) {}
   };
 
@@ -7799,13 +8241,40 @@ const EbFeedPage = ({ client, session, onBack, onOpenProfile, onSignIn, embedded
   };
   useEffect(() => { load(null); }, [client, session]);
 
+  // Resolve the original post behind every repost marker in the visible feed.
+  useEffect(() => {
+    const ids = [...new Set((items || []).map(ebRepostId).filter(Boolean))].filter(id => !repostOrig[id]);
+    if (!ids.length) return;
+    let dead = false;
+    (async () => {
+      try {
+        const { data } = await client.from('eb_posts').select('id,body,clip_url,kind,user_id,created_at').in('id', ids);
+        const authors = await ebEnrichAuthors(client, (data || []).map(r => r.user_id));
+        if (dead) return;
+        setRepostOrig(prev => {
+          const next = { ...prev };
+          (data || []).forEach(r => { next[r.id] = { ...r, at: r.created_at, author_id: r.user_id, author: authors[r.user_id].author, handle: authors[r.user_id].handle, avatar_url: authors[r.user_id].avatar_url }; });
+          ids.forEach(id => { if (!next[id]) next[id] = { missing: true }; });  // deleted original — don't refetch
+          return next;
+        });
+      } catch (e) {}
+    })();
+    return () => { dead = true; };
+  }, [items]);
+
   const post = async () => {
     const body = draft.trim();
-    if (!body || !session) return;
+    if ((!body && !mediaUrl) || !session) return;
     setBusy(true);
     try {
-      await client.from('eb_posts').insert({ user_id: session.user.id, body: body.slice(0, 1000), kind: 'strategy' });
-      setDraft(''); await load(null);
+      // An image/GIF rides in clip_url with kind 'clip' so the feed (which already
+      // returns clip_url) renders it inline — no server RPC change needed.
+      const row = mediaUrl
+        ? { user_id: session.user.id, body: (body || '').slice(0, 1000), kind: 'clip', clip_url: mediaUrl }
+        : { user_id: session.user.id, body: body.slice(0, 1000), kind: 'strategy' };
+      const { error } = await client.from('eb_posts').insert(row);
+      if (error) { alert(/eb_bans|banned|policy/i.test(error.message || '') ? 'You are banned from posting.' : ('Could not post — ' + error.message)); setBusy(false); return; }
+      setDraft(''); setMediaUrl(''); await load(null);
     } catch (e) {}
     setBusy(false);
   };
@@ -7819,6 +8288,86 @@ const EbFeedPage = ({ client, session, onBack, onOpenProfile, onSignIn, embedded
       else await client.from('eb_post_likes').insert({ post_id: it.id, user_id: session.user.id });
     } catch (e) {}
   };
+
+  // ── Moderation + ownership ──
+  const myId = session && session.user && session.user.id;
+  const isAdmin = isAdminEmail(session && session.user && session.user.email);
+  const [menuFor, setMenuFor] = useState(null);        // post id whose ⋯ menu is open
+  const [editId, setEditId] = useState(null);          // post id being edited
+  const [editText, setEditText] = useState('');
+  const [mediaUrl, setMediaUrl] = useState('');        // composer image/gif URL
+  const [uploading, setUploading] = useState(false);
+
+  const isOwnerOf = (it) => myId && (it.author_id === myId);
+
+  const deletePost = async (it) => {
+    if (!window.confirm(isOwnerOf(it) ? 'Delete your post?' : 'Delete this post as admin?')) return;
+    setMenuFor(null);
+    try {
+      let q = client.from('eb_posts').delete().eq('id', it.id);
+      if (!isAdmin) q = q.eq('user_id', myId);       // owners can only delete their own
+      const { error } = await q;
+      if (error) { alert('Could not delete — ' + error.message); return; }
+      setItems(list => (list || []).filter(x => !(x.id === it.id && x.kind === it.kind)));
+    } catch (e) {}
+  };
+  const startEdit = (it) => { setMenuFor(null); setEditId(it.id); setEditText(it.body || ''); };
+  const saveEdit = async (it) => {
+    const body = (editText || '').trim();
+    if (!body) return;
+    try {
+      const { error } = await client.from('eb_posts').update({ body: body.slice(0, 1000) }).eq('id', it.id).eq('user_id', myId);
+      if (error) { alert('Could not save — ' + error.message); return; }
+      setItems(list => (list || []).map(x => x.id === it.id ? { ...x, body } : x));
+      setEditId(null);
+    } catch (e) {}
+  };
+  const reportPost = async (it) => {
+    if (!session) { onSignIn && onSignIn(); return; }
+    const reason = window.prompt('Report this post — why? (spam, harassment, etc.)', '');
+    if (reason === null) return;
+    setMenuFor(null);
+    try {
+      const { error } = await client.from('eb_reports').insert({
+        post_id: it.id, reporter_id: myId, reported_user_id: it.author_id || null,
+        reason: String(reason || '').slice(0, 300), post_body: String(it.body || '').slice(0, 300),
+      });
+      if (error && !/duplicate|unique/i.test(error.message || '')) { alert('Could not report — ' + error.message); return; }
+      alert('Thanks — the report was sent to the admins.');
+    } catch (e) {}
+  };
+  const banUser = async (it) => {
+    if (!isAdmin || !it.author_id) return;
+    if (!window.confirm('Ban ' + (it.author || 'this user') + '? They will not be able to post. You can unban them later in the admin panel.')) return;
+    setMenuFor(null);
+    try {
+      const { error } = await client.from('eb_bans').upsert({
+        user_id: it.author_id, banned_by: myId, reason: 'Banned from a feed post', handle: it.handle || null, display_name: it.author || null,
+      }, { onConflict: 'user_id' });
+      if (error) { alert('Could not ban — ' + error.message + (/relation|does not exist/i.test(error.message) ? ' (run the eb_bans SQL migration)' : '')); return; }
+      alert((it.author || 'User') + ' is banned. Their posts stay until you delete them.');
+    } catch (e) {}
+  };
+
+  // Upload a photo/GIF for a post. Reuses the clip_url field the feed already
+  // returns, so images render without any server RPC change.
+  const uploadMedia = async (file) => {
+    if (!file || !session) return;
+    if (!/^image\//.test(file.type)) { alert('Please choose an image or GIF.'); return; }
+    if (file.size > 8 * 1024 * 1024) { alert('Image is too large (8 MB max).'); return; }
+    setUploading(true);
+    try {
+      const ext = (file.name.split('.').pop() || 'png').toLowerCase().replace(/[^a-z0-9]/g, '') || 'png';
+      const path = myId + '/' + Date.now() + '.' + ext;
+      const up = await client.storage.from('feed-media').upload(path, file, { contentType: file.type, upsert: false });
+      if (up && up.error) throw new Error(up.error.message);
+      const pub = client.storage.from('feed-media').getPublicUrl(path);
+      setMediaUrl((pub && pub.data && pub.data.publicUrl) || '');
+    } catch (e) {
+      alert('Upload failed — ' + String((e && e.message) || '').slice(0, 80) + (/bucket|not found/i.test(String(e && e.message)) ? ' (create the feed-media storage bucket — see SQL)' : ''));
+    }
+    setUploading(false);
+  };
   const when = (iso) => {
     const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
     if (s < 60) return 'just now';
@@ -7826,6 +8375,34 @@ const EbFeedPage = ({ client, session, onBack, onOpenProfile, onSignIn, embedded
     if (s < 86400) return Math.floor(s / 3600) + 'h ago';
     if (s < 604800) return Math.floor(s / 86400) + 'd ago';
     return new Date(iso).toLocaleDateString();
+  };
+
+  // One comment (and its nested replies) inside an open thread.
+  const renderCommentNode = (topId, node, byParent, depth) => {
+    const kids = byParent[node.id] || [];
+    const canMod = session && (node.author_id === myId || isAdmin);
+    const img = ebIsImageUrl(node.clip_url) ? node.clip_url : null;
+    return (
+      <div key={node.id} style={{ marginLeft: depth ? 12 : 0, borderLeft: depth ? '2px solid ' + EB_INK.line : 'none', paddingLeft: depth ? 10 : 0, marginTop: 10 }}>
+        <div style={{ display: 'flex', gap: 9, alignItems: 'flex-start' }}>
+          <button onClick={() => onOpenProfile(node.handle || node.author_id)} style={{
+            width: 28, height: 28, borderRadius: 7, border: 'none', cursor: 'pointer', flexShrink: 0,
+            background: node.avatar_url ? `center/cover no-repeat url("${node.avatar_url}")` : 'linear-gradient(140deg,#FF6A2B,#7a2d10)',
+            color: '#14060A', fontWeight: 800, fontSize: 12,
+          }}>{node.avatar_url ? '' : String(node.author || '?').slice(0, 1).toUpperCase()}</button>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div style={{ fontSize: 12.5 }}><b>{node.author}</b> <span style={{ color: EB_INK.dim }}>{when(node.at)}</span></div>
+            {node.body ? <div style={{ fontSize: 13.5, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{node.body}</div> : null}
+            {img ? <img src={img} alt="" loading="lazy" style={{ maxWidth: '100%', maxHeight: 240, borderRadius: 8, marginTop: 6, display: 'block' }} /> : null}
+            <div style={{ display: 'flex', gap: 14, marginTop: 4 }}>
+              {session && <button onClick={() => { setReplyTo(r => ({ ...r, [topId]: node.id })); setReplyDraft(d => ({ ...d, [topId]: d[topId] || '' })); }} style={{ background: 'none', border: 'none', color: EB_INK.dim, fontSize: 11.5, fontWeight: 700, cursor: 'pointer', padding: 0 }}>↩ Reply</button>}
+              {canMod && <button onClick={() => deleteComment(topId, node)} style={{ background: 'none', border: 'none', color: '#F0655A', fontSize: 11.5, fontWeight: 700, cursor: 'pointer', padding: 0 }}>Delete</button>}
+            </div>
+          </div>
+        </div>
+        {kids.map(k => renderCommentNode(topId, k, byParent, depth + 1))}
+      </div>
+    );
   };
 
   return (
@@ -7840,9 +8417,22 @@ const EbFeedPage = ({ client, session, onBack, onOpenProfile, onSignIn, embedded
             <textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={3}
               placeholder="Share a strategy, a deck tech, a callout…"
               style={{ width: '100%', background: '#0F1116', border: '1px solid ' + EB_INK.line, borderRadius: 10, color: '#EDEFF3', padding: 12, fontSize: 14, resize: 'vertical', fontFamily: 'inherit' }} />
+            {mediaUrl && (
+              <div style={{ position: 'relative', marginTop: 10, display: 'inline-block' }}>
+                <img src={mediaUrl} alt="attachment" style={{ maxHeight: 180, maxWidth: '100%', borderRadius: 10, display: 'block' }} />
+                <button onClick={() => setMediaUrl('')} title="Remove image" style={{ position: 'absolute', top: 6, right: 6, width: 26, height: 26, borderRadius: 6, background: 'rgba(0,0,0,.7)', border: '1px solid ' + EB_INK.line, color: '#fff', cursor: 'pointer', fontWeight: 700 }}>×</button>
+              </div>
+            )}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
-              <span style={{ color: EB_INK.dim, fontSize: 12 }}>{draft.length}/1000</span>
-              <button onClick={post} disabled={busy || !draft.trim()} style={{ background: EB_INK.ember, color: '#14060A', border: 'none', borderRadius: 9, padding: '9px 20px', fontWeight: 700, fontSize: 13, cursor: 'pointer', opacity: (busy || !draft.trim()) ? .5 : 1 }}>Broadcast</button>
+              <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                <label title="Add a photo or GIF" style={{ cursor: uploading ? 'wait' : 'pointer', color: EB_INK.gold, fontSize: 13, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                  <input type="file" accept="image/*,image/gif" style={{ display: 'none' }} disabled={uploading}
+                    onChange={(e) => { const f = e.target.files && e.target.files[0]; if (f) uploadMedia(f); e.target.value = ''; }} />
+                  {uploading ? '⏳ Uploading…' : '🖼 Photo / GIF'}
+                </label>
+                <span style={{ color: EB_INK.dim, fontSize: 12 }}>{draft.length}/1000</span>
+              </div>
+              <button onClick={post} disabled={busy || uploading || (!draft.trim() && !mediaUrl)} style={{ background: EB_INK.ember, color: '#14060A', border: 'none', borderRadius: 9, padding: '9px 20px', fontWeight: 700, fontSize: 13, cursor: 'pointer', opacity: (busy || uploading || (!draft.trim() && !mediaUrl)) ? .5 : 1 }}>Broadcast</button>
             </div>
           </div>
         ) : (
@@ -7867,19 +8457,90 @@ const EbFeedPage = ({ client, session, onBack, onOpenProfile, onSignIn, embedded
                     {it.handle ? '@' + it.handle + ' · ' : ''}{when(it.at)}{it.kind === 'clip' ? ' · 🎬 clip' : ''}
                   </div>
                 </div>
+                {session && (
+                  <div style={{ position: 'relative', flexShrink: 0 }}>
+                    <button onClick={() => setMenuFor(menuFor === it.id ? null : it.id)} title="More" style={{ background: 'none', border: 'none', cursor: 'pointer', color: EB_INK.dim, fontSize: 20, lineHeight: 1, padding: '2px 6px', borderRadius: 6 }}>⋯</button>
+                    {menuFor === it.id && (
+                      <>
+                        <div onClick={() => setMenuFor(null)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
+                        <div style={{ position: 'absolute', top: 28, right: 0, zIndex: 41, background: '#12151C', border: '1px solid ' + EB_INK.line, borderRadius: 10, minWidth: 168, overflow: 'hidden', boxShadow: '0 12px 34px rgba(0,0,0,.5)' }}>
+                          {isOwnerOf(it) && (
+                            <button onClick={() => { setMenuFor(null); startEdit(it); }} style={ebMenuItem}>✏️ Edit caption</button>
+                          )}
+                          {(isOwnerOf(it) || isAdmin) && (
+                            <button onClick={() => { setMenuFor(null); deletePost(it); }} style={{ ...ebMenuItem, color: '#ff7a7a' }}>🗑 Delete post{isAdmin && !isOwnerOf(it) ? ' (admin)' : ''}</button>
+                          )}
+                          {isAdmin && !isOwnerOf(it) && (
+                            <button onClick={() => { setMenuFor(null); banUser(it); }} style={{ ...ebMenuItem, color: '#ff7a7a' }}>⛔ Ban account</button>
+                          )}
+                          {!isOwnerOf(it) && (
+                            <button onClick={() => { setMenuFor(null); reportPost(it); }} style={ebMenuItem}>🚩 Report post</button>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
 
-              {it.kind === 'clip' ? (
+              {editId === it.id ? (
+                <div style={{ marginBottom: 8 }}>
+                  <textarea value={editText} onChange={(e) => setEditText(e.target.value)} rows={3} autoFocus
+                    style={{ width: '100%', background: '#0F1116', border: '1px solid ' + EB_INK.line, borderRadius: 10, color: '#EDEFF3', padding: 11, fontSize: 14, resize: 'vertical', fontFamily: 'inherit' }} />
+                  <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                    <button onClick={() => saveEdit(it)} style={{ background: EB_INK.ember, color: '#14060A', border: 'none', borderRadius: 8, padding: '7px 16px', fontWeight: 700, fontSize: 12.5, cursor: 'pointer' }}>Save</button>
+                    <button onClick={() => { setEditId(null); setEditText(''); }} style={{ background: 'transparent', color: EB_INK.dim, border: '1px solid ' + EB_INK.line, borderRadius: 8, padding: '7px 16px', fontWeight: 700, fontSize: 12.5, cursor: 'pointer' }}>Cancel</button>
+                  </div>
+                </div>
+              ) : ebRepostId(it) ? (
+                (() => {
+                  const orig = repostOrig[ebRepostId(it)];
+                  const oImg = orig && !orig.missing && ebIsImageUrl(orig.clip_url) ? orig.clip_url : null;
+                  const oVid = orig && !orig.missing && ebIsVideoUrl(orig.clip_url) ? orig.clip_url : null;
+                  return (
+                    <div style={{ marginBottom: 8 }}>
+                      <div style={{ color: EB_INK.dim, fontSize: 11.5, fontWeight: 700, marginBottom: 6 }}>🔁 Reposted</div>
+                      {it.body ? <div style={{ whiteSpace: 'pre-wrap', fontSize: 14, lineHeight: 1.6, marginBottom: 8 }}>{it.body}</div> : null}
+                      <div style={{ border: '1px solid ' + EB_INK.line, borderRadius: 10, padding: 12, background: '#0F1116' }}>
+                        {!orig ? <div style={{ color: EB_INK.dim, fontSize: 12 }}>Loading original…</div>
+                          : orig.missing ? <div style={{ color: EB_INK.dim, fontSize: 12, fontStyle: 'italic' }}>The original post is no longer available.</div>
+                          : (
+                            <div onClick={() => onOpenProfile(orig.handle || orig.author_id)} style={{ cursor: 'pointer' }}>
+                              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6 }}>
+                                <div style={{ width: 24, height: 24, borderRadius: 6, flexShrink: 0,
+                                  background: orig.avatar_url ? `center/cover no-repeat url("${orig.avatar_url}")` : 'linear-gradient(140deg,#FF6A2B,#7a2d10)',
+                                  color: '#14060A', fontWeight: 800, fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{orig.avatar_url ? '' : String(orig.author || '?').slice(0, 1).toUpperCase()}</div>
+                                <div style={{ fontWeight: 700, fontSize: 13 }}>{orig.author}</div>
+                                <div style={{ color: EB_INK.dim, fontSize: 11 }}>{when(orig.at)}</div>
+                              </div>
+                              {orig.body ? <div style={{ whiteSpace: 'pre-wrap', fontSize: 13.5, lineHeight: 1.5 }}>{orig.body}</div> : null}
+                              {oImg ? <img src={oImg} alt="" loading="lazy" style={{ width: '100%', maxHeight: 300, objectFit: 'contain', borderRadius: 8, marginTop: 8, background: '#000', display: 'block' }} /> : null}
+                              {oVid ? <video src={oVid} controls playsInline preload="metadata" onPlay={() => ebCountView(client, oVid)} style={{ width: '100%', maxHeight: 300, borderRadius: 8, marginTop: 8, background: '#000', display: 'block' }} /> : null}
+                            </div>
+                          )}
+                      </div>
+                    </div>
+                  );
+                })()
+              ) : it.kind === 'clip' ? (
                 (() => {
                   const url = String(it.clip_url || '');
-                  // Uploaded gameplay clips are direct video files (or live in our
-                  // battle-clips storage bucket) — play them inline. External links
-                  // (YouTube/Twitch/Streamable) keep the thumbnail-link treatment.
+                  // A "clip" post carries media in clip_url. It may be a gameplay VIDEO
+                  // (battle-clips bucket / .webm-.mp4) or a user-uploaded PHOTO/GIF
+                  // (feed-media bucket / image extension). External links keep the
+                  // thumbnail-link treatment.
+                  const isImg = /\.(png|jpe?g|gif|webp|avif|bmp)(\?|$)/i.test(url) || /\/storage\/v1\/object\/public\/feed-media\//.test(url);
                   const direct = /\.(webm|mp4|mov|m4v)(\?|$)/i.test(url) || /\/storage\/v1\/object\/public\/battle-clips\//.test(url);
+                  if (isImg) return (
+                    <div style={{ marginBottom: 8 }}>
+                      {it.body && <div style={{ whiteSpace: 'pre-wrap', fontSize: 14, lineHeight: 1.6, marginBottom: 8 }}>{it.body}</div>}
+                      <img src={url} alt="" loading="lazy" style={{ width: '100%', maxHeight: 460, objectFit: 'contain', borderRadius: 10, background: '#000', display: 'block' }} />
+                    </div>
+                  );
                   if (direct) return (
                     <div style={{ marginBottom: 8 }}>
-                      <video src={url} controls playsInline preload="metadata" style={{ width: '100%', maxHeight: 360, borderRadius: 10, background: '#000', display: 'block' }} />
-                      <div style={{ fontWeight: 700, fontSize: 14, marginTop: 8 }}>{it.body}</div>
+                      <video src={url} controls playsInline preload="metadata" onPlay={() => ebCountView(client, url)} style={{ width: '100%', maxHeight: 360, borderRadius: 10, background: '#000', display: 'block' }} />
+                      <div style={{ fontWeight: 600, fontSize: 14, marginTop: 8, whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{it.body}</div>
                     </div>
                   );
                   return (
@@ -7895,59 +8556,76 @@ const EbFeedPage = ({ client, session, onBack, onOpenProfile, onSignIn, embedded
                 <div style={{ whiteSpace: 'pre-wrap', fontSize: 14, lineHeight: 1.6 }}>{it.body}</div>
               )}
 
-              {it.kind === 'post' && (
-                <>
-                  <div style={{ marginTop: 12, display: 'flex', gap: 16, alignItems: 'center' }}>
-                    <button onClick={() => like(it)} disabled={!session} title={session ? '' : 'Sign in to like'} style={{
-                      background: 'none', border: 'none', cursor: session ? 'pointer' : 'default',
-                      color: it.i_liked ? EB_INK.ember : EB_INK.dim, fontSize: 13, fontWeight: 700, padding: 0,
-                    }}>{it.i_liked ? '♥' : '♡'} {it.likes | 0}</button>
-                    <button onClick={() => toggleThread(it)} style={{
-                      background: 'none', border: 'none', cursor: 'pointer', color: EB_INK.dim,
-                      fontSize: 13, fontWeight: 700, padding: 0,
-                    }}>💬 {it.replies | 0}{open_[it.id] ? ' ▴' : ''}</button>
-                  </div>
+              <div style={{ marginTop: 12, display: 'flex', gap: 16, alignItems: 'center' }}>
+                <button onClick={() => like(it)} disabled={!session} title={session ? '' : 'Sign in to like'} style={{
+                  background: 'none', border: 'none', cursor: session ? 'pointer' : 'default',
+                  color: it.i_liked ? EB_INK.ember : EB_INK.dim, fontSize: 13, fontWeight: 700, padding: 0,
+                }}>{it.i_liked ? '♥' : '♡'} {it.likes | 0}</button>
+                <button onClick={() => toggleThread(it)} style={{
+                  background: 'none', border: 'none', cursor: 'pointer', color: EB_INK.dim,
+                  fontSize: 13, fontWeight: 700, padding: 0,
+                }}>💬 {it.replies | 0}{open_[it.id] ? ' ▴' : ''}</button>
+                <button onClick={() => doRepost(it)} disabled={!session} title={session ? 'Repost / quote' : 'Sign in to repost'} style={{
+                  background: 'none', border: 'none', cursor: session ? 'pointer' : 'default', color: EB_INK.dim,
+                  fontSize: 13, fontWeight: 700, padding: 0,
+                }}>🔁 Repost</button>
+              </div>
 
-                  {open_[it.id] && (
-                    <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid ' + EB_INK.line }}>
-                      {(threads[it.id] || []).map(rp => (
-                        <div key={rp.id} style={{ display: 'flex', gap: 9, alignItems: 'flex-start', marginBottom: 10 }}>
-                          <button onClick={() => onOpenProfile(rp.handle || rp.author_id)} style={{
-                            width: 28, height: 28, borderRadius: 7, border: 'none', cursor: 'pointer', flexShrink: 0,
-                            background: rp.avatar_url ? `center/cover no-repeat url("${rp.avatar_url}")` : 'linear-gradient(140deg,#FF6A2B,#7a2d10)',
-                            color: '#14060A', fontWeight: 800, fontSize: 12,
-                          }}>{rp.avatar_url ? '' : String(rp.author || '?').slice(0, 1).toUpperCase()}</button>
-                          <div style={{ minWidth: 0 }}>
-                            <div style={{ fontSize: 12.5 }}>
-                              <b>{rp.author}</b> <span style={{ color: EB_INK.dim }}>{when(rp.at)}</span>
+              {open_[it.id] && (
+                <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid ' + EB_INK.line }}>
+                  {(() => {
+                    const nodes = threads[it.id];
+                    if (!nodes) return <div style={{ color: EB_INK.dim, fontSize: 12 }}>Loading replies…</div>;
+                    const byParent = {};
+                    nodes.forEach(n => { (byParent[n.reply_to] = byParent[n.reply_to] || []).push(n); });
+                    const roots = byParent[it.id] || [];
+                    const target = (replyTo[it.id] && replyTo[it.id] !== it.id) ? nodes.find(n => n.id === replyTo[it.id]) : null;
+                    const draftV = replyDraft[it.id] || '';
+                    const mediaV = replyMedia[it.id] || '';
+                    return (
+                      <>
+                        {roots.length ? roots.map(r => renderCommentNode(it.id, r, byParent, 0))
+                          : <div style={{ color: EB_INK.dim, fontSize: 12, fontStyle: 'italic', marginBottom: 10 }}>No replies yet.</div>}
+                        {session ? (
+                          <div style={{ marginTop: 12 }}>
+                            {target && (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11.5, color: EB_INK.dim, marginBottom: 6 }}>
+                                <span>Replying to <b style={{ color: EB_INK.gold }}>{target.author}</b></span>
+                                <button onClick={() => setReplyTo(r => ({ ...r, [it.id]: it.id }))} style={{ background: 'none', border: '1px solid ' + EB_INK.line, color: EB_INK.dim, borderRadius: 6, padding: '0 7px', cursor: 'pointer' }}>✕</button>
+                              </div>
+                            )}
+                            {mediaV && (
+                              <div style={{ position: 'relative', marginBottom: 8, display: 'inline-block' }}>
+                                <img src={mediaV} alt="attachment" style={{ maxHeight: 120, maxWidth: '100%', borderRadius: 8, display: 'block' }} />
+                                <button onClick={() => setReplyMedia(m => ({ ...m, [it.id]: '' }))} style={{ position: 'absolute', top: 4, right: 4, width: 22, height: 22, borderRadius: 5, background: 'rgba(0,0,0,.7)', border: '1px solid ' + EB_INK.line, color: '#fff', cursor: 'pointer', fontWeight: 700 }}>×</button>
+                              </div>
+                            )}
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                              <input
+                                value={draftV}
+                                onChange={(e) => setReplyDraft({ ...replyDraft, [it.id]: e.target.value })}
+                                onKeyDown={(e) => { if (e.key === 'Enter') sendReply(it); }}
+                                placeholder={target ? ('Reply to ' + target.author + '…') : 'Write a reply…'}
+                                style={{ flex: 1, background: '#0F1116', border: '1px solid ' + EB_INK.line, borderRadius: 8, color: '#EDEFF3', padding: '8px 11px', fontSize: 13, fontFamily: 'inherit' }} />
+                              <label title="Add a photo or GIF" style={{ cursor: replyUp[it.id] ? 'wait' : 'pointer', color: EB_INK.gold, fontSize: 17, flexShrink: 0 }}>
+                                <input type="file" accept="image/*,image/gif" style={{ display: 'none' }} disabled={replyUp[it.id]}
+                                  onChange={(e) => { const f = e.target.files && e.target.files[0]; if (f) uploadReplyMedia(it.id, f); e.target.value = ''; }} />
+                                {replyUp[it.id] ? '⏳' : '🖼'}
+                              </label>
+                              <button onClick={() => sendReply(it)} disabled={!draftV.trim() && !mediaV} style={{
+                                background: EB_INK.ember, color: '#14060A', border: 'none', borderRadius: 8,
+                                padding: '8px 16px', fontWeight: 700, fontSize: 12.5, cursor: 'pointer',
+                                opacity: (draftV.trim() || mediaV) ? 1 : .5,
+                              }}>Reply</button>
                             </div>
-                            <div style={{ fontSize: 13.5, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{rp.body}</div>
                           </div>
-                        </div>
-                      ))}
-                      {(threads[it.id] || []).length === 0 && (
-                        <div style={{ color: EB_INK.dim, fontSize: 12, fontStyle: 'italic', marginBottom: 10 }}>No replies yet.</div>
-                      )}
-                      {session ? (
-                        <div style={{ display: 'flex', gap: 8 }}>
-                          <input
-                            value={replyDraft[it.id] || ''}
-                            onChange={(e) => setReplyDraft({ ...replyDraft, [it.id]: e.target.value })}
-                            onKeyDown={(e) => { if (e.key === 'Enter') sendReply(it); }}
-                            placeholder="Write a reply…"
-                            style={{ flex: 1, background: '#0F1116', border: '1px solid ' + EB_INK.line, borderRadius: 8, color: '#EDEFF3', padding: '8px 11px', fontSize: 13, fontFamily: 'inherit' }} />
-                          <button onClick={() => sendReply(it)} disabled={!(replyDraft[it.id] || '').trim()} style={{
-                            background: EB_INK.ember, color: '#14060A', border: 'none', borderRadius: 8,
-                            padding: '8px 16px', fontWeight: 700, fontSize: 12.5, cursor: 'pointer',
-                            opacity: (replyDraft[it.id] || '').trim() ? 1 : .5,
-                          }}>Reply</button>
-                        </div>
-                      ) : (
-                        <div style={{ color: EB_INK.dim, fontSize: 12 }}>Sign in to reply.</div>
-                      )}
-                    </div>
-                  )}
-                </>
+                        ) : (
+                          <div style={{ color: EB_INK.dim, fontSize: 12 }}>Sign in to reply.</div>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
               )}
             </div>
           ))}
@@ -9014,7 +9692,6 @@ const DeckBuilderPage = ({ cards, onCardClick, onAddToDeck }) => (
   <div className="pt-20">
     <Spotlight card={cards[1]} reverse={false} onCardClick={onCardClick} />
     <div id="free"><SurviveForFree /></div>
-    <div id="packs"><StarterPacks /></div>
     <div id="gallery"><Gallery onCardClick={onCardClick} onAddToDeck={onAddToDeck} /></div>
     <Footer />
   </div>
@@ -9599,7 +10276,7 @@ const CBK_LEVEL_MAX = 10;
 const CBK_DUR = [{ days: 30, mult: 1 }, { days: 90, mult: 1.5 }, { days: 180, mult: 2 }, { days: 365, mult: 3 }];
 const CBK_RANKS = [['Spark', 0], ['Kindler', 500], ['Flamebearer', 2000], ['Mythic Patron', 5000]];
 const CBK_TIERS = { GOLD: { bg: 'rgba(232,179,75,.14)', color: '#E8B34B' }, SILVER: { bg: 'rgba(160,170,185,.14)', color: '#B9C0CC' }, BRONZE: { bg: 'rgba(199,116,66,.14)', color: '#C77442' } };
-const CBK_TYPE_LABELS = { Node: 'Mythic Spellbook Node', Vendor: 'Venra Vendor', Worker: 'Venra Builder', Mentor: 'Mentor', Guild: 'Guild', Creator: 'Content Creator', Program: 'Program' };
+const CBK_TYPE_LABELS = { Node: 'Mythic Spellbook Node', City: 'Mythic Spellbook City', Vendor: 'Venra Vendor', Worker: 'Venra Builder', Mentor: 'Mentor', Guild: 'Guild', Creator: 'Content Creator', Program: 'Program', Player: 'Player' };
 const CBK_ACH = [
   { id: 'first_spark', icon: '🔥', title: 'First Spark', desc: 'Back your first verified Builder.' },
   { id: 'trailblazer', icon: '⚑', title: 'Trailblazer', desc: 'A Node you back reaches Level 2 or higher.' },
@@ -9881,6 +10558,18 @@ const cbkFmt = (n) => Math.round(n || 0).toLocaleString('en-US');
 const cbkInitials = (name) => (name || '?').split(' ').filter(w => /[A-Za-z0-9]/.test(w[0])).slice(0, 2).map(w => w[0].toUpperCase()).join('') || '?';
 const cbkAvatarBg = (hue) => `linear-gradient(140deg, oklch(0.55 0.16 ${hue}), oklch(0.35 0.12 ${hue}))`;
 const cbkHue = (s) => { let h = 0; for (let i = 0; i < (s || '').length; i++) h = (h * 31 + s.charCodeAt(i)) % 360; return h; };
+// 🛡 Node data is admin-authored in the game's Forge and published verbatim, so
+// a field CAN come through as an object/array by accident. Anything that ends up
+// rendered as text must be forced to a primitive first — React throws
+// "Objects are not valid as a React child" on an object and unmounts the whole
+// tree, which is a black screen for the entire site.
+const cbkText = (v, fallback) => {
+  if (v == null) return fallback;
+  const t = typeof v;
+  if (t === 'string') return v;
+  if (t === 'number' || t === 'boolean') return String(v);
+  return fallback;
+};
 const cbkAgo = (ts) => {
   if (!ts) return null;
   const mins = Math.floor((Date.now() - new Date(ts).getTime()) / 60000);
@@ -9900,7 +10589,7 @@ const cbkAgo = (ts) => {
 const cbkNodeProfile = (cat, own, recon, power) => {
   const nodeId = cat.id;
   const lvl = Math.min(CBK_LEVEL_MAX, (power && power.level) || Number(cat.nodeLevel) || 1);
-  const ownerName = (own && own.display_name) || null;
+  const ownerName = cbkText(own && own.display_name, null);
   // Catalog recon is the anon-visible baseline; the DB row (auth-only) wins.
   const cr = cat.recon || {};
   const mergedRecon = {
@@ -9923,15 +10612,20 @@ const cbkNodeProfile = (cat, own, recon, power) => {
   return {
     id: 'node-' + nodeId,
     real: true,
-    nodeDbId: nodeId,
+    nodeDbId: String(nodeId),
     ownerUserId: own ? own.user_id : null,
     type: 'City',
-    name: cat.name || cat.nodeName || `District ${nodeId}`,
-    code: cat.nodeType || cat.type || cat.purpose || 'PRN',
+    // Every one of these is rendered as text somewhere — keep them primitives.
+    name: cbkText(cat.name, null) || cbkText(cat.nodeName, null) || `District ${nodeId}`,
+    code: cbkText(cat.nodeType, null) || cbkText(cat.type, null) || cbkText(cat.purpose, null) || 'PRN',
     ownerName,
     hue: cbkHue(nodeId),
     tier: lvl >= 8 ? 'GOLD' : lvl >= 4 ? 'SILVER' : 'BRONZE',
-    backers: mergedRecon.residents,
+    // ⚠ NOT residents. A "backer" is a real person with Cinder or Mythic Token
+    // LOCKED in this node — nothing else counts. The true number is filled in
+    // from cinder_backer_counts once profiles are assembled; a node with no
+    // locks shows 0.
+    backers: 0,
     points: (power && power.power) || 0,
     tagline: ownerName
       ? `${cat.name} — a claimed Planetary Reconstruction Node on the Mythic Spellbook war map, operated by ${ownerName}.`
@@ -9993,6 +10687,32 @@ const cbkTelemetry = (p, localPower) => {
   };
 };
 
+// 🛡 Render guard — one bad field in published node data used to take the WHOLE
+// app down to a black screen (React unmounts the tree on an uncaught render
+// error). This catches it, keeps the rest of the site alive, and SHOWS the error
+// so it can be reported instead of silently vanishing.
+class CbkBoundary extends React.Component {
+  constructor(p) { super(p); this.state = { err: null }; }
+  static getDerivedStateFromError(err) { return { err }; }
+  componentDidCatch(err, info) { try { console.error('[Ownership Network] render error:', err, info); } catch (e) {} }
+  render() {
+    if (!this.state.err) return this.props.children;
+    const msg = String((this.state.err && this.state.err.message) || this.state.err || 'Unknown error').slice(0, 300);
+    return (
+      <div style={{ background: '#14161B', border: '1px solid #3A2416', borderRadius: 14, padding: 24, color: '#F2F3F5', maxWidth: 620, margin: '24px auto', textAlign: 'center' }}>
+        <div style={{ fontSize: 30, marginBottom: 6 }}>⚠</div>
+        <div style={{ fontWeight: 700, fontSize: 17, marginBottom: 6 }}>This profile couldn’t be displayed</div>
+        <div style={{ color: '#9BA1AB', fontSize: 13, lineHeight: 1.6, marginBottom: 14 }}>
+          Something in this entry’s data is malformed, so it can’t be rendered. Everything else still works.
+        </div>
+        <div style={{ background: '#0F1116', border: '1px solid #262A32', borderRadius: 9, padding: '9px 12px', color: '#F0655A', fontSize: 11.5, fontFamily: 'ui-monospace,monospace', textAlign: 'left', wordBreak: 'break-word', marginBottom: 14 }}>{msg}</div>
+        <button onClick={() => { this.setState({ err: null }); if (this.props.onReset) this.props.onReset(); }}
+          style={{ background: '#FF6A2B', color: '#14060A', border: 'none', borderRadius: 10, padding: '10px 22px', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>← Back to Discover</button>
+      </div>
+    );
+  }
+}
+
 const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, onSignIn, entry }) => {
   const [screen, setScreen] = useState('dashboard');
   // 📡 Social screens live INSIDE this shell now (feed / survivors / profile)
@@ -10036,6 +10756,32 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
   const [reloadN, setReloadN] = useState(0);
   // Community + participation + user-created Builders
   const [builders, setBuilders] = useState([]);
+  // Real, server-side backer counts per profile (distinct people holding an
+  // ACTIVE lock). Public aggregate — no individual backing rows are exposed.
+  const [backerCounts, setBackerCounts] = useState({});
+  useEffect(() => {
+    if (!client) return;
+    let dead = false;
+    client.from('cinder_backer_counts').select('*')
+      .then(({ data, error }) => {
+        if (dead || error) return;      // view missing → counts stay 0, never fake
+        const map = {};
+        (data || []).forEach(r => { map[r.profile_id] = { backers: r.backers | 0, mt: Number(r.locked_mt) || 0, cinder: Number(r.locked_cinder) || 0 }; });
+        setBackerCounts(map);
+      }, () => {});
+    return () => { dead = true; };
+  }, [client, reloadN]);
+  // Every Mythic Spellbook player is backable here — pulled from the same
+  // eb_directory the Survivors tab uses (eb_profiles + user_profiles).
+  const [players, setPlayers] = useState([]);
+  useEffect(() => {
+    if (!client) return;
+    let dead = false;
+    client.rpc('eb_directory', { p_limit: 200 })
+      .then(({ data }) => { if (!dead) setPlayers(Array.isArray(data) ? data : []); })
+      .catch(() => {});
+    return () => { dead = true; };
+  }, [client]);
   const [posts, setPosts] = useState([]);
   const [votes, setVotes] = useState([]);
   const [parts, setParts] = useState([]);
@@ -10555,12 +11301,38 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
     perks: ['Backer badge on your profile', 'Early supporter recognition'],
     createdAt: b.created_at,
   }));
-  const allProfiles = [...realNodes, ...myBuilderProfiles];
+  // A profile's backer count = DISTINCT people with an active lock on it, read
+  // from the cinder_backer_counts aggregate (the client can only see its own
+  // cinder_backings rows, so the count has to come from the server). No lock,
+  // no backers — there are no placeholder numbers anywhere.
+  const backersOf = (id) => (backerCounts[id] && backerCounts[id].backers) || 0;
+  const withBackers = (p) => ({ ...p, backers: backersOf(p.id) });
+
+  // Every game player becomes a backable profile, so anyone with a Mythic
+  // Spellbook account can be staked in — no application needed.
+  const playerProfiles = (players || []).map(pl => ({
+    id: 'player-' + pl.user_id,
+    type: 'Player',
+    playerKey: pl.handle || pl.user_id,
+    mine: pl.user_id === (session && session.user.id),
+    name: pl.name || (pl.handle ? '@' + pl.handle : 'Survivor'),
+    tagline: (pl.rank ? '🏅 ' + pl.rank : 'Mythic Spellbook player')
+      + (pl.wins != null ? ' · ' + cbkFmt(pl.wins) + ' wins' : '')
+      + (pl.followers ? ' · ' + cbkFmt(pl.followers) + ' followers' : ''),
+    hue: cbkHue(pl.user_id),
+    tier: 'BRONZE', backers: 0, points: 0, cap: 500,
+    real: false, ownerName: null, score: 0, trust: 0, level: 1,
+    avatarUrl: pl.avatar_url || null,
+  }));
+  const allProfiles = [...realNodes, ...myBuilderProfiles, ...playerProfiles].map(withBackers);
   const findProfile = (id) => allProfiles.find(p => p.id === id);
   const myNodes = session ? realNodes.filter(n => n.ownerUserId === session.user.id) : [];
   const ownsNode = (p) => !!(p && p.real && session && p.ownerUserId === session.user.id);
 
   const active = backings.filter(b => !b.released);
+  // One backing per player per profile — a single person is ONE backer, never
+  // several. Enforced in the DB too (partial unique index on active rows).
+  const iBack = (id) => active.some(b => b.profile_id === id);
   const locked = active.reduce((s, b) => s + Number(b.amount), 0);
   const lockedCinder = active.filter(b => b.currency !== 'MT').reduce((s, b) => s + Number(b.amount), 0);
   const lockedMt = active.filter(b => b.currency === 'MT').reduce((s, b) => s + Number(b.amount), 0);
@@ -10600,6 +11372,12 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
     const isMt = m.cur === 'MT';
     const funds = isMt ? mtBal : gems;
     if (!amt || amt > funds || busy) return;
+    // One backing per player per profile — you are one backer, not several.
+    if (iBack(m.profileId)) {
+      setModal(null);
+      setNotice('You already back this profile — one backing per player. Release your current commitment first to change it.');
+      return;
+    }
     setBusy(true);
     const p = findProfile(m.profileId);
     const mult = CBK_DUR.find(d => d.days === m.days).mult;
@@ -10613,9 +11391,13 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
       setBusy(false);
       const res = data || {};
       if (error || !res.ok) {
+        // The DB's one-active-backing-per-profile index surfaces as a unique violation.
+        const dupe = /duplicate key|unique|23505|already/i.test(String((error && error.message) || res.error || ''));
         setNotice(res.error === 'insufficient_mt'
           ? `Not enough Mythic Token — your wallet balance is ${cbkFmt(res.balance || 0)} MT.`
-          : 'Could not lock your Mythic Token — nothing was moved.');
+          : dupe
+            ? 'You already back this profile — one backing per player. Release your current commitment first.'
+            : 'Could not lock your Mythic Token — nothing was moved.');
         return;
       }
       setMtBal(Number(res.balance) || 0);
@@ -10634,7 +11416,12 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
     });
     if (e2) {
       await client.from('user_profiles').update({ gems, updated_at: new Date().toISOString() }).eq('user_id', session.user.id);
-      setBusy(false); setNotice('Backing failed to save — your Cinder was returned.'); return;
+      setBusy(false);
+      const dupe = /duplicate key|unique|23505/i.test(String(e2.message || e2.code || ''));
+      setNotice(dupe
+        ? 'You already back this profile — one backing per player. Your Cinder was returned.'
+        : 'Backing failed to save — your Cinder was returned.');
+      return;
     }
     pushPost(`You staked ${cbkFmt(amt)} CINDER behind ${p.name} (${m.days}-day commitment) — +${cbkFmt(pts)} backing points.`);
     refreshProfile(); setReloadN(n => n + 1); setBusy(false);
@@ -10701,9 +11488,12 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
     const civ = r && r.buildings_total ? Math.round((r.buildings_restored / r.buildings_total) * 100) : 0;
     const score = p.score != null ? p.score : (p.real ? Math.min(100, 40 + civ) : 70);
     const trust = p.trust != null ? p.trust : (p.real ? Math.max(0, 100 - (r ? r.corruption : 0)) : 80);
+    // An unknown tier used to crash here (CBK_TIERS[undefined].bg) and blank the
+    // whole page — fall back instead.
+    const tierDef = CBK_TIERS[p.tier] || CBK_TIERS.BRONZE;
     return {
-      ...p, typeLabel: CBK_TYPE_LABELS[p.type], initials: cbkInitials(p.name), avatarBg: cbkAvatarBg(p.hue),
-      tierBg: CBK_TIERS[p.tier].bg, tierColor: CBK_TIERS[p.tier].color, pointsShown: p.points + prevPower(p.id),
+      ...p, typeLabel: CBK_TYPE_LABELS[p.type] || p.type || '', initials: cbkInitials(p.name), avatarBg: cbkAvatarBg(p.hue),
+      tierBg: tierDef.bg, tierColor: tierDef.color, pointsShown: p.points + prevPower(p.id),
       score, trust, lvl: p.level != null ? p.level : (p.real ? cbkTelemetry(p, prevPower(p.id)).level : 1),
       capLabel: `${cbkFmt(p.backers)} / ${cbkFmt(p.cap || 500)}`,
     };
@@ -10734,10 +11524,12 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #1E222A', paddingTop: 12, gap: 8, flexWrap: 'wrap' }}>
           <div style={{ fontSize: 12, color: '#9BA1AB' }}><span style={{ color: '#F2F3F5', fontWeight: 600 }}>{d.capLabel}</span> backers · <span style={{ color: '#E8B34B', fontWeight: 600 }}>{cbkFmt(d.pointsShown)}</span> pts</div>
-          {session && (
+          {session && (iBack(p.id) ? (
+            <span title="You already back this — one backing per player" style={{ background: 'rgba(62,207,142,.12)', color: '#3ECF8E', border: '1px solid rgba(62,207,142,.35)', borderRadius: 8, padding: '6px 14px', fontSize: 12, fontWeight: 600 }}>✓ Backing</span>
+          ) : (
             <button onClick={(e) => { e.stopPropagation(); setModal({ profileId: p.id, step: 1, amountStr: '', days: 90 }); }}
               style={{ background: 'rgba(255,106,43,.12)', color: '#FF8A55', border: '1px solid rgba(255,106,43,.3)', borderRadius: 8, padding: '6px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>Back</button>
-          )}
+          ))}
         </div>
       </div>
     );
@@ -10899,9 +11691,6 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
     { key: 'dashboard', label: 'Dashboard', icon: '⌂' },
     { key: 'discover', label: 'Discover', icon: '◈' },
     { key: 'stake', label: 'Stake MT', icon: '⛓' },
-    { key: 'create', label: 'Become a Builder', icon: '✎' },
-    { key: 'campaigns', label: 'Campaigns', icon: '⚑' },
-    { key: 'governance', label: 'Governance', icon: '⚖' },
     { key: 'vip', label: 'VIP Room', icon: '🏛' },
     { key: 'rewards', label: 'Rewards', icon: '✦' },
     { key: 'leaderboard', label: 'Rankings', icon: '♛' },
@@ -10913,8 +11702,8 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
   ];
   const activeKey = screen === 'profile' ? 'discover' : (screen === 'player' ? 'people' : screen);
 
-  const filters = ['All', 'City', 'Worker', 'Coach', 'Operations', 'Creator', 'Program'];
-  const chipLabels = { All: 'All', Node: 'Nodes', Vendor: 'Vendors', Worker: 'Builders', Mentor: 'Mentors', Guild: 'Guilds', Creator: 'Creators', Program: 'Programs' };
+  const filters = ['All', 'Player', 'City', 'Worker', 'Coach', 'Operations', 'Creator', 'Program'];
+  const chipLabels = { All: 'All', Player: 'Players', Node: 'Nodes', Vendor: 'Vendors', Worker: 'Builders', Mentor: 'Mentors', Guild: 'Guilds', Creator: 'Creators', Program: 'Programs' };
   const q = search.toLowerCase();
   const filtered = allProfiles.filter(p => (filter === 'All' || p.type === filter) && (!q || (p.name + p.tagline + (p.ownerName || '') + CBK_TYPE_LABELS[p.type]).toLowerCase().includes(q)));
 
@@ -10927,7 +11716,7 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
     backers: 'Ranked by backer count against each Builder’s capacity.',
   }[leaderTab];
 
-  const screenTitles = { dashboard: 'Backer dashboard', discover: 'Discover Builders', stake: 'Stake Mythic Token', profile: 'Builder profile', create: 'Become a Builder', campaigns: 'Campaigns & events', governance: 'Community governance', rewards: 'Rewards & reputation', vip: 'VIP Room', leaderboard: 'Builder rankings' };
+  const screenTitles = { dashboard: 'Backer dashboard', discover: 'Discover Builders', stake: 'Stake Mythic Token', profile: 'Builder profile', rewards: 'Rewards & reputation', vip: 'VIP Room', leaderboard: 'Builder rankings' };
 
   // ── Market-cap airdrop milestones (dashboard + VIP room) ──
   // mcap = the token's REAL market cap (see the fetch effect above). null
@@ -11297,29 +12086,6 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
                     )}
                   </div>
 
-                  {/* Upcoming events */}
-                  <div style={{ ...card, padding: 20 }}>
-                    <div style={{ ...grotesk, fontWeight: 600, fontSize: 16, marginBottom: 12 }}>Upcoming events</div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                      {CBK_EVENTS.length === 0 ? <div style={{ color: '#9BA1AB', fontSize: 13, fontStyle: 'italic', padding: '18px 4px', textAlign: 'center' }}>No events scheduled yet.</div> : CBK_EVENTS.slice(0, 3).map(ev => (
-                        <div key={ev.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 13, alignItems: 'center' }}>
-                          <div><div style={{ fontWeight: 600 }}>{ev.icon} {ev.title}</div><div style={{ fontSize: 11, color: '#9BA1AB' }}>{ev.type}</div></div>
-                          <span style={{ fontSize: 12, color: '#FF8A55', whiteSpace: 'nowrap' }}>{ev.date}</span>
-                        </div>
-                      ))}
-                    </div>
-                    <button onClick={() => go('campaigns')} style={{ width: '100%', marginTop: 14, background: '#1B1E24', border: '1px solid #262A32', color: '#C6CAD1', borderRadius: 9, padding: 9, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>View campaigns &amp; events</button>
-                  </div>
-
-                  {/* Open governance votes */}
-                  <div style={{ ...card, padding: 20 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                      <div style={{ ...grotesk, fontWeight: 600, fontSize: 16 }}>Open votes</div>
-                      <span style={{ fontSize: 11, fontWeight: 600, background: 'rgba(255,106,43,.14)', color: '#FF8A55', borderRadius: 99, padding: '3px 9px' }}>{openVoteCount}</span>
-                    </div>
-                    <div style={{ fontSize: 13, color: '#9BA1AB', lineHeight: 1.5 }}>Qualified Backers vote on community matters — events, themes, formats.</div>
-                    <button onClick={() => go('governance')} style={{ width: '100%', marginTop: 14, background: '#1B1E24', border: '1px solid #262A32', color: '#C6CAD1', borderRadius: 9, padding: 9, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>Cast your votes</button>
-                  </div>
                 </div>
               )}
             </div>
@@ -11354,8 +12120,9 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
               { title: 'First campaign', desc: 'Create your first community campaign.', status: 'locked' },
               { title: 'Reach 25 backers', desc: 'Fill your starting capacity to unlock the next tier.', status: 'locked' },
             ]);
-            const milestones = rawMs.map(m => ({ ...m, ...msMap[m.status] }));
+            const milestones = rawMs.map(m => ({ ...m, ...(msMap[m.status] || msMap.locked) }));
             return (
+              <CbkBoundary onReset={() => go('discover')}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
                 <button onClick={() => go('discover')} style={{ alignSelf: 'flex-start', background: 'none', border: 'none', color: '#9BA1AB', fontSize: 13, cursor: 'pointer', padding: 0, fontFamily: "'IBM Plex Sans',sans-serif" }}>← Back to discover</button>
                 <div style={{ background: 'linear-gradient(160deg,#1A130C,#14161B 55%)', border: '1px solid #33261A', borderRadius: 16, padding: 24, display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -11371,7 +12138,12 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
                     <div style={{ color: '#C6CAD1', fontSize: 14, marginTop: 8, maxWidth: 560, lineHeight: 1.5 }}>{sel.tagline}</div>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
-                    {session ? (
+                    {session && iBack(sel.id) ? (
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ background: 'rgba(62,207,142,.12)', color: '#3ECF8E', border: '1px solid rgba(62,207,142,.35)', borderRadius: 10, padding: '12px 24px', fontWeight: 600, fontSize: 14 }}>✓ You back this</div>
+                        <div style={{ fontSize: 11, color: '#9BA1AB', marginTop: 6, maxWidth: 210 }}>One backing per player. Release it from your dashboard to change your commitment.</div>
+                      </div>
+                    ) : session ? (
                       <button onClick={() => setModal({ profileId: sel.id, step: 1, amountStr: '', days: 90 })} style={{ background: '#FF6A2B', color: '#14060A', border: 'none', borderRadius: 10, padding: '12px 24px', fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>Back this Builder</button>
                     ) : (
                       <button onClick={onSignIn} style={{ background: '#FF6A2B', color: '#14060A', border: 'none', borderRadius: 10, padding: '12px 24px', fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" }}>Connect to back</button>
@@ -11571,6 +12343,7 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
                   </div>
                 </div>
               </div>
+              </CbkBoundary>
             );
           })()}
 
@@ -12942,15 +13715,18 @@ function App() {
       ) : currentPage === 'backing' ? (
         /* ===== EMERGENCY BROADCAST — the game's social platform ===== */
         <div className="pt-14">
-          <CinderBackingPage
-            entry={ebEntry}
-            client={client}
-            session={session}
-            profile={profile}
-            refreshProfile={refreshProfile}
-            onBack={showHome}
-            onSignIn={showHub}
-          />
+          {/* 🛡 A malformed profile must never black-screen the whole site. */}
+          <CbkBoundary onReset={() => { try { window.location.reload(); } catch (e) {} }}>
+            <CinderBackingPage
+              entry={ebEntry}
+              client={client}
+              session={session}
+              profile={profile}
+              refreshProfile={refreshProfile}
+              onBack={showHome}
+              onSignIn={showHub}
+            />
+          </CbkBoundary>
         </div>
       ) : currentPage === 'cardlist' ? (
         /* ===== CARD LIST PAGE — Palworld-inspired catalog + Coming Drops (admin adds cards via Admin → Card Manager) ===== */

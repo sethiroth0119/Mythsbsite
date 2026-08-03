@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>New America — Mythic Spellbook Lore Map</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Grenze+Gotisch:wght@400;600;800&family=Spectral:ital,wght@0,300;0,400;0,600;1,300&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css">
+<!-- Supabase — shared session with mythicspellbook.xyz (same origin) so the
+     site admin (richaegisop@gmail.com) gets the map editor. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  /* ── What-is-this button + modal ── */
+  /* Back to the main site */
+  #loreBack{ position:fixed; top:18px; left:22px; z-index:70; font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:#DFE4DE; background:rgba(13,17,20,.85); border:1px solid rgba(196,146,58,.55); border-radius:6px; padding:8px 13px; cursor:pointer; text-decoration:none; box-shadow:0 6px 18px rgba(0,0,0,.5); backdrop-filter:blur(4px); transition:transform .15s, border-color .15s, color .15s; }
+  #loreBack:hover{ transform:translateY(-1px); border-color:#FFC15E; color:#FFC15E; }
+  /* Push the plate below the back button so they stack cleanly. */
+  #plate{ top:62px !important; }
+  #whatBtn{ position:fixed; right:122px; bottom:24px; z-index:60; font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:#0D1114; background:linear-gradient(180deg,#FFC15E,#C4923A); border:1px solid #FFD98A; border-radius:6px; padding:9px 14px; cursor:pointer; box-shadow:0 6px 18px rgba(0,0,0,.5); transition:transform .15s, box-shadow .15s; }
+  /* Mobile: the compass shrinks (60px @ right:18px), so tuck the buttons closer. */
+  @media (max-width:600px){
+    #whatBtn{ right:88px; bottom:20px; }
+    #loreEditBtn{ right:88px; bottom:62px; }
+  }
+  #whatBtn:hover{ transform:translateY(-2px); box-shadow:0 10px 24px rgba(255,193,94,.35); }
+  #loreEditBtn{ position:fixed; right:122px; bottom:66px; z-index:60; font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:#DFE4DE; background:#0D1114; border:1px solid #B87BFF; border-radius:6px; padding:9px 14px; cursor:pointer; box-shadow:0 6px 18px rgba(0,0,0,.5); display:none; }
+  #loreEditBtn:hover{ border-color:#d6b3ff; color:#fff; }
+  #whatModal{ position:fixed; inset:0; z-index:200; background:rgba(4,6,8,.82); backdrop-filter:blur(6px); display:none; align-items:center; justify-content:center; padding:22px; }
+  #whatModal.open{ display:flex; }
+  #whatModal .wm-plate{ position:relative; max-width:560px; width:100%; background:linear-gradient(180deg,#0D1114,#06080A); border:1px solid rgba(196,146,58,.45); border-radius:12px; padding:34px 30px; box-shadow:0 30px 90px rgba(0,0,0,.75), 0 0 60px rgba(255,193,94,.12); max-height:88vh; overflow:auto; }
+  #whatModal .wm-eyebrow{ font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.4em; text-transform:uppercase; color:#C4923A; margin-bottom:10px; }
+  #whatModal h2{ font-family:'Grenze Gotisch',serif; font-weight:800; font-size:2rem; color:#FFC15E; margin:0 0 14px; line-height:1.05; }
+  #whatModal p{ font-family:'Spectral',serif; color:#DFE4DE; font-size:1.02rem; line-height:1.6; margin:0 0 13px; }
+  #whatModal .wm-reward{ border-left:3px solid #B87BFF; background:rgba(184,123,255,.07); padding:12px 15px; border-radius:0 8px 8px 0; margin:16px 0; }
+  #whatModal .wm-reward b{ color:#d6b3ff; }
+  #whatModal .wm-close{ position:absolute; top:12px; right:14px; width:34px; height:34px; border-radius:6px; background:rgba(184,123,255,.12); border:1px solid rgba(184,123,255,.4); color:#DFE4DE; font-size:18px; cursor:pointer; line-height:1; }
+  #whatModal .wm-close:hover{ color:#fff; }
+  #whatModal .wm-cta{ display:inline-block; margin-top:6px; font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:#0D1114; background:linear-gradient(180deg,#FFC15E,#C4923A); border:none; border-radius:6px; padding:11px 20px; cursor:pointer; }
+  @media (max-width:640px){ #whatModal h2{ font-size:1.55rem; } }
+</style>
+</head>
+<body>
+
+
+<div id="stage" role="application" aria-label="Interactive world map. Drag to pan, scroll to zoom.">
+  <div id="world"></div>
+</div>
+
+<div id="grain" aria-hidden="true"></div>
+<canvas id="ashfall" aria-hidden="true"></canvas>
+<div id="vignette" aria-hidden="true"></div>
+
+<div id="hud">
+  <header id="plate">
+    <div class="plate-mark">Mythic Spellbook · Lore Archive</div>
+    <h1 class="plate-title">New America<span>The Burnt Meridian</span></h1>
+    <p class="plate-note">Explore the world. Hover a seal to read the brief; open it to read the issue — finish one to unlock rewards you can redeem in the game.</p>
+  </header>
+
+  <nav id="zoomer" aria-label="Map controls">
+    <button id="zIn" title="Zoom in" aria-label="Zoom in">+</button>
+    <button id="zOut" title="Zoom out" aria-label="Zoom out">−</button>
+    <button id="zHome" title="Recenter map" aria-label="Recenter map">◎</button>
+    <div class="lvl" id="zLvl">100%</div>
+  </nav>
+
+  <aside id="legend">
+    <div class="leg-row"><span class="leg-dot unread"></span><span class="leg-txt">Unread</span></div>
+    <div class="leg-row"><span class="leg-dot read"></span><span class="leg-txt">Recovered</span></div>
+    <div class="leg-row"><span class="leg-dot sealed"></span><span class="leg-txt">Sealed</span></div>
+  </aside>
+
+  <svg id="compass" viewBox="0 0 100 100" aria-hidden="true">
+    <circle cx="50" cy="50" r="44" fill="none" stroke="#C4923A" stroke-width=".7" opacity=".55"/>
+    <circle cx="50" cy="50" r="35" fill="none" stroke="#C4923A" stroke-width=".4" opacity=".3"/>
+    <path d="M50 8 L56 46 L50 52 L44 46 Z" fill="#FFC15E"/>
+    <path d="M50 92 L44 54 L50 48 L56 54 Z" fill="#C4923A" opacity=".65"/>
+    <path d="M8 50 L46 44 L52 50 L46 56 Z" fill="#C4923A" opacity=".4"/>
+    <path d="M92 50 L54 56 L48 50 L54 44 Z" fill="#C4923A" opacity=".4"/>
+    <text x="50" y="6" text-anchor="middle" font-family="Grenze Gotisch, serif" font-size="11" fill="#DFE4DE">N</text>
+  </svg>
+</div>
+
+<div id="veil" aria-hidden="true"></div>
+
+<div id="brief" role="dialog" aria-modal="false" aria-labelledby="briefTitle">
+  <div class="brief-plate">
+    <div class="brief-eyebrow" id="briefRegion"></div>
+    <h2 class="brief-title" id="briefTitle"></h2>
+    <div class="brief-sub" id="briefSub"></div>
+    <p class="brief-body" id="briefBody"></p>
+    <div class="brief-meta" id="briefMeta"></div>
+    <button class="brief-cta" id="briefCta">Read the issue</button>
+    <div class="brief-hint" id="briefHint">Click the seal to open</div>
+  </div>
+</div>
+
+<div id="reader" role="dialog" aria-modal="true" aria-labelledby="readerName">
+  <div class="reader-bar">
+    <span class="reader-id" id="readerId"></span>
+    <span class="reader-name" id="readerName"></span>
+    <span class="reader-spacer"></span>
+    <button class="reader-btn" id="fitBtn" aria-pressed="false">Fit width</button>
+    <button class="reader-btn" id="closeBtn">Close ✕</button>
+  </div>
+  <div id="issueRail" role="tablist" aria-label="Issues"></div>
+  <div id="pageWrap">
+    <button class="nav-zone prev" id="prevZone" aria-label="Previous page">
+      <svg viewBox="0 0 24 24"><path d="M15 4 L7 12 L15 20"/></svg>
+    </button>
+    <div id="pageSlot"></div>
+    <button class="nav-zone next" id="nextZone" aria-label="Next page">
+      <svg viewBox="0 0 24 24"><path d="M9 4 L17 12 L9 20"/></svg>
+    </button>
+  </div>
+  <div class="reader-foot">
+    <div class="pips" id="pips"></div>
+    <div class="page-count" id="pageCount"></div>
+  </div>
+</div>
+
+<div id="toast" role="status"></div>
+
+<!-- Back to the main site -->
+<a id="loreBack" href="../">← Back to Mythic Spellbook</a>
+<!-- What is this? -->
+<button id="whatBtn" type="button">? What is this</button>
+<!-- Admin editor toggle — shown only to the site admin (richaegisop@gmail.com) -->
+<button id="loreEditBtn" type="button">✎ Edit map</button>
+
+<div id="whatModal" role="dialog" aria-modal="true" aria-labelledby="whatTitle">
+  <div class="wm-plate">
+    <button class="wm-close" id="whatClose" aria-label="Close">×</button>
+    <div class="wm-eyebrow">Mythic Spellbook · New America</div>
+    <h2 id="whatTitle">What is this?</h2>
+    <p>This is an <b style="color:#FFC15E">interactive map</b> that gives players and fans the lore of the <b style="color:#FFC15E">Mythic Spellbook</b> universe. Explore the world, hover a site to read its story brief, and open it to read the comic issue behind it.</p>
+    <p><b style="color:#FFC15E">New America</b> is a way for players to earn rewards they can redeem in the game — just for keeping up with the lore.</p>
+    <div class="wm-reward">
+      <p style="margin:0"><b>Read the story, claim the reward.</b> Finish an issue and you unlock a redemption code. You might find <b>loot and cards you will never find in the game</b> anywhere else.</p>
+    </div>
+    <p style="color:#9aa3a0;font-size:.92rem">Drag to pan · scroll to zoom · click a glowing seal to begin.</p>
+    <button class="wm-cta" id="whatStart" type="button">Start exploring</button>
+  </div>
+</div>
+
+<script src="data/content.js"></script>
+<script src="js/worldgen.js"></script>
+<script src="js/core.js"></script>
+<script src="js/map.js"></script>
+<script src="js/reader.js"></script>
+<script src="js/admin.js"></script>
+
+<!-- ── What-is-this modal wiring ── -->
+<script>
+(function(){
+  var m = document.getElementById('whatModal');
+  var open = function(){ m.classList.add('open'); };
+  var close = function(){ m.classList.remove('open'); };
+  document.getElementById('whatBtn').addEventListener('click', open);
+  document.getElementById('whatClose').addEventListener('click', close);
+  document.getElementById('whatStart').addEventListener('click', close);
+  m.addEventListener('click', function(e){ if (e.target === m) close(); });
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape') close(); });
+  // First-visit auto-open so newcomers understand what New America is.
+  try { if (!localStorage.getItem('newamerica.seen')) { open(); localStorage.setItem('newamerica.seen','1'); } } catch(e){}
+})();
+</script>
+
+<!-- ── Admin gate — only richaegisop@gmail.com gets the map editor ── -->
+<script>
+(function(){
+  var ADMIN_EMAIL = 'richaegisop@gmail.com';
+  var SUPA_URL = 'https://ktsiasyjusesawtrwrjc.supabase.co';
+  var SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt0c2lhc3lqdXNlc2F3dHJ3cmpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2NDU5MjgsImV4cCI6MjA5NDIyMTkyOH0.fYpQFCs03ZE5AIv88S_GStqp7g71sTQe9yUxmXgyKQo';
+  window.__LORE_ADMIN_OK = false;
+  var editBtn = document.getElementById('loreEditBtn');
+  function grant(session){
+    var email = session && session.user && session.user.email;
+    if (email && email.toLowerCase() === ADMIN_EMAIL) {
+      window.__LORE_ADMIN_OK = true;
+      if (editBtn) editBtn.style.display = 'block';
+    }
+  }
+  if (editBtn) editBtn.addEventListener('click', function(){ if (typeof initAdmin === 'function') initAdmin(); editBtn.style.display = 'none'; });
+  try {
+    if (window.supabase && window.supabase.createClient) {
+      var client = window.supabase.createClient(SUPA_URL, SUPA_ANON, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'msb_web_auth' } });
+      client.auth.getSession().then(function(r){ grant(r && r.data && r.data.session); });
+      client.auth.onAuthStateChange(function(_e, s){ grant(s); });
+    }
+  } catch(e){ /* offline / no supabase — #admin still works locally */ }
+})();
+</script>
+</body>
+</html>

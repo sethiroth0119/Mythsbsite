@@ -1,0 +1,13 @@
+{
+  "name": "ashfall-story-map",
+  "version": "1.0.0",
+  "description": "Interactive lore map and comic reader for Ashfall: Cinder Doctrine",
+  "private": true,
+  "scripts": {
+    "verify": "node tools/verify.js",
+    "poster": "node tools/poster.js"
+  },
+  "devDependencies": {
+    "canvas": "^3.0.0"
+  }
+}
