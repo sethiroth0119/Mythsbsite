@@ -17,3 +17,4 @@ Desktop.ini
 # Logs / temporary
 *.log
 *.tmp
+.wrangler/
