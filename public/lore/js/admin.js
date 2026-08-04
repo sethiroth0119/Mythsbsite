@@ -22,9 +22,81 @@ function draftSave() {
     localStorage.setItem(DRAFT_KEY, JSON.stringify({
       art: ART_TILES.map(stripArt),
       locs: LOCATIONS.map(stripLoc),
-      theme: THEME
+      theme: THEME,
+      savedAt: Date.now()
     }));
-  } catch (e) { toast('Draft too large to autosave — export it'); }
+  } catch (e) { toast('Draft too large for this browser — hit ☁ Publish to save it properly'); }
+}
+
+/* ═══ ☁ PUBLISH — the REAL save ══════════════════════════════════════════
+   The draft above only ever lived in this one browser; publishing writes the
+   map to Supabase so every visitor sees it, with no file edit and no redeploy.
+   ═══════════════════════════════════════════════════════════════════════ */
+function loreDoc() {
+  return { art: ART_TILES.map(stripArt), locs: LOCATIONS.map(stripLoc), theme: THEME };
+}
+async function publishToCloud(btn) {
+  const sb = window.__LORE_SB;
+  if (!sb) { toast('Not connected — reload the page and sign in.'); return; }
+  const label = btn && btn.textContent;
+  if (btn) { btn.disabled = true; btn.textContent = '☁ Publishing…'; }
+  try {
+    const { data: s } = await sb.auth.getSession();
+    const uidNow = s && s.session && s.session.user && s.session.user.id;
+    if (!uidNow) { toast('Sign in on the main site first, then reload this page.'); return; }
+    const { error } = await sb.from('lore_map').upsert(
+      { id: 'singleton', doc: loreDoc(), updated_by: uidNow, updated_at: new Date().toISOString() },
+      { onConflict: 'id' });
+    if (error) {
+      toast(/relation|does not exist/i.test(error.message || '')
+        ? 'Run the lore_map SQL migration first.'
+        : ('Publish failed — ' + (error.message || '').slice(0, 70)));
+      return;
+    }
+    window.__LORE_CLOUD_AT = Date.now();
+    toast('☁ Published — every visitor sees this map now');
+  } catch (e) {
+    toast('Publish failed — ' + ((e && e.message) || 'try again'));
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = label || '☁ Publish to the live site'; }
+  }
+}
+
+/* ⬆ Upload comic pages straight from the computer. Before this the only way to
+   add art was to type URLs that had to already be hosted somewhere, or to drop
+   files into comics/<slug>/ in the repo — neither of which is possible from a
+   browser. Pages upload to the public lore-comics bucket and their URLs are
+   appended to the issue in page order. */
+async function uploadIssuePages(files, iss, onDone) {
+  const sb = window.__LORE_SB;
+  if (!sb) { toast('Not connected — reload the page and sign in.'); return; }
+  const list = Array.from(files || []).filter(f => /^image\//i.test(f.type));
+  if (!list.length) { toast('Pick image files (jpg / png / webp).'); return; }
+  // Page order = filename order, so 01.jpg, 02.jpg … land in the right sequence.
+  list.sort((a, b) => String(a.name).localeCompare(String(b.name), undefined, { numeric: true }));
+  toast('⬆ Uploading ' + list.length + ' page' + (list.length === 1 ? '' : 's') + '…');
+  const slug = (iss.slug || (iss.no + '-' + (iss.title || 'issue'))).toString().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'issue';
+  const out = [];
+  for (let i = 0; i < list.length; i++) {
+    const f = list[i];
+    const ext = (f.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+    const path = slug + '/' + Date.now() + '-' + String(i + 1).padStart(3, '0') + '.' + ext;
+    try {
+      const up = await sb.storage.from('lore-comics').upload(path, f, { contentType: f.type, upsert: true });
+      if (up && up.error) throw new Error(up.error.message);
+      const pub = sb.storage.from('lore-comics').getPublicUrl(path);
+      const url = pub && pub.data && pub.data.publicUrl;
+      if (url) out.push(url);
+    } catch (e) {
+      toast('Upload failed on ' + f.name + ' — ' + ((e && e.message) || '').slice(0, 60));
+      break;
+    }
+  }
+  if (out.length) {
+    iss.pages = (iss.pages || []).concat(out);
+    toast('✅ Added ' + out.length + ' page' + (out.length === 1 ? '' : 's') + ' — remember to ☁ Publish');
+    if (onDone) onDone();
+  }
 }
 const stripArt = t => { const o = {}; for (const k in t) if (k[0] !== '_') o[k] = t[k]; return o; };
 const stripLoc = l => { const o = {}; for (const k in l) if (k[0] !== '_') o[k] = l[k]; return o; };
@@ -34,6 +106,9 @@ function draftLoad() {
     const raw = localStorage.getItem(DRAFT_KEY);
     if (!raw) return false;
     const d = JSON.parse(raw);
+    // The published map wins over an older local draft — otherwise opening the
+    // editor would silently revert to whatever this browser last had.
+    if (window.__LORE_CLOUD_AT && (!d.savedAt || d.savedAt < window.__LORE_CLOUD_AT)) return false;
     if (d.art) { ART_TILES.length = 0; d.art.forEach(t => ART_TILES.push(t)); }
     if (d.locs) { LOCATIONS.length = 0; d.locs.forEach(l => LOCATIONS.push(l)); }
     if (d.theme) Object.assign(THEME, d.theme);
@@ -336,9 +411,67 @@ function renderInspector() {
     nt.appendChild(field('Title', iss.title, v => { iss.title = v; }));
     c.appendChild(nt);
     c.appendChild(field('Blurb', iss.blurb || '', v => { iss.blurb = v; }));
-    c.appendChild(field('Page image URLs (one per line)',
+    /* ⬆ Upload the comic pages themselves — no hosting or repo access needed. */
+    const upWrap = document.createElement('label');
+    upWrap.className = 'a-btn';
+    upWrap.style.cssText = 'width:100%;display:flex;gap:8px;align-items:center;justify-content:center;cursor:pointer;margin:8px 0 2px';
+    upWrap.textContent = '⬆ Upload comic pages';
+    const upIn = document.createElement('input');
+    upIn.type = 'file'; upIn.accept = 'image/*'; upIn.multiple = true; upIn.style.display = 'none';
+    upIn.addEventListener('change', () => {
+      const fs = upIn.files; upIn.value = '';
+      uploadIssuePages(fs, iss, () => { draftSave(); rebuild(); select('pin', sel.i); });
+    });
+    upWrap.appendChild(upIn);
+    c.appendChild(upWrap);
+    /* Show what is actually attached — art thumbnails vs laid-out text pages —
+       so "did my upload work?" is answerable at a glance. */
+    const imgPages = (iss.pages || []).filter(p => typeof p === 'string' && isPageImageRef(p));
+    const txtPages = (iss.pages || []).filter(p => p && typeof p !== 'string');
+    const pgCount = document.createElement('div');
+    pgCount.style.cssText = 'font-family:var(--mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:#8b9a93;text-align:center;margin-bottom:6px';
+    pgCount.textContent = imgPages.length + ' art page(s)' + (txtPages.length ? ' · ' + txtPages.length + ' laid-out page(s)' : '');
+    c.appendChild(pgCount);
+    if (imgPages.length) {
+      const strip = document.createElement('div');
+      strip.style.cssText = 'display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px';
+      imgPages.forEach((u, pi) => {
+        const t = document.createElement('div');
+        t.style.cssText = 'position:relative;width:42px;height:56px;border:1px solid #2a3330;border-radius:3px;overflow:hidden;background:#0b0f11';
+        const im = document.createElement('img');
+        im.src = u; im.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block';
+        im.onerror = () => { t.style.borderColor = '#a35'; t.textContent = '✕'; t.style.color = '#f88'; t.style.fontSize = '13px'; t.style.textAlign = 'center'; t.style.lineHeight = '56px'; };
+        const x = document.createElement('button');
+        x.textContent = '×';
+        x.title = 'Remove this page';
+        x.style.cssText = 'position:absolute;top:0;right:0;width:15px;height:15px;line-height:13px;padding:0;border:none;background:rgba(0,0,0,.7);color:#fff;font-size:11px;cursor:pointer';
+        x.onclick = () => {
+          const at = (iss.pages || []).indexOf(u);
+          if (at >= 0) iss.pages.splice(at, 1);
+          draftSave(); rebuild(); select('pin', sel.i);
+        };
+        t.appendChild(im); t.appendChild(x);
+        strip.appendChild(t);
+      });
+      c.appendChild(strip);
+    }
+    c.appendChild(field('…or paste page image URLs (one per line)',
       (iss.pages || []).filter(p => typeof p === 'string').join('\n'),
-      v => { iss.pages = v.split('\n').map(s => s.trim()).filter(Boolean); }, { area: 1 }));
+      v => {
+        // ⚠ Two bugs lived here. (1) This threw away the laid-out placeholder
+        // pages ({layout,cap}) that the default issues use, because it replaced
+        // the whole array with just the typed strings. (2) It accepted ANY text,
+        // so a sentence typed in here became a "page" and the reader rendered it
+        // as a broken image. Keep the non-string pages, and only accept lines
+        // that actually reference an image.
+        const keep = (iss.pages || []).filter(p => p && typeof p !== 'string');
+        const lines = v.split('\n').map(s => s.trim()).filter(Boolean);
+        const good = lines.filter(isPageImageRef);
+        const prose = lines.filter(s => !isPageImageRef(s) && /\s/.test(s));
+        iss.pages = keep.concat(good);
+        // Only warn on obvious prose (has spaces) so half-typed URLs stay quiet.
+        if (prose.length) toast('That is not a page image — use ⬆ Upload comic pages above, or paste an image URL');
+      }, { area: 1 }));
     const rw = iss.reward || {};
     c.appendChild(field('Reward code (blank = no reward)', rw.code || '', v => {
       if (!v) { delete iss.reward; return; }
@@ -417,7 +550,7 @@ function initAdmin() {
   const dock = document.createElement('aside');
   dock.id = 'dock';
   dock.innerHTML =
-    '<div class="dock-head"><h2>Cartographer</h2><p>Admin · edits autosave to this browser</p></div>' +
+    '<div class="dock-head"><h2>Cartographer</h2><p>Admin · edits are a local draft until you ☁ Publish</p></div>' +
     '<div class="dock-body">' +
     '<div class="a-sec"><h3>Place</h3>' +
     '<div class="a-row"><button class="a-btn" id="pinMode">Add pin</button>' +
@@ -429,6 +562,7 @@ function initAdmin() {
     '<div id="themeFields"></div></div>' +
     '</div>' +
     '<div class="dock-foot">' +
+    '<button class="a-btn" id="publishBtn" style="grid-column:1/-1;background:linear-gradient(180deg,#FFC15E,#C4923A);color:#0D1114;border-color:#FFD98A;font-weight:700">☁ Publish to the live site</button>' +
     '<button class="a-btn" id="exportBtn">Export to file</button>' +
     '<button class="a-btn" id="jsonBtn">Download JSON</button>' +
     '<label class="a-btn" style="grid-column:1/-1;display:flex;gap:8px;align-items:center;justify-content:center;cursor:pointer">' +
@@ -488,6 +622,7 @@ function initAdmin() {
     const o = b.dataset.t === 'art' ? ART_TILES[+b.dataset.i] : LOCATIONS[+b.dataset.i];
     centerOn(o.x + (o.w || 0) / 2, o.y + (o.h || 0) / 2);
   });
+  $('#publishBtn').onclick = (e) => publishToCloud(e.currentTarget);
   $('#exportBtn').onclick = openExport;
   $('#closeExport').onclick = () => $('#exportModal').classList.remove('on');
   $('#copyExport').onclick = async () => {

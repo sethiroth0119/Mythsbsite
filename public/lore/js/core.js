@@ -2,6 +2,17 @@
    Loaded before everything except the content and the generator. */
 "use strict";
 
+/* Does this string actually point at a page image? Used by BOTH the reader (so
+   prose never renders as a broken <img>) and the editor (so prose never gets
+   stored as a page in the first place). http(s) URL, data: image, or a path
+   that ends in an image extension. */
+function isPageImageRef(s) {
+  s = String(s || '').trim();
+  if (!s) return false;
+  if (/^data:image\//i.test(s)) return true;
+  if (/^(https?:)?\/\//i.test(s)) return true;
+  return /\.(png|jpe?g|webp|gif|avif|bmp)(\?|#|$)/i.test(s);
+}
 function escapeHtml(s) {
   return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 }

@@ -187,8 +187,29 @@
   try {
     if (window.supabase && window.supabase.createClient) {
       var client = window.supabase.createClient(SUPA_URL, SUPA_ANON, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'msb_web_auth' } });
+      // 🌍 Shared with admin.js so it can publish + upload comic pages.
+      window.__LORE_SB = client;
       client.auth.getSession().then(function(r){ grant(r && r.data && r.data.session); });
       client.auth.onAuthStateChange(function(_e, s){ grant(s); });
+
+      // ── Load the PUBLISHED map so every visitor sees the admin's edits ──
+      // Without this the map could only ever show data/content.js, i.e. edits
+      // were invisible to everyone until the file was hand-edited + redeployed.
+      client.from('lore_map').select('doc,updated_at').eq('id', 'singleton').maybeSingle()
+        .then(function (r) {
+          var row = r && r.data; var d = row && row.doc;
+          if (!d) return;
+          try {
+            if (Array.isArray(d.art) && typeof ART_TILES !== 'undefined') { ART_TILES.length = 0; d.art.forEach(function (t) { ART_TILES.push(t); }); }
+            if (Array.isArray(d.locs) && typeof LOCATIONS !== 'undefined') { LOCATIONS.length = 0; d.locs.forEach(function (l) { LOCATIONS.push(l); }); }
+            if (d.theme && typeof THEME !== 'undefined') Object.assign(THEME, d.theme);
+            window.__LORE_CLOUD_AT = row.updated_at ? new Date(row.updated_at).getTime() : Date.now();
+            if (typeof applyTheme === 'function') applyTheme();
+            if (typeof mountArt === 'function') mountArt();
+            if (typeof buildMarkers === 'function') buildMarkers();
+            if (typeof apply === 'function') apply();
+          } catch (e) {}
+        }, function () { /* table not created yet — the file version stays */ });
     }
   } catch(e){ /* offline / no supabase — #admin still works locally */ }
 })();

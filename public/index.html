@@ -812,7 +812,7 @@ const Navbar = ({ onNavigate, deckCount, survivors, loyalFaction, isSignedIn, di
               onClick={() => { if (onShowPledge) onShowPledge(); }}
               className="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] sm:text-[13px] tracking-wide transition border whitespace-nowrap"
               style={{ borderRadius: '2px', borderColor: currentPage === 'pledge' ? '#c9a86a' : 'rgba(201,168,106,0.45)', color: '#e8d5a8', background: currentPage === 'pledge' ? 'rgba(201,168,106,0.15)' : 'rgba(201,168,106,0.06)' }}
-              title="Founder & Node packages"
+              title="City Nodes packages"
             >
               🛒 Shop
             </button>
@@ -4113,7 +4113,7 @@ const PlayerHub = ({ client, session, profile, refreshProfile, onSignedOut, onSh
                 style={{ borderColor: 'rgba(201,168,106,0.5)', background: 'linear-gradient(90deg, rgba(60,40,10,0.45), rgba(20,12,4,0.55))', boxShadow: '0 6px 22px rgba(201,168,106,0.12)' }}
               >
                 <span>
-                  <span className="block text-yellow-100 font-serif font-bold text-lg">🛒 The Shop — Founder &amp; Node Packages</span>
+                  <span className="block text-yellow-100 font-serif font-bold text-lg">🛒 The Shop — City Nodes</span>
                   <span className="block text-stone-400 text-xs mt-0.5">Vault Key, Scavenger, Node Licenses and more — secure Stripe checkout, delivered to this account.</span>
                 </span>
                 <span className="shrink-0 text-[11px] tracking-widest uppercase font-bold text-amber-200 border border-amber-400/50 rounded px-3 py-2">Enter →</span>
@@ -7278,7 +7278,12 @@ const EB_VIEWED = new Set();
 function ebCountView(client, url) {
   if (!client || !url || EB_VIEWED.has(url)) return;
   EB_VIEWED.add(url);
-  try { client.rpc('eb_clip_view', { p_url: url }); } catch (e) {}
+  // ⚠ supabase-js query builders are LAZY — the HTTP request only fires when the
+  // builder is awaited or .then()'d. Calling client.rpc(...) and dropping it on
+  // the floor sends NOTHING (that's why view counts sat at 0). The .then() is
+  // what actually performs the call; we still don't await it, so playback is
+  // never blocked by the counter.
+  try { client.rpc('eb_clip_view', { p_url: url }).then(() => {}, () => {}); } catch (e) {}
 }
 const ebFmtNum = (n) => {
   n = Number(n) || 0;
@@ -9065,7 +9070,7 @@ const PledgePage = ({ client, session, onSignIn }) => {
           {/* ===== Tier grid ===== */}
           <div className="mb-12">
             <div className="text-center mb-8">
-              <div id="shop-tiers-head" className="text-amber-300/80 text-xs tracking-[0.4em] uppercase mb-3">— Founder & Node Packages —</div>
+              <div id="shop-tiers-head" className="text-amber-300/80 text-xs tracking-[0.4em] uppercase mb-3">— City Nodes —</div>
               <DistressedHeading className="text-4xl md:text-5xl font-serif font-bold text-yellow-100 mb-3">
                 Choose Your Package
               </DistressedHeading>
@@ -9178,14 +9183,8 @@ const PledgePage = ({ client, session, onSignIn }) => {
                           {priceText}
                         </span>
                       </div>
-                      {tier.seats != null && (
-                        <div className="flex items-center justify-between mt-2 pt-2 border-t border-stone-700/50">
-                          <span className="text-stone-500 text-[10px] uppercase tracking-[0.3em]">Supply</span>
-                          <span className="font-mono font-bold text-sm" style={{ color: tier.accent }}>
-                            {tier.seats} <span className="text-stone-400 font-sans font-normal text-[10px] uppercase tracking-widest ml-1">Available</span>
-                          </span>
-                        </div>
-                      )}
+                      {/* The "Supply · N Available" seat counter was removed on request —
+                          nothing else reads tier.seats for display, so the data stays put. */}
                     </div>
 
                     {/* Inherits line */}
@@ -10687,6 +10686,694 @@ const cbkTelemetry = (p, localPower) => {
   };
 };
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 🏛 MAYOR HALL — the hiring market for running a city.
+// Players list what they offer, the community endorses them, and node owners
+// negotiate a contract: the revenue split (opens at 30% player / 70% owner),
+// the payout currency, hours per month, and who keeps the cards + resources
+// found on shift. An accepted offer writes `node_mayors`, which is what the
+// GAME reads to put that player in the owner's city as its mayor.
+// ═══════════════════════════════════════════════════════════════════════════
+const MAYOR_CURRENCIES = [
+  { id: 'CINDER', label: '🔥 Cinder' },
+  { id: 'AZA', label: '◈ Aza Coin' },
+  { id: 'MT', label: 'Ⓜ Mythic Token' },
+];
+const MAYOR_POLICIES = [
+  { id: 'owner', label: 'Node owner keeps them' },
+  { id: 'mayor', label: 'The mayor keeps them' },
+  { id: 'split', label: 'Split by the revenue share' },
+];
+const MAYOR_DEFAULT_TERMS = { player_pct: 30, currency: 'CINDER', hours_per_month: 20, card_policy: 'owner', resource_policy: 'owner', note: '' };
+const mhCard = { background: '#14161B', border: '1px solid #262A32', borderRadius: 14 };
+const mhInput = { width: '100%', background: '#0F1116', border: '1px solid #262A32', borderRadius: 9, color: '#F2F3F5', padding: '9px 11px', fontSize: 13, fontFamily: "'IBM Plex Sans',sans-serif", outline: 'none' };
+const mhLabel = { fontSize: 10.5, letterSpacing: '.14em', textTransform: 'uppercase', color: '#9BA1AB', margin: '12px 0 5px' };
+const mhBtn = (bg, fg) => ({ background: bg, color: fg, border: 'none', borderRadius: 9, padding: '9px 16px', fontWeight: 600, fontSize: 12.5, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" });
+const mhGhost = { background: 'transparent', color: '#C6CAD1', border: '1px solid #262A32', borderRadius: 9, padding: '9px 16px', fontWeight: 600, fontSize: 12.5, cursor: 'pointer', fontFamily: "'IBM Plex Sans',sans-serif" };
+const mhCurLabel = (id) => (MAYOR_CURRENCIES.find(c => c.id === id) || { label: id }).label;
+const mhPolLabel = (id) => (MAYOR_POLICIES.find(p => p.id === id) || { label: id }).label;
+
+// ⚠ Module scope on purpose. Declared inside the page component it would be a
+// NEW component type on every keystroke, so React would remount it and the
+// field would lose focus after each character.
+const MayorTermsForm = ({ terms, setTerms }) => {
+  const set = (k, v) => setTerms({ ...terms, [k]: v });
+  const pct = Number(terms.player_pct) || 0;
+  return (
+    <div>
+      <div style={mhLabel}>Revenue split</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <input type="range" min="0" max="100" step="5" value={pct}
+          onChange={(e) => set('player_pct', Number(e.target.value))}
+          style={{ flex: '1 1 220px', accentColor: '#FF6A2B' }} />
+        <div style={{ fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap' }}>
+          <span style={{ color: '#FF8A55' }}>{pct}% mayor</span>
+          <span style={{ color: '#5C626C' }}> · </span>
+          <span style={{ color: '#E8B34B' }}>{100 - pct}% owner</span>
+        </div>
+      </div>
+      <div style={{ fontSize: 11, color: '#9BA1AB', marginTop: 4 }}>Opens at the standard 30 / 70. Either side can counter.</div>
+
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        <div style={{ flex: '1 1 190px' }}>
+          <div style={mhLabel}>Paid in</div>
+          <select value={terms.currency} onChange={(e) => set('currency', e.target.value)} style={mhInput}>
+            {MAYOR_CURRENCIES.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+          </select>
+        </div>
+        <div style={{ flex: '1 1 150px' }}>
+          <div style={mhLabel}>Hours per month</div>
+          <input type="number" min="1" max="400" value={terms.hours_per_month}
+            onChange={(e) => set('hours_per_month', Math.max(1, Math.min(400, parseInt(e.target.value, 10) || 1)))} style={mhInput} />
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        <div style={{ flex: '1 1 220px' }}>
+          <div style={mhLabel}>Cards found on shift</div>
+          <select value={terms.card_policy} onChange={(e) => set('card_policy', e.target.value)} style={mhInput}>
+            {MAYOR_POLICIES.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+          </select>
+        </div>
+        <div style={{ flex: '1 1 220px' }}>
+          <div style={mhLabel}>Resources found on shift</div>
+          <select value={terms.resource_policy} onChange={(e) => set('resource_policy', e.target.value)} style={mhInput}>
+            {MAYOR_POLICIES.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+          </select>
+        </div>
+      </div>
+      <div style={mhLabel}>Message</div>
+      <textarea rows={2} value={terms.note || ''} onChange={(e) => set('note', e.target.value)}
+        placeholder="Anything else you want on the record…" style={{ ...mhInput, resize: 'vertical' }} />
+    </div>
+  );
+};
+
+const MayorTermsSummary = ({ t }) => (
+  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', fontSize: 11.5 }}>
+    <span style={{ background: 'rgba(255,106,43,.12)', color: '#FF8A55', border: '1px solid rgba(255,106,43,.3)', borderRadius: 99, padding: '3px 10px' }}>{Number(t.player_pct) || 0}% mayor / {100 - (Number(t.player_pct) || 0)}% owner</span>
+    <span style={{ background: '#1B1E24', color: '#E8B34B', border: '1px solid #262A32', borderRadius: 99, padding: '3px 10px' }}>{mhCurLabel(t.currency)}</span>
+    <span style={{ background: '#1B1E24', color: '#C6CAD1', border: '1px solid #262A32', borderRadius: 99, padding: '3px 10px' }}>{t.hours_per_month}h / month</span>
+    <span style={{ background: '#1B1E24', color: '#C6CAD1', border: '1px solid #262A32', borderRadius: 99, padding: '3px 10px' }}>🃏 {mhPolLabel(t.card_policy)}</span>
+    <span style={{ background: '#1B1E24', color: '#C6CAD1', border: '1px solid #262A32', borderRadius: 99, padding: '3px 10px' }}>⛏ {mhPolLabel(t.resource_policy)}</span>
+  </div>
+);
+
+const MayorHallPage = ({ client, session, nodes, onOpenProfile, onSignIn }) => {
+  const uid = session && session.user && session.user.id;
+  const [tab, setTab] = useState('find');
+  const [listings, setListings] = useState(null);
+  const [voteCounts, setVoteCounts] = useState({});
+  const [myVotes, setMyVotes] = useState({});
+  const [offers, setOffers] = useState([]);
+  const [events, setEvents] = useState({});
+  const [mayors, setMayors] = useState({});          // node_id -> active contract
+  const [people, setPeople] = useState({});
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+  const [reload, setReload] = useState(0);
+  // Composers
+  const [mineForm, setMineForm] = useState(null);    // my listing draft
+  const [offerTo, setOfferTo] = useState(null);      // { candidate_id, node } being offered
+  const [offerTerms, setOfferTerms] = useState({ ...MAYOR_DEFAULT_TERMS });
+  const [counterId, setCounterId] = useState(null);
+  const [counterTerms, setCounterTerms] = useState({ ...MAYOR_DEFAULT_TERMS });
+  const [hiring, setHiring] = useState([]);        // node "now hiring" posts
+  const [applicants, setApplicants] = useState({}); // node_id -> [candidate_id]
+  const [nodeVotes, setNodeVotes] = useState({});   // 'cand|node' -> count
+  const [postFor, setPostFor] = useState(null);     // node whose job post is being edited
+
+  const myNodes = (nodes || []).filter(n => n.ownerUserId && uid && n.ownerUserId === uid);
+
+  useEffect(() => {
+    if (!client) return;
+    let dead = false;
+    (async () => {
+      const q = await Promise.all([
+        client.from('mayor_listings').select('*').eq('active', true).order('updated_at', { ascending: false }),
+        client.from('mayor_vote_counts').select('*'),
+        client.from('node_mayors').select('*').eq('active', true),
+        uid ? client.from('mayor_votes').select('candidate_id,node_id').eq('voter_id', uid) : Promise.resolve({ data: [] }),
+        uid ? client.from('mayor_offers').select('*').order('updated_at', { ascending: false }) : Promise.resolve({ data: [] }),
+        client.from('mayor_node_listings').select('*').eq('open', true).order('updated_at', { ascending: false }),
+        client.from('mayor_node_applicants').select('*'),
+        client.from('mayor_node_vote_counts').select('*'),
+      ]);
+      if (dead) return;
+      const [ls, vc, nm, mv, of, nl, ap, nvc] = q;
+      setHiring((nl && nl.data) || []);
+      const amap = {};
+      ((ap && ap.data) || []).forEach(r => { (amap[r.node_id] = amap[r.node_id] || []).push(r.candidate_id); });
+      setApplicants(amap);
+      const nvmap = {}; ((nvc && nvc.data) || []).forEach(r => { nvmap[r.candidate_id + '|' + r.node_id] = r.votes | 0; });
+      setNodeVotes(nvmap);
+      // A missing table just means the migration has not been run — show empty,
+      // never a crash and never invented data.
+      const rows = (ls && ls.data) || [];
+      setListings(rows);
+      const vmap = {}; ((vc && vc.data) || []).forEach(r => { vmap[r.candidate_id] = r.votes | 0; });
+      setVoteCounts(vmap);
+      const mmap = {}; ((nm && nm.data) || []).forEach(r => { mmap[r.node_id] = r; });
+      setMayors(mmap);
+      const my = {}; ((mv && mv.data) || []).forEach(r => { my[r.candidate_id + '|' + (r.node_id || '')] = true; });
+      setMyVotes(my);
+      const offs = (of && of.data) || [];
+      setOffers(offs);
+      if (uid) { const meRow = rows.find(r => r.user_id === uid); if (meRow) setMineForm(meRow); }
+      const ids = [].concat(rows.map(r => r.user_id), offs.map(o => o.candidate_id), offs.map(o => o.owner_id),
+        Object.values(mmap).map(m => m.mayor_id), ((nl && nl.data) || []).map(r => r.owner_id),
+        ((ap && ap.data) || []).map(r => r.candidate_id));
+      try { setPeople(await ebEnrichAuthors(client, ids)); } catch (e) {}
+    })();
+    return () => { dead = true; };
+  }, [client, uid, reload]);
+
+  const who = (id) => (people[id] || { author: 'Survivor' });
+  const need = () => { if (!session) { if (onSignIn) onSignIn(); return true; } return false; };
+  const after = (m) => { setMsg(m); setBusy(false); setReload(n => n + 1); };
+
+  const saveListing = async () => {
+    if (need() || busy) return;
+    const f = mineForm || {};
+    if (!f.headline || !f.headline.trim()) { setMsg('Give your listing a headline.'); return; }
+    setBusy(true);
+    const row = {
+      user_id: uid, headline: f.headline.trim().slice(0, 120), pitch: (f.pitch || '').slice(0, 1200),
+      experience: (f.experience || '').slice(0, 600), hours_per_month: Math.max(1, parseInt(f.hours_per_month, 10) || 20),
+      min_player_pct: Math.max(0, Math.min(100, Number(f.min_player_pct) || 30)),
+      currencies: Array.isArray(f.currencies) && f.currencies.length ? f.currencies : ['CINDER'],
+      card_policy: f.card_policy || 'owner', resource_policy: f.resource_policy || 'owner',
+      active: true, updated_at: new Date().toISOString(),
+    };
+    const { error } = await client.from('mayor_listings').upsert(row, { onConflict: 'user_id' });
+    after(error ? ('Could not save — ' + error.message) : '✅ Your mayor listing is live.');
+  };
+  const removeListing = async () => {
+    if (need() || busy) return;
+    if (!window.confirm('Take your mayor listing down?')) return;
+    setBusy(true);
+    const { error } = await client.from('mayor_listings').update({ active: false }).eq('user_id', uid);
+    after(error ? ('Could not remove — ' + error.message) : 'Listing taken down.');
+  };
+  // nodeId '' = "would make a good mayor anywhere"; a real node id = backing
+  // that person for THAT city's opening.
+  const toggleVote = async (candidateId, nodeId) => {
+    if (need() || busy) return;
+    if (candidateId === uid) { setMsg('You cannot endorse yourself.'); return; }
+    const nid = nodeId || '';
+    setBusy(true);
+    const key = candidateId + '|' + nid;
+    if (myVotes[key]) await client.from('mayor_votes').delete().eq('voter_id', uid).eq('candidate_id', candidateId).eq('node_id', nid);
+    else await client.from('mayor_votes').insert({ voter_id: uid, candidate_id: candidateId, node_id: nid });
+    after('');
+  };
+  // 🏙 An owner advertises the job. Players then request the post.
+  const saveNodePost = async () => {
+    if (need() || busy || !postFor) return;
+    const f = postFor;
+    setBusy(true);
+    const { error } = await client.from('mayor_node_listings').upsert({
+      node_id: f.node_id, owner_id: uid, node_name: f.node_name || null,
+      title: (f.title || '').slice(0, 120) || 'Hiring a mayor',
+      blurb: (f.blurb || '').slice(0, 1200),
+      player_pct: f.player_pct, currency: f.currency, hours_per_month: f.hours_per_month,
+      card_policy: f.card_policy, resource_policy: f.resource_policy,
+      open: true, updated_at: new Date().toISOString(),
+    }, { onConflict: 'node_id' });
+    setPostFor(null);
+    after(error ? ('Could not post — ' + error.message) : '📣 Your city is now listed as hiring.');
+  };
+  const closeNodePost = async (nodeId) => {
+    if (need() || busy) return;
+    setBusy(true);
+    const { error } = await client.from('mayor_node_listings').update({ open: false, updated_at: new Date().toISOString() }).eq('node_id', nodeId);
+    after(error ? ('Could not close — ' + error.message) : 'Job post closed.');
+  };
+  // A player requests the post that an owner advertised, at the posted terms.
+  const requestPost = async (post) => {
+    if (need() || busy) return;
+    setOfferTo({ candidate_id: uid, node: { nodeDbId: post.node_id, id: post.node_id, name: post.node_name || post.node_id, ownerUserId: post.owner_id } });
+    setOfferTerms({ player_pct: post.player_pct, currency: post.currency, hours_per_month: post.hours_per_month,
+      card_policy: post.card_policy, resource_policy: post.resource_policy, note: '' });
+  };
+  const sendOffer = async () => {
+    if (need() || busy || !offerTo) return;
+    const n = offerTo.node;
+    if (!n) { setMsg('Pick which node this contract is for.'); return; }
+    setBusy(true);
+    const iAmOwner = n.ownerUserId === uid;
+    const owner_id = iAmOwner ? uid : n.ownerUserId;
+    const candidate_id = iAmOwner ? offerTo.candidate_id : uid;
+    const { error } = await client.from('mayor_offers').insert({
+      node_id: n.nodeDbId || n.id, node_name: n.name, owner_id, candidate_id, created_by: uid,
+      status: 'pending', player_pct: offerTerms.player_pct, currency: offerTerms.currency,
+      hours_per_month: offerTerms.hours_per_month, card_policy: offerTerms.card_policy,
+      resource_policy: offerTerms.resource_policy, note: (offerTerms.note || '').slice(0, 600),
+      last_actor: uid, turn: iAmOwner ? candidate_id : owner_id,
+    });
+    setOfferTo(null); setOfferTerms({ ...MAYOR_DEFAULT_TERMS });
+    after(error ? ('Could not send — ' + error.message) : (iAmOwner ? '📨 Offer sent to the candidate.' : '📨 Application sent to the node owner.'));
+  };
+  const openThread = async (o) => {
+    if (events[o.id]) { setEvents({ ...events, [o.id]: null }); return; }
+    try {
+      const { data } = await client.from('mayor_offer_events').select('*').eq('offer_id', o.id).order('created_at');
+      setEvents({ ...events, [o.id]: data || [] });
+    } catch (e) { setEvents({ ...events, [o.id]: [] }); }
+  };
+  const sendCounter = async (o) => {
+    if (need() || busy) return;
+    setBusy(true);
+    const other = (o.owner_id === uid) ? o.candidate_id : o.owner_id;
+    const t = counterTerms;
+    const { error } = await client.from('mayor_offers').update({
+      status: 'countered', player_pct: t.player_pct, currency: t.currency, hours_per_month: t.hours_per_month,
+      card_policy: t.card_policy, resource_policy: t.resource_policy, note: (t.note || '').slice(0, 600),
+      last_actor: uid, turn: other, updated_at: new Date().toISOString(),
+    }).eq('id', o.id);
+    if (!error) {
+      try {
+        await client.from('mayor_offer_events').insert({
+          offer_id: o.id, actor_id: uid, action: 'countered', player_pct: t.player_pct, currency: t.currency,
+          hours_per_month: t.hours_per_month, card_policy: t.card_policy, resource_policy: t.resource_policy, note: t.note || null,
+        });
+      } catch (e) {}
+    }
+    setCounterId(null);
+    after(error ? ('Could not counter — ' + error.message) : '↩ Counter-offer sent.');
+  };
+  const acceptOffer = async (o) => {
+    if (need() || busy) return;
+    setBusy(true);
+    try {
+      const { data, error } = await client.rpc('mayor_accept_offer', { p_offer_id: o.id });
+      const r = data || {};
+      if (error || !r.ok) {
+        after(r.error === 'not_your_turn' ? 'It is the other side’s turn — they have to respond to your terms.'
+            : r.error === 'closed' ? 'This negotiation is already closed.'
+            : r.error === 'not_the_node_owner' ? 'That city is not owned by the other party on the war map, so this contract cannot be signed.'
+            : ('Could not accept — ' + ((error && error.message) || r.error || 'try again')));
+        return;
+      }
+      after('🏛 Contract accepted — ' + who(o.candidate_id).author + ' is now the mayor of ' + (o.node_name || o.node_id) + '.');
+    } catch (e) { after('Could not accept — try again.'); }
+  };
+  const declineOffer = async (o) => {
+    if (need() || busy) return;
+    setBusy(true);
+    const { error } = await client.from('mayor_offers').update({ status: 'declined', turn: null, last_actor: uid, updated_at: new Date().toISOString() }).eq('id', o.id);
+    if (!error) { try { await client.from('mayor_offer_events').insert({ offer_id: o.id, actor_id: uid, action: 'declined' }); } catch (e) {} }
+    after(error ? ('Could not decline — ' + error.message) : 'Declined.');
+  };
+  const endContract = async (nodeId) => {
+    if (need() || busy) return;
+    if (!window.confirm('End this mayor contract?')) return;
+    setBusy(true);
+    try {
+      const { data, error } = await client.rpc('mayor_end_contract', { p_node_id: nodeId });
+      after((error || !(data && data.ok)) ? 'Could not end the contract.' : 'Contract ended.');
+    } catch (e) { after('Could not end the contract.'); }
+  };
+
+  const TabBtn = ({ id, label }) => (
+    <button onClick={() => { setTab(id); setMsg(''); }} style={{
+      background: tab === id ? 'rgba(255,106,43,.14)' : 'transparent',
+      border: '1px solid ' + (tab === id ? 'rgba(255,106,43,.5)' : '#262A32'),
+      color: tab === id ? '#FF8A55' : '#9BA1AB',
+      borderRadius: 999, padding: '7px 15px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+      whiteSpace: 'nowrap', fontFamily: "'IBM Plex Sans',sans-serif",
+    }}>{label}</button>
+  );
+  const openOffers = offers.filter(o => o.status === 'pending' || o.status === 'countered');
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div>
+        <div style={{ fontSize: 22, fontWeight: 800, color: '#F2F3F5' }}>🏛 Mayor Hall</div>
+        <div style={{ color: '#9BA1AB', fontSize: 13.5, marginTop: 4, lineHeight: 1.6, maxWidth: 760 }}>
+          Players advertise that they can run a city. The community endorses them. Node owners hire one and
+          negotiate the deal — the split, what they are paid in, the hours, and who keeps the cards and resources
+          found on shift. An accepted contract puts that player in the owner’s city as its mayor.
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <TabBtn id="find" label={'🔎 Find a mayor' + (listings ? ' (' + listings.length + ')' : '')} />
+        <TabBtn id="hiring" label={'📣 Cities hiring' + (hiring.length ? ' (' + hiring.length + ')' : '')} />
+        <TabBtn id="mine" label="📝 My listing" />
+        <TabBtn id="offers" label={'🤝 Negotiations' + (openOffers.length ? ' (' + openOffers.length + ')' : '')} />
+        <TabBtn id="nodes" label={'🏙 My cities' + (myNodes.length ? ' (' + myNodes.length + ')' : '')} />
+      </div>
+
+      {msg ? <div style={{ ...mhCard, padding: '10px 14px', color: '#E8B34B', fontSize: 13 }}>{msg}</div> : null}
+
+      {/* ── FIND A MAYOR ── */}
+      {tab === 'find' && (
+        listings === null ? <div style={{ color: '#9BA1AB' }}>Loading candidates…</div>
+        : listings.length === 0 ? (
+          <div style={{ ...mhCard, padding: 26, textAlign: 'center', color: '#9BA1AB', fontSize: 13.5 }}>
+            No one has listed yet. Put your name in first under <b style={{ color: '#F2F3F5' }}>My listing</b>.
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(320px,1fr))', gap: 14 }}>
+            {listings.map(l => {
+              const p = who(l.user_id);
+              const voted = !!myVotes[l.user_id + '|'];
+              return (
+                <div key={l.user_id} style={{ ...mhCard, padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div style={{ display: 'flex', gap: 11, alignItems: 'center' }}>
+                    <button onClick={() => onOpenProfile && onOpenProfile(p.handle || l.user_id)} style={{
+                      width: 40, height: 40, borderRadius: 10, border: 'none', cursor: 'pointer', flexShrink: 0,
+                      background: p.avatar_url ? `center/cover no-repeat url("${p.avatar_url}")` : 'linear-gradient(140deg,#FF6A2B,#7a2d10)',
+                      color: '#14060A', fontWeight: 800,
+                    }}>{p.avatar_url ? '' : String(p.author || '?').slice(0, 1).toUpperCase()}</button>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ fontWeight: 700, fontSize: 14, color: '#F2F3F5' }}>{p.author}</div>
+                      <div style={{ color: '#9BA1AB', fontSize: 11.5 }}>{voteCounts[l.user_id] | 0} endorsement{(voteCounts[l.user_id] | 0) === 1 ? '' : 's'}</div>
+                    </div>
+                  </div>
+                  <div style={{ fontWeight: 600, fontSize: 13.5, color: '#F2F3F5' }}>{l.headline}</div>
+                  {l.pitch ? <div style={{ color: '#C6CAD1', fontSize: 12.5, lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>{l.pitch}</div> : null}
+                  {l.experience ? <div style={{ color: '#9BA1AB', fontSize: 12, lineHeight: 1.5 }}><b style={{ color: '#C6CAD1' }}>Experience:</b> {l.experience}</div> : null}
+                  <MayorTermsSummary t={{ player_pct: l.min_player_pct, currency: (l.currencies || ['CINDER'])[0], hours_per_month: l.hours_per_month, card_policy: l.card_policy, resource_policy: l.resource_policy }} />
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 2 }}>
+                    <button onClick={() => toggleVote(l.user_id)} disabled={busy || l.user_id === uid}
+                      style={{ ...(voted ? mhBtn('rgba(62,207,142,.15)', '#3ECF8E') : mhGhost), opacity: l.user_id === uid ? .5 : 1 }}>
+                      {voted ? '✓ Endorsed' : '👍 Endorse'}
+                    </button>
+                    {myNodes.length > 0 && l.user_id !== uid && (
+                      <button onClick={() => { setOfferTo({ candidate_id: l.user_id, node: myNodes[0] }); setOfferTerms({ ...MAYOR_DEFAULT_TERMS, player_pct: Number(l.min_player_pct) || 30, currency: (l.currencies || ['CINDER'])[0], hours_per_month: l.hours_per_month || 20, card_policy: l.card_policy || 'owner', resource_policy: l.resource_policy || 'owner' }); }}
+                        style={mhBtn('#FF6A2B', '#14060A')}>🤝 Offer a contract</button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )
+      )}
+
+      {/* ── CITIES HIRING — owners' job posts + their applicants ── */}
+      {tab === 'hiring' && (
+        hiring.length === 0 ? (
+          <div style={{ ...mhCard, padding: 26, textAlign: 'center', color: '#9BA1AB', fontSize: 13.5 }}>
+            No city is hiring right now. If you own one, post the job from <b style={{ color: '#F2F3F5' }}>My cities</b>.
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {hiring.map(post => {
+              const apps = applicants[post.node_id] || [];
+              const owner = who(post.owner_id);
+              const iApplied = apps.indexOf(uid) >= 0;
+              const isMine = post.owner_id === uid;
+              const taken = mayors[post.node_id];
+              return (
+                <div key={post.node_id} style={{ ...mhCard, padding: 16 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontWeight: 800, fontSize: 15, color: '#F2F3F5' }}>🏙 {post.node_name || post.node_id}</div>
+                      <div style={{ color: '#9BA1AB', fontSize: 12, marginTop: 2 }}>
+                        Owner: <b style={{ color: '#C6CAD1' }}>{owner.author}</b>{isMine ? ' (you)' : ''}
+                        {taken ? <span style={{ color: '#E8B34B' }}> · currently run by {who(taken.mayor_id).author}</span> : null}
+                      </div>
+                    </div>
+                    <span style={{ fontSize: 11, fontWeight: 700, borderRadius: 99, padding: '4px 11px', background: 'rgba(62,207,142,.14)', color: '#3ECF8E' }}>
+                      {apps.length} applicant{apps.length === 1 ? '' : 's'}
+                    </span>
+                  </div>
+                  {post.title ? <div style={{ fontWeight: 600, fontSize: 13.5, color: '#F2F3F5', marginTop: 10 }}>{post.title}</div> : null}
+                  {post.blurb ? <div style={{ color: '#C6CAD1', fontSize: 12.5, lineHeight: 1.55, marginTop: 5, whiteSpace: 'pre-wrap' }}>{post.blurb}</div> : null}
+                  <div style={{ marginTop: 10 }}><MayorTermsSummary t={post} /></div>
+                  <div style={{ fontSize: 11, color: '#9BA1AB', marginTop: 6 }}>Opening terms — you can counter after applying.</div>
+
+                  <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+                    {!isMine && (iApplied
+                      ? <span style={{ ...mhBtn('rgba(62,207,142,.15)', '#3ECF8E'), cursor: 'default' }}>✓ You applied</span>
+                      : <button onClick={() => requestPost(post)} disabled={busy} style={mhBtn('#FF6A2B', '#14060A')}>🙋 Request to be mayor</button>)}
+                    {isMine && <button onClick={() => closeNodePost(post.node_id)} disabled={busy} style={mhGhost}>Close this job post</button>}
+                  </div>
+
+                  {/* Applicants — anyone can endorse them for THIS city */}
+                  <div style={{ marginTop: 14, borderTop: '1px solid #262A32', paddingTop: 12 }}>
+                    <div style={{ fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: '#9BA1AB', marginBottom: 8 }}>Applicants</div>
+                    {apps.length === 0 ? (
+                      <div style={{ color: '#9BA1AB', fontSize: 12.5, fontStyle: 'italic' }}>No one has applied yet.</div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {apps.map(cid => {
+                          const p = who(cid);
+                          const backed = !!myVotes[cid + '|' + post.node_id];
+                          const n = nodeVotes[cid + '|' + post.node_id] | 0;
+                          return (
+                            <div key={cid} style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#1B1E24', border: '1px solid #262A32', borderRadius: 10, padding: '9px 12px', flexWrap: 'wrap' }}>
+                              <button onClick={() => onOpenProfile && onOpenProfile(p.handle || cid)} style={{
+                                width: 30, height: 30, borderRadius: 8, border: 'none', cursor: 'pointer', flexShrink: 0,
+                                background: p.avatar_url ? `center/cover no-repeat url("${p.avatar_url}")` : 'linear-gradient(140deg,#FF6A2B,#7a2d10)',
+                                color: '#14060A', fontWeight: 800, fontSize: 12,
+                              }}>{p.avatar_url ? '' : String(p.author || '?').slice(0, 1).toUpperCase()}</button>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontWeight: 600, fontSize: 13, color: '#F2F3F5' }}>{p.author}{cid === uid ? ' (you)' : ''}</div>
+                                <div style={{ fontSize: 11, color: '#9BA1AB' }}>{n} endorsement{n === 1 ? '' : 's'} for this city</div>
+                              </div>
+                              <button onClick={() => toggleVote(cid, post.node_id)} disabled={busy || cid === uid}
+                                style={{ ...(backed ? mhBtn('rgba(62,207,142,.15)', '#3ECF8E') : mhGhost), opacity: cid === uid ? .5 : 1, padding: '6px 12px', fontSize: 12 }}>
+                                {backed ? '✓ Backed' : '👍 Back them'}
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )
+      )}
+
+      {/* ── MY LISTING ── */}
+      {tab === 'mine' && (
+        !session ? (
+          <div style={{ ...mhCard, padding: 24, textAlign: 'center', color: '#9BA1AB' }}>
+            <button onClick={onSignIn} style={mhBtn('#FF6A2B', '#14060A')}>Sign in</button>
+            <div style={{ marginTop: 10, fontSize: 13 }}>Sign in to advertise yourself as a mayor.</div>
+          </div>
+        ) : (
+          <div style={{ ...mhCard, padding: 18, maxWidth: 720 }}>
+            <div style={mhLabel}>Headline</div>
+            <input value={(mineForm && mineForm.headline) || ''} onChange={(e) => setMineForm({ ...(mineForm || {}), headline: e.target.value })}
+              placeholder="Experienced operator — I'll grow your node and keep it clean" style={mhInput} />
+            <div style={mhLabel}>Your pitch</div>
+            <textarea rows={4} value={(mineForm && mineForm.pitch) || ''} onChange={(e) => setMineForm({ ...(mineForm || {}), pitch: e.target.value })}
+              placeholder="What you'll do for the city: reconstruction, defence, events, recruiting…" style={{ ...mhInput, resize: 'vertical' }} />
+            <div style={mhLabel}>Experience</div>
+            <input value={(mineForm && mineForm.experience) || ''} onChange={(e) => setMineForm({ ...(mineForm || {}), experience: e.target.value })}
+              placeholder="Ran Node 14 for 3 months · 800 battles · Diamond rank" style={mhInput} />
+            <div style={{ ...mhLabel, marginTop: 16, color: '#E8B34B' }}>The terms you are asking for</div>
+            <MayorTermsForm
+              terms={{ player_pct: (mineForm && mineForm.min_player_pct) != null ? mineForm.min_player_pct : 30,
+                       currency: (mineForm && (mineForm.currencies || [])[0]) || 'CINDER',
+                       hours_per_month: (mineForm && mineForm.hours_per_month) || 20,
+                       card_policy: (mineForm && mineForm.card_policy) || 'owner',
+                       resource_policy: (mineForm && mineForm.resource_policy) || 'owner', note: '' }}
+              setTerms={(t) => setMineForm({ ...(mineForm || {}), min_player_pct: t.player_pct, currencies: [t.currency], hours_per_month: t.hours_per_month, card_policy: t.card_policy, resource_policy: t.resource_policy })} />
+            <div style={{ display: 'flex', gap: 9, marginTop: 16, flexWrap: 'wrap' }}>
+              <button onClick={saveListing} disabled={busy} style={mhBtn('#FF6A2B', '#14060A')}>{busy ? 'Saving…' : 'Publish my listing'}</button>
+              {mineForm && mineForm.user_id ? <button onClick={removeListing} disabled={busy} style={mhGhost}>Take it down</button> : null}
+            </div>
+          </div>
+        )
+      )}
+
+      {/* ── NEGOTIATIONS ── */}
+      {tab === 'offers' && (
+        offers.length === 0 ? (
+          <div style={{ ...mhCard, padding: 26, textAlign: 'center', color: '#9BA1AB', fontSize: 13.5 }}>
+            No negotiations yet. Owners start one from <b style={{ color: '#F2F3F5' }}>Find a mayor</b>; candidates can apply from <b style={{ color: '#F2F3F5' }}>My cities</b>.
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {offers.map(o => {
+              const iAmOwner = o.owner_id === uid;
+              const otherId = iAmOwner ? o.candidate_id : o.owner_id;
+              const myTurn = o.turn === uid && (o.status === 'pending' || o.status === 'countered');
+              const closed = !(o.status === 'pending' || o.status === 'countered');
+              const ev = events[o.id];
+              return (
+                <div key={o.id} style={{ ...mhCard, padding: 16 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 14, color: '#F2F3F5' }}>
+                        {o.node_name || o.node_id} <span style={{ color: '#5C626C' }}>·</span> <span style={{ color: '#9BA1AB', fontWeight: 500 }}>{iAmOwner ? 'you are hiring' : 'you are applying'}</span>
+                      </div>
+                      <div style={{ color: '#9BA1AB', fontSize: 12, marginTop: 2 }}>
+                        with <b style={{ color: '#C6CAD1' }}>{who(otherId).author}</b>
+                      </div>
+                    </div>
+                    <span style={{ fontSize: 11, fontWeight: 700, borderRadius: 99, padding: '4px 11px',
+                      background: o.status === 'accepted' ? 'rgba(62,207,142,.14)' : closed ? '#1B1E24' : myTurn ? 'rgba(255,106,43,.16)' : '#1B1E24',
+                      color: o.status === 'accepted' ? '#3ECF8E' : closed ? '#9BA1AB' : myTurn ? '#FF8A55' : '#9BA1AB' }}>
+                      {o.status === 'accepted' ? '✓ ACCEPTED' : closed ? o.status.toUpperCase() : myTurn ? 'YOUR MOVE' : 'AWAITING THEM'}
+                    </span>
+                  </div>
+                  <div style={{ marginTop: 10 }}><MayorTermsSummary t={o} /></div>
+                  {o.note ? <div style={{ color: '#C6CAD1', fontSize: 12.5, marginTop: 8, whiteSpace: 'pre-wrap' }}>“{o.note}”</div> : null}
+
+                  {!closed && (
+                    <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+                      {myTurn && <button onClick={() => acceptOffer(o)} disabled={busy} style={mhBtn('#3ECF8E', '#08130D')}>✓ Accept these terms</button>}
+                      <button onClick={() => { setCounterId(counterId === o.id ? null : o.id); setCounterTerms({ player_pct: o.player_pct, currency: o.currency, hours_per_month: o.hours_per_month, card_policy: o.card_policy, resource_policy: o.resource_policy, note: '' }); }}
+                        style={mhGhost}>{counterId === o.id ? 'Cancel counter' : '↩ Counter'}</button>
+                      <button onClick={() => declineOffer(o)} disabled={busy} style={{ ...mhGhost, color: '#F0655A' }}>Decline</button>
+                      <button onClick={() => openThread(o)} style={{ ...mhGhost, borderColor: 'transparent' }}>{ev ? 'Hide history' : 'History'}</button>
+                    </div>
+                  )}
+                  {counterId === o.id && (
+                    <div style={{ marginTop: 12, borderTop: '1px solid #262A32', paddingTop: 12 }}>
+                      <MayorTermsForm terms={counterTerms} setTerms={setCounterTerms} />
+                      <button onClick={() => sendCounter(o)} disabled={busy} style={{ ...mhBtn('#FF6A2B', '#14060A'), marginTop: 12 }}>Send counter-offer</button>
+                    </div>
+                  )}
+                  {ev && ev.length > 0 && (
+                    <div style={{ marginTop: 12, borderTop: '1px solid #262A32', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 7 }}>
+                      {ev.map(x => (
+                        <div key={x.id} style={{ fontSize: 12, color: '#9BA1AB' }}>
+                          <b style={{ color: '#C6CAD1' }}>{who(x.actor_id).author}</b> {x.action}
+                          {x.player_pct != null ? ' — ' + x.player_pct + '% mayor · ' + mhCurLabel(x.currency) + ' · ' + x.hours_per_month + 'h' : ''}
+                          {x.note ? ' — “' + x.note + '”' : ''}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )
+      )}
+
+      {/* ── MY CITIES (owner view) + apply to others ── */}
+      {tab === 'nodes' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {myNodes.length === 0 ? (
+            <div style={{ ...mhCard, padding: 22, color: '#9BA1AB', fontSize: 13.5 }}>
+              You do not own a city yet. You can still list yourself as a mayor and get hired by an owner.
+            </div>
+          ) : myNodes.map(n => {
+            const key = n.nodeDbId || n.id;
+            const m = mayors[key];
+            return (
+              <div key={n.id} style={{ ...mhCard, padding: 16 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <div style={{ fontWeight: 700, fontSize: 15, color: '#F2F3F5' }}>{n.name}</div>
+                  <span style={{ fontSize: 11, color: '#9BA1AB' }}>Node {key}</span>
+                </div>
+                {m ? (
+                  <div style={{ marginTop: 10 }}>
+                    <div style={{ fontSize: 13, color: '#C6CAD1' }}>🏛 Mayor: <b style={{ color: '#3ECF8E' }}>{who(m.mayor_id).author}</b></div>
+                    <div style={{ marginTop: 8 }}><MayorTermsSummary t={m} /></div>
+                    <button onClick={() => endContract(key)} disabled={busy} style={{ ...mhGhost, color: '#F0655A', marginTop: 12 }}>End contract</button>
+                  </div>
+                ) : (
+                  <div style={{ marginTop: 10, color: '#9BA1AB', fontSize: 13 }}>
+                    No mayor yet — hire one from <b style={{ color: '#F2F3F5' }}>Find a mayor</b>, or advertise the job below and let players come to you.
+                  </div>
+                )}
+                {(() => {
+                  const post = hiring.find(h => h.node_id === key);
+                  const apps = (applicants[key] || []).length;
+                  return (
+                    <div style={{ marginTop: 12, borderTop: '1px solid #262A32', paddingTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                      {post ? (
+                        <>
+                          <span style={{ fontSize: 12, color: '#3ECF8E', fontWeight: 600 }}>📣 Listed as hiring · {apps} applicant{apps === 1 ? '' : 's'}</span>
+                          <button onClick={() => setPostFor({ node_id: key, node_name: n.name, title: post.title, blurb: post.blurb, player_pct: post.player_pct, currency: post.currency, hours_per_month: post.hours_per_month, card_policy: post.card_policy, resource_policy: post.resource_policy })} style={{ ...mhGhost, padding: '7px 13px', fontSize: 12 }}>Edit job post</button>
+                          <button onClick={() => setTab('hiring')} style={{ ...mhGhost, padding: '7px 13px', fontSize: 12 }}>See applicants</button>
+                          <button onClick={() => closeNodePost(key)} disabled={busy} style={{ ...mhGhost, padding: '7px 13px', fontSize: 12, color: '#F0655A' }}>Close post</button>
+                        </>
+                      ) : (
+                        <button onClick={() => setPostFor({ node_id: key, node_name: n.name, title: 'Hiring a mayor', blurb: '', ...MAYOR_DEFAULT_TERMS })}
+                          style={mhBtn('#FF6A2B', '#14060A')}>📣 List this city as hiring</button>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+            );
+          })}
+          {/* Apply to run someone else's city */}
+          <div style={{ ...mhCard, padding: 16 }}>
+            <div style={{ fontWeight: 700, fontSize: 14, color: '#F2F3F5' }}>Apply to run someone else’s city</div>
+            <div style={{ color: '#9BA1AB', fontSize: 12.5, marginTop: 4 }}>Send your terms straight to a node owner. They can accept, counter or decline.</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))', gap: 10, marginTop: 12 }}>
+              {(nodes || []).filter(n => n.ownerUserId && n.ownerUserId !== uid).slice(0, 24).map(n => (
+                <button key={n.id} onClick={() => { setOfferTo({ candidate_id: uid, node: n }); setOfferTerms({ ...MAYOR_DEFAULT_TERMS }); }}
+                  style={{ ...mhGhost, textAlign: 'left', padding: '10px 12px' }}>
+                  <div style={{ fontWeight: 600, color: '#F2F3F5', fontSize: 13 }}>{n.name}</div>
+                  <div style={{ fontSize: 11, color: '#9BA1AB' }}>{mayors[n.nodeDbId || n.id] ? 'has a mayor' : 'no mayor yet'}</div>
+                </button>
+              ))}
+              {(nodes || []).filter(n => n.ownerUserId && n.ownerUserId !== uid).length === 0 && (
+                <div style={{ color: '#9BA1AB', fontSize: 12.5 }}>No claimed cities are visible yet — sign in to load the war map.</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── JOB POST EDITOR (owner advertises the city) ── */}
+      {postFor && (
+        <div onClick={() => setPostFor(null)} style={{ position: 'fixed', inset: 0, zIndex: 120, background: 'rgba(4,6,10,.86)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: 18, overflowY: 'auto' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ ...mhCard, padding: 20, maxWidth: 560, width: '100%', marginTop: 40 }}>
+            <div style={{ fontWeight: 800, fontSize: 16, color: '#F2F3F5' }}>📣 Advertise {postFor.node_name}</div>
+            <div style={{ color: '#9BA1AB', fontSize: 12.5, marginTop: 4 }}>Players will see this and can request the post. You still accept, counter or decline each applicant.</div>
+            <div style={mhLabel}>Headline</div>
+            <input value={postFor.title || ''} onChange={(e) => setPostFor({ ...postFor, title: e.target.value })}
+              placeholder="Hiring a mayor — rebuild and defend this district" style={mhInput} />
+            <div style={mhLabel}>What the job involves</div>
+            <textarea rows={3} value={postFor.blurb || ''} onChange={(e) => setPostFor({ ...postFor, blurb: e.target.value })}
+              placeholder="What you expect from your mayor: reconstruction targets, defence, events, recruiting…" style={{ ...mhInput, resize: 'vertical' }} />
+            <div style={{ ...mhLabel, marginTop: 16, color: '#E8B34B' }}>Opening terms</div>
+            <MayorTermsForm terms={postFor} setTerms={(t) => setPostFor({ ...postFor, ...t })} />
+            <div style={{ display: 'flex', gap: 9, marginTop: 16 }}>
+              <button onClick={saveNodePost} disabled={busy} style={{ ...mhBtn('#FF6A2B', '#14060A'), flex: 1 }}>{busy ? 'Posting…' : 'Post the job'}</button>
+              <button onClick={() => setPostFor(null)} style={{ ...mhGhost, flex: 1 }}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── OFFER / APPLY COMPOSER ── */}
+      {offerTo && (
+        <div onClick={() => setOfferTo(null)} style={{ position: 'fixed', inset: 0, zIndex: 120, background: 'rgba(4,6,10,.86)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: 18, overflowY: 'auto' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ ...mhCard, padding: 20, maxWidth: 560, width: '100%', marginTop: 40 }}>
+            <div style={{ fontWeight: 800, fontSize: 16, color: '#F2F3F5' }}>
+              {offerTo.candidate_id === uid ? 'Apply to run this city' : ('Offer a contract to ' + who(offerTo.candidate_id).author)}
+            </div>
+            {offerTo.candidate_id !== uid && myNodes.length > 1 && (
+              <>
+                <div style={mhLabel}>Which city</div>
+                <select value={(offerTo.node && (offerTo.node.nodeDbId || offerTo.node.id)) || ''}
+                  onChange={(e) => setOfferTo({ ...offerTo, node: myNodes.find(n => (n.nodeDbId || n.id) === e.target.value) })} style={mhInput}>
+                  {myNodes.map(n => <option key={n.id} value={n.nodeDbId || n.id}>{n.name}</option>)}
+                </select>
+              </>
+            )}
+            <div style={{ color: '#9BA1AB', fontSize: 12.5, marginTop: 8 }}>
+              City: <b style={{ color: '#C6CAD1' }}>{offerTo.node ? offerTo.node.name : '—'}</b>
+            </div>
+            <MayorTermsForm terms={offerTerms} setTerms={setOfferTerms} />
+            <div style={{ display: 'flex', gap: 9, marginTop: 16 }}>
+              <button onClick={sendOffer} disabled={busy} style={{ ...mhBtn('#FF6A2B', '#14060A'), flex: 1 }}>{busy ? 'Sending…' : 'Send'}</button>
+              <button onClick={() => setOfferTo(null)} style={{ ...mhGhost, flex: 1 }}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // 🛡 Render guard — one bad field in published node data used to take the WHOLE
 // app down to a black screen (React unmounts the tree on an uncaught render
 // error). This catches it, keeps the rest of the site alive, and SHOWS the error
@@ -11323,6 +12010,14 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
     tier: 'BRONZE', backers: 0, points: 0, cap: 500,
     real: false, ownerName: null, score: 0, trust: 0, level: 1,
     avatarUrl: pl.avatar_url || null,
+    // ⚠ The profile screen renders perks + milestones for EVERY profile type.
+    // Leaving them off crashed the page on every player ("… reading 'map'").
+    perks: ['Backer badge on your profile', 'Early supporter recognition'],
+    milestones: [
+      { title: 'Active survivor', desc: 'Playing Mythic Spellbook on the live war map.', status: 'done' },
+      { title: 'First backer', desc: 'Someone locks Cinder or Mythic Token behind this player.', status: backersOf('player-' + pl.user_id) > 0 ? 'done' : 'active' },
+      { title: 'Reach 25 backers', desc: 'Build a following that stakes real value on your run.', status: backersOf('player-' + pl.user_id) >= 25 ? 'done' : 'locked' },
+    ],
   }));
   const allProfiles = [...realNodes, ...myBuilderProfiles, ...playerProfiles].map(withBackers);
   const findProfile = (id) => allProfiles.find(p => p.id === id);
@@ -11691,6 +12386,7 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
     { key: 'dashboard', label: 'Dashboard', icon: '⌂' },
     { key: 'discover', label: 'Discover', icon: '◈' },
     { key: 'stake', label: 'Stake MT', icon: '⛓' },
+    { key: 'mayors', label: 'Mayor Hall', icon: '🏛' },
     { key: 'vip', label: 'VIP Room', icon: '🏛' },
     { key: 'rewards', label: 'Rewards', icon: '✦' },
     { key: 'leaderboard', label: 'Rankings', icon: '♛' },
@@ -11716,7 +12412,7 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
     backers: 'Ranked by backer count against each Builder’s capacity.',
   }[leaderTab];
 
-  const screenTitles = { dashboard: 'Backer dashboard', discover: 'Discover Builders', stake: 'Stake Mythic Token', profile: 'Builder profile', rewards: 'Rewards & reputation', vip: 'VIP Room', leaderboard: 'Builder rankings' };
+  const screenTitles = { dashboard: 'Backer dashboard', discover: 'Discover Builders', stake: 'Stake Mythic Token', profile: 'Builder profile', rewards: 'Rewards & reputation', vip: 'VIP Room', leaderboard: 'Builder rankings', mayors: 'Mayor Hall' };
 
   // ── Market-cap airdrop milestones (dashboard + VIP room) ──
   // mcap = the token's REAL market cap (see the fetch effect above). null
@@ -12117,7 +12813,7 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
             const myAmt = myB.reduce((s, b) => s + Number(b.amount), 0);
             const rawMs = sel.real ? nodeMilestones(sel) : (sel.milestones || [
               { title: 'Complete Builder verification', desc: 'Identity, compliance, and account history review.', status: 'active' },
-              { title: 'First campaign', desc: 'Create your first community campaign.', status: 'locked' },
+              { title: 'First backer', desc: 'Someone locks Cinder or Mythic Token behind this profile.', status: 'locked' },
               { title: 'Reach 25 backers', desc: 'Fill your starting capacity to unlock the next tier.', status: 'locked' },
             ]);
             const milestones = rawMs.map(m => ({ ...m, ...(msMap[m.status] || msMap.locked) }));
@@ -12323,7 +13019,7 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
                     <div style={{ ...card, padding: 20 }}>
                       <div style={{ ...grotesk, fontWeight: 600, fontSize: 16, marginBottom: 14 }}>Backer benefits</div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                        {sel.perks.map((perk, i) => (
+                        {(sel.perks || []).map((perk, i) => (
                           <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 13, lineHeight: 1.5 }}><span style={{ color: '#FF6A2B' }}>◆</span><span>{perk}</span></div>
                         ))}
                       </div>
@@ -12346,6 +13042,19 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
               </CbkBoundary>
             );
           })()}
+
+          {/* ═══ 🏛 MAYOR HALL ═══ */}
+          {screen === 'mayors' && (
+            <CbkBoundary onReset={() => go('dashboard')}>
+              <MayorHallPage
+                client={client}
+                session={session}
+                nodes={realNodes}
+                onOpenProfile={openPlayer}
+                onSignIn={onSignIn}
+              />
+            </CbkBoundary>
+          )}
 
           {/* ═══ REWARDS ═══ */}
           {screen === 'rewards' && (

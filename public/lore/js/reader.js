@@ -85,13 +85,30 @@ function renderPage() {
   } else if (p.type === 'reward') {
     slot.appendChild(rewardPage(p.reward));
   } else if (typeof p === 'string') {
-    const img = document.createElement('img');
-    img.id = 'page'; img.alt = cur.issue.title + ' — page ' + (cur.page + 1);
-    img.src = p;
-    slot.appendChild(img);
-    /* preload the next page so turns are instant */
-    const nx = cur.pages[cur.page + 1];
-    if (typeof nx === 'string') { const pre = new Image(); pre.src = nx; }
+    /* A string page is meant to be an IMAGE reference. If it is plain prose
+       (easy to do — it goes in a textarea) we used to hand it to <img> and the
+       reader showed a broken-image icon with no clue why. Show the words and
+       say what happened instead. */
+    if (!isPageImageRef(p)) {
+      slot.innerHTML = '<div class="reward-page">' +
+        '<div class="reward-kicker">Page ' + (cur.page + 1) + '</div>' +
+        '<p class="reward-desc">' + escapeHtml(p) + '</p>' +
+        '<p class="reward-desc" style="opacity:.6;font-size:.85em">This page has no artwork yet — in the editor use <b>⬆ Upload comic pages</b> to attach the art.</p></div>';
+    } else {
+      const img = document.createElement('img');
+      img.id = 'page'; img.alt = cur.issue.title + ' — page ' + (cur.page + 1);
+      img.onerror = () => {
+        slot.innerHTML = '<div class="reward-page">' +
+          '<div class="reward-kicker">Page ' + (cur.page + 1) + '</div>' +
+          '<div class="reward-title">This page did not load</div>' +
+          '<p class="reward-desc" style="word-break:break-all;opacity:.7">' + escapeHtml(p) + '</p></div>';
+      };
+      img.src = p;
+      slot.appendChild(img);
+      /* preload the next page so turns are instant */
+      const nx = cur.pages[cur.page + 1];
+      if (typeof nx === 'string' && isPageImageRef(nx)) { const pre = new Image(); pre.src = nx; }
+    }
   } else {
     slot.innerHTML = placeholderPage(p, cur.issue, cur.page);
   }
