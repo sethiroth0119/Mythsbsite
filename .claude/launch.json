@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "market",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["http-server", "public", "-p", "8811", "-c-1", "--silent"],
+      "port": 8811
+    }
+  ]
+}
