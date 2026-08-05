@@ -11095,6 +11095,47 @@ const GaSignup = () => {
 
 // ═══════════════════════════════════════════════════════════════════════
 // ═══════════════════════════════════════════════════════════════════════════
+// 🔔 NOTIFICATIONS — shared by Emergency Broadcast alerts and Communities.
+//
+// ⚠ SCOPE, stated honestly: this notifies while the site is OPEN (or its
+//   service worker is alive). Delivery to a CLOSED browser needs Web Push with
+//   a VAPID keypair and a server to send from — a separate build, not
+//   something this can fake. On a phone, "open in another tab" still counts,
+//   which is most of the value.
+// ═══════════════════════════════════════════════════════════════════════════
+function msNotifyState() {
+  try { return (typeof Notification === 'undefined') ? 'unsupported' : Notification.permission; }
+  catch (e) { return 'unsupported'; }
+}
+async function msAskNotify() {
+  try {
+    if (typeof Notification === 'undefined') return 'unsupported';
+    if (Notification.permission !== 'default') return Notification.permission;
+    return await Notification.requestPermission();
+  } catch (e) { return 'denied'; }
+}
+// `source` leads the title on purpose. "New announcement" tells a player in
+// four communities nothing; "Ashfall Compact · New announcement" is actionable
+// straight off a lock screen.
+async function msNotify(source, title, body, tag) {
+  try {
+    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return false;
+    const head = source ? (source + ' · ' + title) : title;
+    const opts = {
+      body: String(body || '').slice(0, 180),
+      tag: tag || ('ms-' + (source || 'x')),   // same tag replaces, never stacks
+      icon: '/assets/logo.png', badge: '/assets/logo.png',
+    };
+    if (navigator.serviceWorker && navigator.serviceWorker.ready) {
+      const reg = await navigator.serviceWorker.ready;
+      if (reg && reg.showNotification) { await reg.showNotification(head, opts); return true; }
+    }
+    new Notification(head, opts);
+    return true;
+  } catch (e) { return false; }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // 🏛 COMMUNITIES — the game's civic layer, readable and usable from the web.
 //
 // The point of this screen is that a player can keep up with their community
@@ -11189,6 +11230,84 @@ function CommunitiesPage({ client, session, onSignIn }) {
   }, [client, uid]);
 
   React.useEffect(() => { if (openId) loadOne(openId); }, [openId, loadOne]);
+
+  /* 📡 LIVE. Postgres changes for the wire and the community tables, plus a
+     BROADCAST channel for typing — typing is worthless three seconds later, so
+     writing it to a table would be rows nobody reads and RLS to maintain. */
+  const [typing, setTyping] = React.useState([]);
+  const typingRef = React.useRef(new Map());
+  const lastTypedRef = React.useRef(0);
+  const chanRef = React.useRef(null);
+  const meName = (session && session.user && session.user.email) ? session.user.email.split('@')[0] : 'Survivor';
+
+  React.useEffect(() => {
+    if (!client || !openId) return;
+    const community = (mine.find(m => m.community_id === openId) || {}).community;
+    const corpId = wire.corp && wire.corp.id;
+    const chans = [];
+
+    if (corpId) {
+      const ch = client.channel('web-wire:' + corpId, { config: { broadcast: { self: false } } });
+      ch.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'guild_chat', filter: 'corp_id=eq.' + corpId },
+        (p) => {
+          setWire(w => (w.rows.some(r => r.id === p.new.id) ? w : { ...w, rows: [...w.rows, p.new].slice(-120) }));
+          typingRef.current.delete(p.new.user_name);
+          setTyping([...typingRef.current.keys()].filter(n => n !== meName));
+        });
+      ch.on('broadcast', { event: 'typing' }, (m) => {
+        const n = m && m.payload && m.payload.name;
+        if (!n || n === meName) return;
+        typingRef.current.set(n, Date.now());
+        setTyping([...typingRef.current.keys()].filter(x => x !== meName));
+      });
+      ch.subscribe();
+      chanRef.current = ch;
+      chans.push(ch);
+    }
+
+    const cc = client.channel('web-community:' + openId);
+    const on = (table, kind) => cc.on('postgres_changes',
+      { event: 'INSERT', schema: 'public', table, filter: 'community_id=eq.' + openId }, (p) => {
+        const row = p.new || {};
+        loadOne(openId);
+        const cname = community && community.name;
+        // Never ping someone for their own action — that is how notifications
+        // get switched off for good.
+        if (kind === 'announcement' && row.author_id !== uid) msNotify(cname, 'New announcement', row.body, 'ann-' + openId);
+        else if (kind === 'vote' && row.created_by !== uid) msNotify(cname, 'A vote is open', row.title, 'vote-' + openId);
+        else if (kind === 'reward' && row.user_id === uid) msNotify(cname, 'You have a payout', '🔥 ' + Math.floor(row.amount || 0).toLocaleString() + ' waiting to claim.', 'rew-' + openId);
+      });
+    on('community_announcements', 'announcement');
+    on('community_votes', 'vote');
+    on('community_rewards', 'reward');
+    cc.subscribe();
+    chans.push(cc);
+
+    // A name stops "typing" 4s after its last keystroke, or the row sticks
+    // forever when someone starts a message and walks away.
+    const sweep = setInterval(() => {
+      const now = Date.now(); let changed = false;
+      for (const [n, at] of [...typingRef.current]) if (now - at > 4000) { typingRef.current.delete(n); changed = true; }
+      if (changed) setTyping([...typingRef.current.keys()].filter(x => x !== meName));
+    }, 1200);
+
+    return () => {
+      clearInterval(sweep);
+      chans.forEach(c2 => { try { client.removeChannel(c2); } catch (e) {} });
+      chanRef.current = null;
+      typingRef.current.clear();
+    };
+  }, [client, openId, wire.corp && wire.corp.id, uid, meName, mine, loadOne]);
+
+  const announceTyping = () => {
+    try {
+      const ch = chanRef.current; if (!ch) return;
+      const now = Date.now();
+      if (now - lastTypedRef.current < 1500) return;   // throttle, not per-keypress
+      lastTypedRef.current = now;
+      ch.send({ type: 'broadcast', event: 'typing', payload: { name: meName } });
+    } catch (e) {}
+  };
 
   const castVote = async (voteId, choice) => {
     if (!client || busy) return;
@@ -11300,12 +11419,26 @@ function CommunitiesPage({ client, session, onSignIn }) {
                             <div style={{ background: '#171A21', border: '1px solid #262A33', borderRadius: 9, padding: '7px 11px', fontSize: 13.5, whiteSpace: 'pre-wrap' }}>{m.body}</div>
                           </div>)}
                     </div>
-                    <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                    <div style={{ minHeight: 18, fontSize: 12, color: '#9BA1AB', marginTop: 6 }}>
+                      {typing.length > 0 && (
+                        <span>💬 {typing.length === 1 ? typing[0] + ' is' :
+                          typing.length === 2 ? typing[0] + ' and ' + typing[1] + ' are' :
+                          typing[0] + ' and ' + (typing.length - 1) + ' others are'} typing…</span>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
                       <input style={S.input} value={msg} maxLength={400} placeholder="Message your guild…"
-                             onChange={e => setMsg(e.target.value)}
+                             onChange={e => { setMsg(e.target.value); announceTyping(); }}
                              onKeyDown={e => { if (e.key === 'Enter') sendWire(); }} />
                       <button style={S.btn} onClick={sendWire} disabled={busy}>Send</button>
                     </div>
+                    {msNotifyState() === 'default' && (
+                      <div style={{ ...S.muted, marginTop: 10, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                        <span style={{ flex: 1, minWidth: 220 }}>🔔 Get told when this community posts an announcement, opens a vote, or pays you out.</span>
+                        <button style={S.btn} onClick={async () => { await msAskNotify(); setTyping(t => [...t]); }}>Turn on alerts</button>
+                      </div>
+                    )}
+                    {msNotifyState() === 'granted' && <div style={{ ...S.muted, marginTop: 10 }}>🔔 Alerts are on for this browser.</div>}
                   </div>}
             </div>
           )}
@@ -12551,10 +12684,23 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
   useEffect(() => {
     if (!client || !session) { setEbUnread(0); return; }
     let dead = false;
+    // 🔔 Notify on a RISE in unread, not on every poll — otherwise a player
+    //    with 3 unread alerts gets pinged once a minute forever. `prev` starts
+    //    at null so the first poll only establishes a baseline and never fires
+    //    a notification for alerts that were already sitting there.
+    let prev = null;
     const tick = async () => {
       try {
         const { data } = await client.rpc('eb_notifications_get', { p_limit: 1 });
-        if (!dead && data) setEbUnread(data.unread | 0);
+        if (dead || !data) return;
+        const n = data.unread | 0;
+        if (prev !== null && n > prev) {
+          const d = n - prev;
+          msNotify('Emergency Broadcast', d === 1 ? 'New alert' : d + ' new alerts',
+            'Open Alerts to see what happened.', 'eb-alerts');
+        }
+        prev = n;
+        setEbUnread(n);
       } catch (e) {}
     };
     tick();
