@@ -6719,6 +6719,7 @@ const AdminPanelModal = ({ open, onClose, client }) => {
               { id: 'registrations', label: `Node Registrations (${registrations.length})` },
               { id: 'creators',      label: `Creator Apps (${creators.length})` },
               { id: 'cards',         label: `Card Manager` },
+              { id: 'shop',          label: `🛒 Shop Manager` },
               { id: 'reports',       label: `Reports (${reports.filter(r => r.status !== 'resolved').length}) · Bans (${bans.length})` },
               { id: 'users',         label: `Users (${users.length})` },
             ].map((t) => (
@@ -6813,6 +6814,9 @@ const AdminPanelModal = ({ open, onClose, client }) => {
 
           {/* ===== Card Manager tab ===== */}
           {tab === 'cards' && <AdminCardManager client={client} />}
+
+          {/* ===== 🛒 Shop Manager tab ===== */}
+          {tab === 'shop' && <AdminShopManager client={client} />}
 
           {/* ===== Reports & Bans tab ===== */}
           {tab === 'reports' && (
@@ -8789,7 +8793,842 @@ const ShopSuccessModal = ({ info, onClose }) => {
 // Reached from the signed-in navbar's "Shop" button. Buy Now tiers create a
 // Stripe Checkout Session via the pledge-checkout edge function; the three
 // top founder tiers stay Coming Soon.
-const PledgePage = ({ client, session, onSignIn }) => {
+/* ═══════════════════════════════════════════════════════════════════════════
+   🛒 THE SHOP — a real storefront.
+   Products are rows in `shop_products` (admin-managed, images in shop-media),
+   each gets its own product page, and a cart checks out through the SAME
+   Worker rail as before. ⚠ The browser never sends a price: checkout posts
+   {items:[{slug,qty}]} and the Worker reads the amounts from the database.
+   ═══════════════════════════════════════════════════════════════════════════ */
+/* 🔎 Build stamp. When a screenshot shows something that cannot be reproduced,
+   the first question is always "which build is that?". Run __MSB__() in the
+   console: it reports the build and measures the Shop's sections so a missing
+   block can be proven rather than guessed at. */
+const MSB_BUILD = '2026-08-05-shop-back-btn';
+try {
+  window.__MSB__ = function () {
+    const out = { build: MSB_BUILD, url: location.href, viewport: document.documentElement.clientWidth + '×' + document.documentElement.clientHeight, sections: [] };
+    const want = ['Packs & Cinder', 'What’s available', 'Why we built this', 'You will own nothing'];
+    want.forEach(function (txt) {
+      const el = [].slice.call(document.querySelectorAll('div,section,h2,p')).filter(function (e) {
+        return (e.textContent || '').trim().indexOf(txt) === 0 && (e.textContent || '').length < 500;
+      })[0];
+      if (!el) { out.sections.push({ text: txt, found: false }); return; }
+      const cs = getComputedStyle(el), r = el.getBoundingClientRect();
+      out.sections.push({ text: txt, found: true, w: Math.round(r.width), h: Math.round(r.height),
+        opacity: cs.opacity, visibility: cs.visibility, color: cs.color, display: cs.display });
+    });
+    console.log(JSON.stringify(out, null, 1));
+    return out;
+  };
+} catch (e) {}
+const SHOP_CART_KEY = 'msb_shop_cart';
+// Thousands separators matter here: at the top of the range a bare "$10000"
+// is genuinely hard to read at a glance, and this is the number people are
+// deciding on. Whole dollars drop the cents.
+const shopMoney = (cents, cur) => {
+  const v = (cents | 0) / 100;
+  const whole = v === Math.floor(v);
+  return (cur && cur !== 'usd' ? (cur.toUpperCase() + ' ') : '$') +
+    v.toLocaleString('en-US', { minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: 2 });
+};
+const shopReadCart = () => { try { const a = JSON.parse(localStorage.getItem(SHOP_CART_KEY) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } };
+const shopWriteCart = (c) => { try { localStorage.setItem(SHOP_CART_KEY, JSON.stringify(c)); } catch (e) {} };
+
+const ShopProductCard = ({ p, onOpen, onAdd, inCart }) => (
+  <div
+    onClick={() => onOpen(p)}
+    className="group relative cursor-pointer overflow-hidden border transition"
+    style={{ borderColor: 'rgba(201,168,106,0.28)', background: 'linear-gradient(180deg, rgba(18,16,14,0.96), rgba(8,7,6,0.99))', borderRadius: 3 }}
+    onMouseEnter={(e) => { e.currentTarget.style.borderColor = p.accent || '#c9a86a'; }}
+    onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(201,168,106,0.28)'; }}
+  >
+    <div className="relative overflow-hidden" style={{ aspectRatio: '16 / 10', background: '#0b0a09' }}>
+      {p.image_url
+        ? <img src={p.image_url} alt="" loading="lazy" className="w-full h-full object-cover transition duration-500 group-hover:scale-105" />
+        : <div className="w-full h-full flex items-center justify-center text-5xl opacity-25">🛒</div>}
+      <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0) 45%, rgba(6,5,4,0.92))' }} />
+      {p.badge ? (
+        <span className="absolute top-3 left-3 text-[10px] font-bold uppercase tracking-[0.2em] px-2 py-1"
+          style={{ background: (p.accent || '#c9a86a'), color: '#12100e', borderRadius: 2 }}>{p.badge}</span>
+      ) : null}
+      <div className="absolute left-4 right-4 bottom-3">
+        <div className="text-[10px] uppercase tracking-[0.3em]" style={{ color: p.accent || '#c9a86a' }}>{p.category}</div>
+        <div className="font-serif font-bold text-yellow-100 text-xl leading-tight mt-0.5">{p.name}</div>
+      </div>
+    </div>
+    <div className="p-4">
+      {p.tagline ? <p className="text-stone-400 text-xs leading-relaxed mb-3 line-clamp-2">{p.tagline}</p> : null}
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-mono font-bold text-lg" style={{ color: p.accent || '#c9a86a' }}>{shopMoney(p.price_cents, p.currency)}</span>
+        <button
+          onClick={(e) => { e.stopPropagation(); onAdd(p); }}
+          className="text-[11px] uppercase tracking-widest font-bold px-3 py-2 border transition"
+          style={{ borderRadius: 2, borderColor: inCart ? '#3ECF8E' : 'rgba(201,168,106,0.5)', color: inCart ? '#3ECF8E' : '#e8d5a8', background: inCart ? 'rgba(62,207,142,0.08)' : 'transparent' }}
+        >{inCart ? '✓ In cart' : '+ Add'}</button>
+      </div>
+    </div>
+  </div>
+);
+
+/* Small section heading used down the product page — the thin rule + wide
+   letter-spacing is what makes a storefront read as a catalogue rather than a
+   blog post. */
+/* ⚠ Styled with INLINE styles, not utility classes. This page's copy has twice
+   been reported as blank on the user's machine while the elements were present
+   in the DOM — everything that survived was carrying inline styles. Anything a
+   buyer must read to make a $10,000 decision does not get to depend on the
+   utility stylesheet loading. */
+const ShopSectionHead = ({ children, accent }) => (
+  <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
+    <span style={{ color: accent || '#c9a86a', fontSize: 10, fontWeight: 700, letterSpacing: '0.35em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{children}</span>
+    <span style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, rgba(201,168,106,0.35), transparent)' }} />
+  </div>
+);
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PRODUCT PAGE — one page per item, in the shape a pledge-store page takes:
+   art on the left, a STICKY buy panel on the right that follows you down the
+   page, then the contents broken out full width, then the sell copy, then the
+   small print. Everything below the fold is driven by columns on
+   shop_products, so a product the admin creates gets the same page.
+   ═══════════════════════════════════════════════════════════════════════════ */
+const ShopProductDetail = ({ p, onBack, onAdd, onBuy, busy, inCart, related, onOpen }) => {
+  const [shot, setShot] = useState(0);
+  const [qty, setQty] = useState(1);
+  useEffect(() => { setShot(0); setQty(1); }, [p.slug]);   // a new product starts fresh
+  const gallery = [p.image_url].concat(Array.isArray(p.gallery) ? p.gallery : []).filter(Boolean);
+  const includes = (Array.isArray(p.includes) ? p.includes : []).map(it => typeof it === 'string' ? it : ((it && it.label) || '')).filter(Boolean);
+  const boosts = (Array.isArray(p.boosts) ? p.boosts : []).map(String).filter(Boolean);
+  const accent = p.accent || '#c9a86a';
+  const hero = gallery[Math.min(shot, Math.max(0, gallery.length - 1))];
+
+  return (
+    <div className="pb-24">
+      {/* ── Back button + breadcrumb ──
+           The gold pill is the site's standard back control. It sits above the
+           art so it is the first thing reachable on the page, on every width. */}
+      <div style={{ maxWidth: 1152, margin: '0 auto', padding: '8px 16px 20px', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+        <button onClick={onBack}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 20px', borderRadius: 99, border: '1px solid rgba(201,168,106,0.55)', background: 'rgba(201,168,106,0.10)', color: '#e8d5a8', fontSize: 12, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'pointer' }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(201,168,106,0.22)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(201,168,106,0.10)'; }}>
+          ← Back to the shop
+        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, letterSpacing: '0.2em', textTransform: 'uppercase' }}>
+          <span style={{ color: '#8a8480' }}>{p.category || 'Store'}</span>
+          <span style={{ color: '#4a4644' }}>/</span>
+          <span style={{ color: accent }}>{p.name}</span>
+        </div>
+      </div>
+
+      {/* ── HERO: art + sticky buy panel ── */}
+      <div className="relative">
+        {/* The product's own art, blurred right back, as the band's backdrop. */}
+        {hero ? (
+          <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
+            <img src={hero} alt="" className="w-full h-full object-cover" style={{ filter: 'blur(48px) saturate(0.7)', opacity: 0.28, transform: 'scale(1.15)' }} />
+            <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(10,9,8,0.55) 0%, rgba(10,9,8,0.92) 70%, #0a0908 100%)' }} />
+          </div>
+        ) : null}
+
+        <div className="relative max-w-6xl mx-auto px-4 md:px-6 grid lg:grid-cols-[1.35fr_1fr] gap-8 lg:gap-10 items-start">
+          {/* Art + gallery */}
+          <div>
+            <div className="relative border overflow-hidden" style={{ borderColor: 'rgba(201,168,106,0.32)', borderRadius: 3, background: '#0b0a09', aspectRatio: '16 / 10' }}>
+              {hero
+                ? <img src={hero} alt={p.name} className="w-full h-full object-cover" />
+                : <div className="w-full h-full flex flex-col items-center justify-center gap-2 opacity-25"><span className="text-6xl">🛒</span><span className="text-[10px] uppercase tracking-[0.3em]">No art yet</span></div>}
+              {p.badge ? (
+                <span className="absolute top-4 left-4 text-[10px] font-bold uppercase tracking-[0.2em] px-2.5 py-1.5"
+                  style={{ background: accent, color: '#12100e', borderRadius: 2 }}>{p.badge}</span>
+              ) : null}
+            </div>
+            {gallery.length > 1 && (
+              <div className="flex gap-2 mt-3 flex-wrap">
+                {gallery.map((g, i) => (
+                  <button key={i} onClick={() => setShot(i)} className="w-24 h-16 overflow-hidden border transition"
+                    style={{ borderRadius: 2, borderColor: i === shot ? accent : 'rgba(201,168,106,0.25)', opacity: i === shot ? 1 : 0.65 }}>
+                    <img src={g} alt="" className="w-full h-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Buy panel — sticks to the viewport on desktop so the price and the
+              button stay reachable however far down the contents you read. */}
+          <div className="lg:sticky" style={{ top: 88 }}>
+            <div className="border p-6" style={{ borderColor: 'rgba(201,168,106,0.3)', borderRadius: 3, background: 'linear-gradient(180deg, rgba(20,18,15,0.97), rgba(9,8,7,0.99))', boxShadow: '0 24px 60px rgba(0,0,0,0.5)' }}>
+              <div className="text-[10px] uppercase tracking-[0.35em] mb-2" style={{ color: accent }}>{p.category || 'Package'}</div>
+              <h1 className="font-serif font-black text-yellow-100 text-3xl leading-tight">{p.name}</h1>
+              {p.tagline ? <p className="text-stone-300 text-sm italic mt-2 leading-relaxed">{p.tagline}</p> : null}
+
+              <div className="flex items-end gap-3 mt-5 pt-5 border-t" style={{ borderColor: 'rgba(201,168,106,0.18)' }}>
+                <div className="font-mono font-black text-4xl leading-none" style={{ color: accent }}>{shopMoney(p.price_cents, p.currency)}</div>
+                <div className="text-stone-500 text-[11px] uppercase tracking-widest pb-1">USD · one-time</div>
+              </div>
+
+              {p.seats ? (
+                <div className="mt-3 text-[11px] uppercase tracking-[0.15em]" style={{ color: '#e8b34b' }}>
+                  ◆ Limited allocation — {p.seats} available
+                </div>
+              ) : null}
+
+              {/* Quantity */}
+              <div className="flex items-center gap-3 mt-5">
+                <span className="text-stone-500 text-[10px] uppercase tracking-[0.25em]">Qty</span>
+                <div className="flex items-center border" style={{ borderColor: 'rgba(201,168,106,0.35)', borderRadius: 2 }}>
+                  <button onClick={() => setQty(q => Math.max(1, q - 1))} className="px-3 py-1.5 text-stone-300 hover:text-yellow-100 transition">−</button>
+                  <span className="px-3 font-mono text-yellow-100 text-sm w-10 text-center">{qty}</span>
+                  <button onClick={() => setQty(q => Math.min(20, q + 1))} className="px-3 py-1.5 text-stone-300 hover:text-yellow-100 transition">+</button>
+                </div>
+              </div>
+
+              <button onClick={() => onAdd(p, qty)}
+                className="w-full mt-5 px-6 py-3.5 font-bold text-sm uppercase tracking-[0.2em] transition"
+                style={{ borderRadius: 2, background: inCart ? 'rgba(62,207,142,0.14)' : 'linear-gradient(180deg,#e8c877,#c9a86a)', color: inCart ? '#3ECF8E' : '#12100e', border: inCart ? '1px solid rgba(62,207,142,0.5)' : 'none' }}>
+                {inCart ? '✓ In your cart — add another' : 'Add to cart'}
+              </button>
+              <button onClick={() => onBuy(p, qty)} disabled={busy}
+                className="w-full mt-2.5 px-6 py-3 font-bold text-xs uppercase tracking-[0.2em] border transition disabled:opacity-60"
+                style={{ borderRadius: 2, borderColor: 'rgba(201,168,106,0.45)', color: '#e8d5a8' }}>
+                {busy ? 'Opening checkout…' : 'Buy it now'}
+              </button>
+
+              <div className="mt-5 pt-5 border-t space-y-2 text-[11px] text-stone-400 leading-relaxed" style={{ borderColor: 'rgba(201,168,106,0.18)' }}>
+                <div>🔒 Secure checkout through Stripe. We never see your card.</div>
+                <div>📦 Delivered to the Mythic Spellbook account you are signed in with.</div>
+                {p.legacy_tier
+                  ? <div>⚡ Delivered automatically the moment payment clears.</div>
+                  : <div>✍️ Fulfilled by hand — see the timing under “Before you buy”.</div>}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── WHAT'S INCLUDED ── */}
+      {includes.length > 0 && (
+        <div className="max-w-6xl mx-auto px-4 md:px-6 mt-14">
+          <ShopSectionHead accent={accent}>What’s included</ShopSectionHead>
+          {p.inherits ? (
+            <div style={{ marginBottom: 20, padding: '12px 16px', fontSize: 14, borderLeft: '2px solid ' + accent, background: 'rgba(201,168,106,0.06)', color: '#e8d5a8' }}>
+              {p.inherits}
+            </div>
+          ) : null}
+          <div className="grid md:grid-cols-2" style={{ columnGap: 32 }}>
+            {includes.map((it, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 16, padding: '14px 0', borderBottom: '1px solid rgba(201,168,106,0.14)' }}>
+                <span style={{ color: accent, opacity: 0.65, fontFamily: 'ui-monospace,monospace', fontSize: 11, paddingTop: 2, flexShrink: 0 }}>{String(i + 1).padStart(2, '0')}</span>
+                <span style={{ color: '#e7e5e4', fontSize: 14, lineHeight: 1.6 }}>{it}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── ECONOMY BOOSTS — the numbers that keep paying after the purchase ── */}
+      {boosts.length > 0 && (
+        <div className="max-w-6xl mx-auto px-4 md:px-6 mt-14">
+          <ShopSectionHead accent={accent}>Permanent economy boosts</ShopSectionHead>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {boosts.map((b, i) => {
+              const m = String(b).match(/^([+\-]?[\d.]+%)\s*(.*)$/);
+              return (
+                <div key={i} style={{ padding: 16, border: '1px solid rgba(201,168,106,0.25)', borderRadius: 3, background: 'rgba(0,0,0,0.35)' }}>
+                  <div style={{ color: accent, fontFamily: 'ui-monospace,monospace', fontWeight: 900, fontSize: 24, lineHeight: 1 }}>{m ? m[1] : '◆'}</div>
+                  <div style={{ color: '#a8a29e', fontSize: 12, marginTop: 8, lineHeight: 1.6 }}>{m ? m[2] : b}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── ABOUT + WHO IT'S FOR ── */}
+      {(p.description || p.audience) && (
+        <div className="max-w-6xl mx-auto px-4 md:px-6 mt-14 grid lg:grid-cols-[1.6fr_1fr] gap-10">
+          {p.description ? (
+            <div>
+              <ShopSectionHead accent={accent}>About this package</ShopSectionHead>
+              <p style={{ color: '#d6d3d1', fontSize: 15, lineHeight: 1.9, whiteSpace: 'pre-wrap' }}>{p.description}</p>
+            </div>
+          ) : <div />}
+          {p.audience ? (
+            <div>
+              <ShopSectionHead accent={accent}>Who this is for</ShopSectionHead>
+              <p style={{ color: '#d6d3d1', fontSize: 15, lineHeight: 1.9 }}>{p.audience}</p>
+            </div>
+          ) : null}
+        </div>
+      )}
+
+      {/* ── BEFORE YOU BUY ── */}
+      <div className="max-w-6xl mx-auto px-4 md:px-6 mt-14">
+        <ShopSectionHead accent={accent}>Before you buy</ShopSectionHead>
+        <div className="grid md:grid-cols-2" style={{ columnGap: 40, rowGap: 20, fontSize: 14, color: '#a8a29e', lineHeight: 1.7 }}>
+          {p.fine_print ? <div className="md:col-span-2" style={{ color: '#d6d3d1' }}>{p.fine_print}</div> : null}
+          <div><b style={{ color: '#e7e5e4' }}>Where it goes.</b> Everything lands on the Mythic Spellbook account you are signed in with at checkout. Sign in first if you have not — we cannot move a purchase between accounts afterwards.</div>
+          <div><b style={{ color: '#e7e5e4' }}>This is not a loot box.</b> The contents listed above are exactly what you receive. There are no odds and nothing is randomised.</div>
+          <div><b style={{ color: '#e7e5e4' }}>Payment.</b> Handled entirely by Stripe. We are never sent your card details, and the price is set server-side — the page cannot change what you are charged.</div>
+          <div><b style={{ color: '#e7e5e4' }}>Refunds.</b> Email us before the contents are used and we will sort it out. Once packs are opened or Cinder is spent, it has entered the live economy and cannot be reversed.</div>
+        </div>
+      </div>
+
+      {/* ── MORE FROM THE SHOP ── */}
+      {Array.isArray(related) && related.length > 0 && (
+        <div className="max-w-6xl mx-auto px-4 md:px-6 mt-16">
+          <ShopSectionHead accent={accent}>More from the shop</ShopSectionHead>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {related.map(r => (
+              <button key={r.slug} onClick={() => onOpen && onOpen(r)} className="text-left border overflow-hidden transition group"
+                style={{ borderColor: 'rgba(201,168,106,0.25)', borderRadius: 3, background: 'rgba(0,0,0,0.35)' }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = r.accent || '#c9a86a'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(201,168,106,0.25)'; }}>
+                <div style={{ aspectRatio: '16 / 10', background: '#0b0a09' }}>
+                  {r.image_url
+                    ? <img src={r.image_url} alt="" loading="lazy" className="w-full h-full object-cover transition duration-500 group-hover:scale-105" />
+                    : <div className="w-full h-full flex items-center justify-center text-3xl opacity-20">🛒</div>}
+                </div>
+                <div style={{ padding: 12 }}>
+                  <div className="font-serif" style={{ color: '#fef9c3', fontWeight: 700, fontSize: 14, lineHeight: 1.3 }}>{r.name}</div>
+                  <div style={{ color: r.accent || '#c9a86a', fontFamily: 'ui-monospace,monospace', fontSize: 12, marginTop: 4 }}>{shopMoney(r.price_cents, r.currency)}</div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* A second back control at the foot, so you never have to scroll up. */}
+      <div style={{ maxWidth: 1152, margin: '0 auto', padding: '56px 16px 0' }}>
+        <button onClick={onBack}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 20px', borderRadius: 99, border: '1px solid rgba(201,168,106,0.55)', background: 'rgba(201,168,106,0.10)', color: '#e8d5a8', fontSize: 12, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'pointer' }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(201,168,106,0.22)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(201,168,106,0.10)'; }}>
+          ← Back to the shop
+        </button>
+      </div>
+    </div>
+  );
+};
+
+const ShopCartDrawer = ({ open, items, products, onClose, onQty, onRemove, onCheckout, busy, note }) => {
+  if (!open) return null;
+  const lines = items.map(i => ({ ...i, p: products.find(x => x.slug === i.slug) })).filter(l => l.p);
+  const total = lines.reduce((s, l) => s + (l.p.price_cents | 0) * l.qty, 0);
+  return (
+    <div className="fixed inset-0 z-[120] flex justify-end" style={{ background: 'rgba(4,4,4,0.75)' }} onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md h-full overflow-y-auto border-l"
+        style={{ background: 'linear-gradient(180deg,#12100e,#080706)', borderColor: 'rgba(201,168,106,0.35)' }}>
+        <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: 'rgba(201,168,106,0.25)' }}>
+          <span className="font-serif font-bold text-yellow-100 text-lg">Your cart</span>
+          <button onClick={onClose} className="text-stone-400 hover:text-yellow-100 text-xl leading-none">×</button>
+        </div>
+        {lines.length === 0 ? (
+          <div className="p-8 text-center text-stone-500 text-sm">Your cart is empty.</div>
+        ) : (
+          <>
+            <div className="p-4 space-y-3">
+              {lines.map(l => (
+                <div key={l.slug} className="flex gap-3 border p-3" style={{ borderColor: 'rgba(201,168,106,0.2)', borderRadius: 3 }}>
+                  <div className="w-16 h-16 flex-shrink-0 overflow-hidden" style={{ background: '#0b0a09', borderRadius: 2 }}>
+                    {l.p.image_url ? <img src={l.p.image_url} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center opacity-30">🛒</div>}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-yellow-100 font-serif font-bold text-sm truncate">{l.p.name}</div>
+                    <div className="font-mono text-xs mt-0.5" style={{ color: l.p.accent || '#c9a86a' }}>{shopMoney(l.p.price_cents, l.p.currency)}</div>
+                    <div className="flex items-center gap-2 mt-2">
+                      <button onClick={() => onQty(l.slug, l.qty - 1)} className="w-6 h-6 border text-stone-300" style={{ borderColor: 'rgba(201,168,106,0.35)', borderRadius: 2 }}>−</button>
+                      <span className="font-mono text-sm text-stone-200 w-6 text-center">{l.qty}</span>
+                      <button onClick={() => onQty(l.slug, l.qty + 1)} className="w-6 h-6 border text-stone-300" style={{ borderColor: 'rgba(201,168,106,0.35)', borderRadius: 2 }}>+</button>
+                      <button onClick={() => onRemove(l.slug)} className="ml-auto text-[11px] uppercase tracking-widest text-red-300/80 hover:text-red-200">Remove</button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="px-5 py-4 border-t" style={{ borderColor: 'rgba(201,168,106,0.25)' }}>
+              <div className="flex justify-between items-baseline mb-4">
+                <span className="text-stone-400 text-xs uppercase tracking-[0.25em]">Total</span>
+                <span className="font-mono font-black text-2xl text-yellow-100">{shopMoney(total)}</span>
+              </div>
+              {note ? <div className="text-xs mb-3" style={{ color: note.ok ? '#3ECF8E' : '#F0655A' }}>{note.text}</div> : null}
+              <button onClick={onCheckout} disabled={busy}
+                className="w-full py-3 font-bold text-sm uppercase tracking-widest disabled:opacity-60"
+                style={{ borderRadius: 2, background: 'linear-gradient(180deg,#e8c877,#c9a86a)', color: '#12100e' }}>
+                {busy ? 'Opening checkout…' : 'Secure checkout'}
+              </button>
+              <p className="text-stone-500 text-[11px] mt-3 leading-relaxed">Payment is processed by Stripe. Prices are confirmed on our server at checkout.</p>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
+/* 🛠 ADMIN — Shop Manager. Add/edit products, upload art, set what buyers get.
+   ⚠ price_cents written here is what Stripe charges (the Worker reads it), so
+   this form is the price control panel. Module scope: declared inside the admin
+   modal it would remount on every keystroke and drop focus. */
+const ShopAdminField = ({ label, value, onChange, area, type, hint, placeholder }) => (
+  <div className="mb-3">
+    <label className="block text-stone-500 text-[10px] uppercase tracking-[0.2em] mb-1">{label}</label>
+    {area
+      ? <textarea rows={area} value={value || ''} onChange={(e) => onChange(e.target.value)} placeholder={placeholder || ''}
+          className="w-full bg-black/50 border border-stone-700 rounded px-3 py-2 text-stone-100 text-sm" />
+      : <input type={type || 'text'} value={value == null ? '' : value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder || ''}
+          className="w-full bg-black/50 border border-stone-700 rounded px-3 py-2 text-stone-100 text-sm" />}
+    {hint ? <div className="text-stone-600 text-[10px] mt-1">{hint}</div> : null}
+  </div>
+);
+
+const AdminShopManager = ({ client }) => {
+  const [rows, setRows] = useState(null);
+  const [form, setForm] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+  const [orders, setOrders] = useState([]);
+  const [tab, setTab] = useState('products');
+
+  const load = async () => {
+    if (!client) return;
+    const [p, o] = await Promise.all([
+      client.from('shop_products').select('*').order('sort_order').order('created_at'),
+      client.from('shop_orders').select('*').order('created_at', { ascending: false }).limit(100),
+    ]);
+    setRows(p.error ? [] : (p.data || []));
+    setOrders(o.error ? [] : (o.data || []));
+  };
+  useEffect(() => { load(); }, [client]);
+
+  const blank = { slug: '', name: '', tagline: '', description: '', category: 'Packages', price_dollars: '', image_url: '', gallery: [], includes: [], boosts: [], inherits: '', audience: '', seats: '', fine_print: '', badge: '', accent: '#c9a86a', legacy_tier: '', sort_order: 100, active: true };
+  const edit = (r) => setForm({ ...r, price_dollars: ((r.price_cents | 0) / 100).toString(), includes: Array.isArray(r.includes) ? r.includes : [], boosts: Array.isArray(r.boosts) ? r.boosts : [], gallery: Array.isArray(r.gallery) ? r.gallery : [], seats: r.seats == null ? '' : String(r.seats) });
+
+  const upload = async (file, cb) => {
+    if (!file) return;
+    if (!/^image\//.test(file.type)) { setMsg('Pick an image file.'); return; }
+    setBusy(true);
+    try {
+      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+      const path = (form && form.slug ? form.slug : 'product') + '/' + Date.now() + '.' + ext;
+      const up = await client.storage.from('shop-media').upload(path, file, { contentType: file.type, upsert: true });
+      if (up && up.error) throw new Error(up.error.message);
+      const pub = client.storage.from('shop-media').getPublicUrl(path);
+      cb((pub && pub.data && pub.data.publicUrl) || '');
+      setMsg('✅ Image uploaded.');
+    } catch (e) { setMsg('Upload failed — ' + ((e && e.message) || '').slice(0, 70) + ' (is the shop-media bucket created?)'); }
+    setBusy(false);
+  };
+
+  const save = async () => {
+    const f = form || {};
+    const slug = (f.slug || '').trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-|-$/g, '');
+    if (!slug || !(f.name || '').trim()) { setMsg('Name and slug are required.'); return; }
+    const cents = Math.round(parseFloat(f.price_dollars || '0') * 100);
+    if (!(cents >= 0)) { setMsg('Enter a valid price.'); return; }
+    setBusy(true);
+    const row = {
+      slug, name: f.name.trim(), tagline: f.tagline || null, description: f.description || null,
+      category: (f.category || 'Packages').trim(), price_cents: cents, currency: 'usd',
+      image_url: f.image_url || null, gallery: f.gallery || [], includes: f.includes || [],
+      boosts: f.boosts || [], inherits: f.inherits || null, audience: f.audience || null,
+      seats: (String(f.seats || '').trim() === '' ? null : (parseInt(f.seats, 10) || null)),
+      fine_print: f.fine_print || null,
+      badge: f.badge || null, accent: f.accent || '#c9a86a',
+      legacy_tier: (f.legacy_tier || '').trim() || null,
+      sort_order: parseInt(f.sort_order, 10) || 100, active: f.active !== false,
+      updated_at: new Date().toISOString(),
+    };
+    if (f.id) row.id = f.id;
+    const { error } = await client.from('shop_products').upsert(row, { onConflict: 'slug' });
+    setBusy(false);
+    if (error) { setMsg('Could not save — ' + error.message.slice(0, 90)); return; }
+    setMsg('✅ Saved. It is live on the shop now.'); setForm(null); load();
+  };
+  const del = async (r) => {
+    if (!window.confirm('Delete "' + r.name + '" from the shop?')) return;
+    const { error } = await client.from('shop_products').delete().eq('id', r.id);
+    setMsg(error ? ('Could not delete — ' + error.message.slice(0, 80)) : 'Deleted.');
+    load();
+  };
+  const markFulfilled = async (o) => {
+    const { error } = await client.from('shop_orders').update({ fulfilled: !o.fulfilled }).eq('id', o.id);
+    if (!error) setOrders(orders.map(x => x.id === o.id ? { ...x, fulfilled: !x.fulfilled } : x));
+  };
+
+  return (
+    <div>
+      <div className="flex gap-2 mb-4">
+        {[['products', 'Products (' + ((rows || []).length) + ')'], ['orders', 'Orders (' + orders.length + ')']].map(([k, label]) => (
+          <button key={k} onClick={() => setTab(k)}
+            className={`px-4 py-2 text-xs uppercase tracking-widest font-bold border-b-2 transition ${tab === k ? 'text-yellow-100 border-amber-400' : 'text-stone-500 border-transparent hover:text-stone-300'}`}>{label}</button>
+        ))}
+        {tab === 'products' && <button onClick={() => setForm({ ...blank })} className="ml-auto px-4 py-2 bg-amber-600/30 border border-amber-500/50 text-amber-100 text-[11px] uppercase tracking-widest font-bold rounded">+ New product</button>}
+      </div>
+      {msg ? <div className="mb-3 px-3 py-2 rounded bg-black/40 border border-stone-700 text-stone-200 text-sm">{msg}</div> : null}
+
+      {tab === 'products' && form && (
+        <div className="mb-6 p-4 rounded border border-amber-500/40 bg-black/40">
+          <div className="text-yellow-100 font-bold mb-3">{form.id ? 'Edit product' : 'New product'}</div>
+          <div className="grid md:grid-cols-2 gap-x-5">
+            <ShopAdminField label="Name" value={form.name} onChange={(v) => setForm({ ...form, name: v, slug: form.id ? form.slug : v.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') })} />
+            <ShopAdminField label="Slug (the product's web address)" value={form.slug} onChange={(v) => setForm({ ...form, slug: v })} hint="lowercase-with-dashes · must be unique" />
+            <ShopAdminField label="Tagline" value={form.tagline} onChange={(v) => setForm({ ...form, tagline: v })} placeholder="One line that sells it" />
+            <ShopAdminField label="Category" value={form.category} onChange={(v) => setForm({ ...form, category: v })} hint="Groups products into filter tabs, e.g. Packages / Nodes / Cosmetics" />
+            <ShopAdminField label="Price (USD)" value={form.price_dollars} onChange={(v) => setForm({ ...form, price_dollars: v })} type="number" hint="⚠ This is what the customer is charged." />
+            <ShopAdminField label="Badge (optional)" value={form.badge} onChange={(v) => setForm({ ...form, badge: v })} placeholder="BEST VALUE" />
+            <ShopAdminField label="Accent colour" value={form.accent} onChange={(v) => setForm({ ...form, accent: v })} placeholder="#c9a86a" />
+            <ShopAdminField label="Sort order" value={form.sort_order} onChange={(v) => setForm({ ...form, sort_order: v })} type="number" hint="Lower shows first" />
+          </div>
+          <ShopAdminField label="Description" value={form.description} onChange={(v) => setForm({ ...form, description: v })} area={4} placeholder="The full sell copy shown on the product page." />
+          <ShopAdminField label="What’s included — one per line" value={(form.includes || []).join('\n')} onChange={(v) => setForm({ ...form, includes: v.split('\n').map(s => s.trim()).filter(Boolean) })} area={4} placeholder={'5 card packs\n25,000 Cinder\nFounder badge'} hint="Numbered down the product page. This is the contract — list exactly what they receive." />
+          <ShopAdminField label="Permanent boosts — one per line (optional)" value={(form.boosts || []).join('\n')} onChange={(v) => setForm({ ...form, boosts: v.split('\n').map(s => s.trim()).filter(Boolean) })} area={3} placeholder={'+8% Node Power Progression\n+5% Cinder when starting Operations'} hint="Start each line with the number — the page pulls it out into a big stat tile." />
+          <div className="grid md:grid-cols-2 gap-x-5">
+            <ShopAdminField label="Builds on (optional)" value={form.inherits} onChange={(v) => setForm({ ...form, inherits: v })} placeholder="Everything in Starter Node License, plus:" />
+            <ShopAdminField label="Limited allocation (optional)" value={form.seats} onChange={(v) => setForm({ ...form, seats: v })} type="number" hint="Shows “Limited allocation — N available”. Blank = unlimited." />
+          </div>
+          <ShopAdminField label="Who this is for (optional)" value={form.audience} onChange={(v) => setForm({ ...form, audience: v })} area={2} placeholder="Early Node operators and community builders." />
+          <ShopAdminField label="Small print (optional)" value={form.fine_print} onChange={(v) => setForm({ ...form, fine_print: v })} area={2} placeholder="Delivered by hand within 48 hours of payment." hint="Sits at the top of the “Before you buy” section." />
+
+          {/* Art */}
+          <div className="grid md:grid-cols-2 gap-5 mt-2">
+            <div>
+              <label className="block text-stone-500 text-[10px] uppercase tracking-[0.2em] mb-1">Main image</label>
+              <div className="flex gap-2 items-center">
+                <label className="px-3 py-2 bg-amber-600/25 border border-amber-500/50 text-amber-100 text-[11px] uppercase tracking-widest font-bold rounded cursor-pointer">
+                  <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files[0]; e.target.value = ''; upload(f, (url) => setForm(fm => ({ ...fm, image_url: url }))); }} />
+                  ⬆ Upload
+                </label>
+                {form.image_url ? <img src={form.image_url} alt="" className="w-24 h-16 object-cover rounded border border-stone-700" /> : <span className="text-stone-600 text-xs">none yet</span>}
+              </div>
+            </div>
+            <div>
+              <label className="block text-stone-500 text-[10px] uppercase tracking-[0.2em] mb-1">Gallery ({(form.gallery || []).length})</label>
+              <div className="flex gap-2 items-center flex-wrap">
+                <label className="px-3 py-2 bg-amber-600/25 border border-amber-500/50 text-amber-100 text-[11px] uppercase tracking-widest font-bold rounded cursor-pointer">
+                  <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => { const fs = [...e.target.files]; e.target.value = ''; fs.forEach(f => upload(f, (url) => setForm(fm => ({ ...fm, gallery: (fm.gallery || []).concat(url) })))); }} />
+                  ⬆ Add images
+                </label>
+                {(form.gallery || []).map((g, i) => (
+                  <span key={i} className="relative">
+                    <img src={g} alt="" className="w-16 h-11 object-cover rounded border border-stone-700" />
+                    <button onClick={() => setForm({ ...form, gallery: form.gallery.filter((_, j) => j !== i) })} className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-black/80 border border-stone-600 text-stone-300 text-[10px] leading-none">×</button>
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <ShopAdminField label="Automated delivery (advanced — leave blank for new products)" value={form.legacy_tier} onChange={(v) => setForm({ ...form, legacy_tier: v })}
+            hint="Set to a built-in tier id (vault-key · scavenger · starter-node · outpost-operator · foundation-contributor) to reuse its automatic pack/Cinder delivery. Blank = the order is recorded and you fulfil it from the Orders tab." />
+          <label className="flex items-center gap-2 text-stone-300 text-sm mt-1">
+            <input type="checkbox" checked={form.active !== false} onChange={(e) => setForm({ ...form, active: e.target.checked })} /> Listed in the shop
+          </label>
+          <div className="flex gap-2 mt-4">
+            <button onClick={save} disabled={busy} className="px-5 py-2.5 bg-amber-500 text-stone-900 font-bold text-xs uppercase tracking-widest rounded disabled:opacity-60">{busy ? 'Saving…' : 'Save product'}</button>
+            <button onClick={() => setForm(null)} className="px-5 py-2.5 bg-black/60 border border-stone-600 text-stone-300 font-bold text-xs uppercase tracking-widest rounded">Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {tab === 'products' && (
+        rows === null ? <div className="text-stone-400 text-sm">Loading…</div>
+        : rows.length === 0 ? <div className="text-stone-500 text-sm py-8 text-center">No products yet — hit <b className="text-stone-300">+ New product</b>. (If you just ran the SQL, the five existing packages are already seeded.)</div>
+        : (
+          <div className="space-y-2">
+            {rows.map(r => (
+              <div key={r.id} className="flex items-center gap-3 p-3 rounded border border-stone-700/60 bg-black/30">
+                <div className="w-16 h-11 flex-shrink-0 rounded overflow-hidden bg-black/60">
+                  {r.image_url ? <img src={r.image_url} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-stone-600">—</div>}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-yellow-100 font-bold text-sm truncate">{r.name} {!r.active && <span className="text-stone-500 font-normal">· hidden</span>}</div>
+                  <div className="text-stone-500 text-xs">{r.category} · /{r.slug}{r.legacy_tier ? ' · auto-delivery: ' + r.legacy_tier : ''}</div>
+                </div>
+                <div className="font-mono text-amber-300 text-sm">{shopMoney(r.price_cents, r.currency)}</div>
+                <button onClick={() => edit(r)} className="px-3 py-1.5 bg-amber-600/25 border border-amber-500/50 text-amber-100 text-[10px] uppercase tracking-widest font-bold rounded">Edit</button>
+                <button onClick={() => del(r)} className="px-3 py-1.5 bg-red-900/30 border border-red-500/40 text-red-200 text-[10px] uppercase tracking-widest font-bold rounded">Delete</button>
+              </div>
+            ))}
+          </div>
+        )
+      )}
+
+      {tab === 'orders' && (
+        orders.length === 0 ? <div className="text-stone-500 text-sm py-8 text-center">No orders yet. Cart purchases land here; the built-in packages also deliver automatically.</div>
+        : (
+          <div className="space-y-2">
+            {orders.map(o => (
+              <div key={o.id} className="p-3 rounded border border-stone-700/60 bg-black/30">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <span className="font-mono text-amber-300">{shopMoney(o.amount_cents, o.currency)}</span>
+                  <span className="text-stone-400 text-xs font-mono">{(o.user_id || '').slice(0, 12)}…</span>
+                  <span className="text-stone-500 text-xs">{new Date(o.created_at).toLocaleString()}</span>
+                  <button onClick={() => markFulfilled(o)}
+                    className={`ml-auto px-3 py-1.5 text-[10px] uppercase tracking-widest font-bold rounded border ${o.fulfilled ? 'bg-emerald-900/30 border-emerald-500/40 text-emerald-200' : 'bg-black/50 border-stone-600 text-stone-300'}`}>
+                    {o.fulfilled ? '✓ Fulfilled' : 'Mark fulfilled'}
+                  </button>
+                </div>
+                <div className="text-stone-300 text-xs mt-1">{(Array.isArray(o.items) ? o.items : []).map(i => (i.slug || '?') + ' ×' + (i.qty || 1)).join(' · ') || '—'}</div>
+              </div>
+            ))}
+          </div>
+        )
+      )}
+    </div>
+  );
+};
+
+const ShopPage = ({ client, session, onSignIn }) => {
+  const [products, setProducts] = useState(null);
+  const [cat, setCat] = useState('All');
+  const [openSlug, setOpenSlug] = useState('');
+  const [cart, setCart] = useState(shopReadCart);
+  const [cartOpen, setCartOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState(null);
+  const [paidInfo, setPaidInfo] = useState(null);
+
+  useEffect(() => {
+    if (!client) return;
+    let dead = false;
+    client.from('shop_products').select('*').eq('active', true).order('sort_order').order('created_at')
+      .then(({ data, error }) => { if (!dead) setProducts(error ? [] : (data || [])); }, () => { if (!dead) setProducts([]); });
+    return () => { dead = true; };
+  }, [client]);
+
+  // Open straight onto a product when the page was reached by a shared link,
+  // and keep the browser's Back button working once we start pushing URLs.
+  useEffect(() => {
+    const sync = () => {
+      try { setOpenSlug(new URLSearchParams(window.location.search).get('product') || ''); } catch (e) {}
+    };
+    sync();
+    window.addEventListener('popstate', sync);
+    return () => window.removeEventListener('popstate', sync);
+  }, []);
+
+  // Returning from Stripe — the Worker re-reads the session with the secret key
+  // and records it. Never trust the ?pledge_paid flag alone; anyone can type it.
+  useEffect(() => {
+    let dead = false;
+    (async () => {
+      try {
+        const q = new URLSearchParams(window.location.search);
+        if (q.get('pledge_cancel')) { setNote({ ok: false, text: 'Checkout cancelled — your card was not charged.' }); return; }
+        if (!q.get('pledge_paid')) return;
+        const sid = q.get('sid') || '';
+        if (!sid || !session) { setNote({ ok: true, text: '✓ Payment received — thank you!' }); return; }
+        const r = await fetch(SHOP_API + '/api/shop/confirm?sid=' + encodeURIComponent(sid), { headers: { 'Authorization': 'Bearer ' + session.access_token } });
+        const j = await r.json().catch(() => ({}));
+        if (dead) return;
+        if (j && j.ok) {
+          setCart([]); shopWriteCart([]);
+          setPaidInfo({ tier_name: j.tier_name || (j.order ? 'Your order' : 'Your purchase'), amount_cents: j.amount_cents, granted: j.granted });
+          try { window.history.replaceState({}, '', window.location.pathname); } catch (e) {}
+        } else { setNote({ ok: true, text: '✓ Payment received — thank you!' }); }
+      } catch (e) { if (!dead) setNote({ ok: true, text: '✓ Payment received — thank you!' }); }
+    })();
+    return () => { dead = true; };
+  }, [session]);
+
+  const setCartSaved = (c) => { setCart(c); shopWriteCart(c); };
+  const addToCart = (p, n) => {
+    const add = Math.max(1, Math.min(20, parseInt(n, 10) || 1));
+    const c = cart.slice();
+    const at = c.findIndex(i => i.slug === p.slug);
+    if (at >= 0) c[at] = { ...c[at], qty: Math.min(20, c[at].qty + add) }; else c.push({ slug: p.slug, qty: add });
+    setCartSaved(c); setCartOpen(true); setNote(null);
+  };
+  // Every product has its own web address, so a page can be linked and shared.
+  const openProduct = (p) => {
+    setOpenSlug(p.slug);
+    try { window.history.pushState({}, '', window.location.pathname + '?product=' + encodeURIComponent(p.slug)); } catch (e) {}
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+  const closeProduct = () => {
+    setOpenSlug('');
+    try { window.history.pushState({}, '', window.location.pathname + '?shop=1'); } catch (e) {}
+  };
+  const setQty = (slug, qty) => {
+    if (qty < 1) return setCartSaved(cart.filter(i => i.slug !== slug));
+    setCartSaved(cart.map(i => i.slug === slug ? { ...i, qty: Math.min(20, qty) } : i));
+  };
+  const checkout = async (items) => {
+    if (!session) { setNote({ ok: false, text: 'Sign in first — your purchase is delivered to your account.' }); if (onSignIn) onSignIn(); return; }
+    if (!items.length || busy) return;
+    setBusy(true); setNote(null);
+    try {
+      const r = await fetch(SHOP_API + '/api/shop/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+        body: JSON.stringify({ items }),      // ⚠ ids + quantities only — the server prices it
+      });
+      const j = await r.json().catch(() => ({}));
+      if (j && j.url) { window.location.href = j.url; return; }
+      setNote({ ok: false, text:
+        j.error === 'stripe_not_configured' ? 'Checkout is opening soon — payments aren’t switched on quite yet.'
+        : j.error === 'no_products' ? 'That item is no longer on sale.'
+        : 'Could not start checkout — please try again.' });
+    } catch (e) { setNote({ ok: false, text: 'Could not start checkout — please try again.' }); }
+    setBusy(false);
+  };
+
+  const list = products || [];
+  const cats = ['All'].concat([...new Set(list.map(p => p.category).filter(Boolean))]);
+  const shown = cat === 'All' ? list : list.filter(p => p.category === cat);
+  const open = openSlug ? list.find(p => p.slug === openSlug) : null;
+  const cartCount = cart.reduce((s, i) => s + i.qty, 0);
+  const inCart = (slug) => cart.some(i => i.slug === slug);
+
+  return (
+    <div className="pt-16" style={{ background: '#0a0908' }}>
+      {/* ═══ HERO — full-bleed, tells you where you are ═══
+           Same cosmic loop the home page runs, so the Shop opens like the rest
+           of the site rather than a bare panel. Silent + looping + playsInline
+           so mobile autoplays it; pointer-events off so it never eats a click.
+           Hidden on a product page — that page is its own front door, and the
+           store hero would push the product's art and price below the fold. */}
+      {!open && (
+      <section className="relative overflow-hidden border-b" style={{ borderColor: 'rgba(201,168,106,0.22)' }}>
+        <video
+          autoPlay muted loop playsInline preload="auto"
+          className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+          style={{ zIndex: 0, objectPosition: 'center center' }}
+        >
+          <source src="./assets/background/Backgrounds/hero-video.mp4?v=1" type="video/mp4" />
+        </video>
+        {/* Darkening pass so the copy stays readable over the footage. */}
+        <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 1, background: 'rgba(0,0,0,0.62)' }} />
+        <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 1, background: 'radial-gradient(900px 420px at 50% 0%, rgba(201,168,106,0.16), transparent 70%)' }} />
+        {/* Fade the bottom into the page so the store bar blends in. */}
+        <div className="absolute bottom-0 left-0 right-0 pointer-events-none" style={{ zIndex: 1, height: 96, background: 'linear-gradient(180deg, transparent 0%, #0a0908 100%)' }} />
+        <div style={{ position: 'relative', zIndex: 2, maxWidth: 1152, margin: '0 auto', padding: '72px 16px 64px', textAlign: 'center' }}>
+          <div className="text-[10px] uppercase tracking-[0.5em] text-amber-300/70">Mythic Spellbook</div>
+          <h1 className="font-serif font-black text-yellow-100 text-5xl md:text-6xl leading-none mt-3">The Shop</h1>
+          <p className="text-stone-300 mt-5 max-w-2xl mx-auto leading-relaxed">
+            Everything here is a real, usable asset inside the game — packs, Cinder, and node licenses that
+            keep producing after you buy them. No loot boxes, no mystery odds. You see exactly what you get
+            before you pay, and it lands on your account.
+          </p>
+          <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 28, flexWrap: 'wrap' }}>
+            <a href="#shop-products" style={{ padding: '12px 24px', fontWeight: 700, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.1em', borderRadius: 2, background: 'linear-gradient(180deg,#e8c877,#c9a86a)', color: '#12100e', textDecoration: 'none' }}>Browse the shop</a>
+            <a href="#why-we-built-this"
+              style={{ padding: '12px 24px', fontWeight: 700, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.1em', borderRadius: 2, border: '1px solid rgba(201,168,106,0.6)', background: 'transparent', color: '#e8d5a8', textDecoration: 'none' }}>Why we built this</a>
+          </div>
+        </div>
+      </section>
+      )}
+
+      {/* 🛒 STORE BAR — the products sit right under the hero on purpose.
+           What used to be here (a 3-card explainer + a tall "What's available"
+           header) reserved ~500px and painted nothing on the user's machine,
+           leaving a dead gap above the products. The copy it carried is already
+           in the hero and in the manifesto below, so the blocks are gone rather
+           than debugged further, and the grid moves up where it belongs. */}
+      <div id="shop-products" style={{ maxWidth: 1152, margin: '0 auto', padding: '18px 16px 0' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12, flexWrap: 'wrap', paddingBottom: 14, marginBottom: 18, borderBottom: '1px solid rgba(201,168,106,0.22)' }}>
+          <button onClick={() => setCartOpen(true)}
+            style={{ position: 'relative', padding: '10px 20px', border: '1px solid rgba(201,168,106,0.5)', borderRadius: 2, color: '#e8d5a8', background: 'transparent', fontSize: 13, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer' }}>
+            🛒 Cart{cartCount ? <span style={{ marginLeft: 8, padding: '2px 8px', fontSize: 11, fontFamily: 'ui-monospace,monospace', background: '#c9a86a', color: '#12100e', borderRadius: 2 }}>{cartCount}</span> : null}
+          </button>
+        </div>
+      </div>
+
+      {note && !open ? (
+        <div className="max-w-6xl mx-auto px-4 md:px-6 mb-5">
+          <div className="px-4 py-3 text-sm border" style={{ borderRadius: 2, borderColor: note.ok ? 'rgba(62,207,142,0.4)' : 'rgba(240,101,90,0.4)', color: note.ok ? '#3ECF8E' : '#F0655A', background: 'rgba(0,0,0,0.3)' }}>{note.text}</div>
+        </div>
+      ) : null}
+
+      {open ? (
+        <ShopProductDetail p={open} busy={busy} inCart={inCart(open.slug)}
+          onBack={closeProduct} onAdd={addToCart}
+          onBuy={(p, n) => checkout([{ slug: p.slug, qty: Math.max(1, Math.min(20, parseInt(n, 10) || 1)) }])}
+          related={list.filter(x => x.slug !== open.slug).slice(0, 4)}
+          onOpen={openProduct} />
+      ) : products === null ? (
+        <div className="max-w-6xl mx-auto px-6 py-20 text-center text-stone-500">Loading the shop…</div>
+      ) : list.length === 0 ? (
+        <div className="max-w-3xl mx-auto px-6 py-20 text-center">
+          <div className="text-5xl mb-4 opacity-40">🛒</div>
+          <div className="font-serif text-yellow-100 text-2xl mb-2">The shelves are being stocked</div>
+          <p className="text-stone-400 text-sm">No products are listed yet. An admin can add them from <b className="text-stone-200">Admin → Shop Manager</b>.</p>
+        </div>
+      ) : (
+        <div className="max-w-6xl mx-auto px-4 md:px-6 pb-20">
+          {cats.length > 2 && (
+            <div className="flex gap-2 flex-wrap mb-6">
+              {cats.map(c => (
+                <button key={c} onClick={() => setCat(c)}
+                  className="px-4 py-2 text-[11px] uppercase tracking-widest font-bold border transition"
+                  style={{ borderRadius: 2, borderColor: cat === c ? '#c9a86a' : 'rgba(201,168,106,0.28)', color: cat === c ? '#12100e' : '#c9b48a', background: cat === c ? '#c9a86a' : 'transparent' }}>{c}</button>
+              ))}
+            </div>
+          )}
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {shown.map(p => (
+              <ShopProductCard key={p.slug} p={p} inCart={inCart(p.slug)} onOpen={openProduct} onAdd={addToCart} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ═══ WHY WE BUILT THIS ═══
+           The REAL manifesto page, rendered inline here. It was previously a
+           condensed rewrite, which is not what was asked for — this embeds the
+           actual designed page (Generation Locked Out, Players Already Value,
+           Our Vision / Protection, The Bigger Mission, Where the Pledge Goes)
+           with all of its panels intact. `manifestoOnly` hides that page's old
+           package grid, footer and purchase modal so nothing is duplicated. */}
+      {!open && (
+        <div id="why-we-built-this">
+          <PledgePage client={client} session={session} onSignIn={onSignIn} manifestoOnly />
+        </div>
+      )}
+
+      {/* ═══ BEFORE YOU BUY ═══ */}
+      {!open && (
+        <section className="border-t" style={{ borderColor: 'rgba(201,168,106,0.18)' }}>
+          <div className="max-w-6xl mx-auto px-4 md:px-6 py-12">
+            <div className="text-[10px] uppercase tracking-[0.4em] text-amber-300/70 mb-6 text-center">Before you buy</div>
+            <div className="grid md:grid-cols-2 gap-x-10 gap-y-6">
+              {[
+                ['How is it delivered?', 'Purchases are tied to the Mythic Spellbook account you are signed in with. Packs and Cinder appear in your gift inbox — open the game and hit Claim on your profile.'],
+                ['Do I need an account first?', 'Yes. Sign in before checking out so we know where to deliver. It is free to create one and free to play.'],
+                ['Is my payment secure?', 'Checkout runs on Stripe. Your card details never touch our servers, and the price is confirmed by our server at checkout — not by your browser.'],
+                ['What is a node, really?', 'A district on the live war map. It generates Cinder over time, gains levels, and can be staffed by a mayor you hire from the community. It keeps earning while you are offline.'],
+                ['Can I sell what I buy?', 'Cards and most items can be traded or sold to other players in-game. That is the point — the value you build stays yours.'],
+                ['Something went wrong', 'If a payment succeeded but nothing arrived, contact us with your email and the time of purchase and we will fix it by hand.'],
+              ].map(([q, a], i) => (
+                <div key={i}>
+                  <div className="text-yellow-100 font-serif font-bold mb-1.5">{q}</div>
+                  <p className="text-stone-400 text-sm leading-relaxed">{a}</p>
+                </div>
+              ))}
+            </div>
+            <p className="text-center text-stone-500 text-[11px] uppercase tracking-widest mt-10">
+              Secure checkout via Stripe · delivered to your Mythic Spellbook account · cash-out limits and royalty participation governed by the Terms of Service
+            </p>
+          </div>
+        </section>
+      )}
+
+      <Footer />
+
+      <ShopCartDrawer open={cartOpen} items={cart} products={list} busy={busy} note={note}
+        onClose={() => setCartOpen(false)} onQty={setQty}
+        onRemove={(slug) => setCartSaved(cart.filter(i => i.slug !== slug))}
+        onCheckout={() => checkout(cart.map(i => ({ slug: i.slug, qty: i.qty })))} />
+      <ShopSuccessModal info={paidInfo} onClose={() => setPaidInfo(null)} />
+    </div>
+  );
+};
+
+const PledgePage = ({ client, session, onSignIn, manifestoOnly }) => {
   // Learn-more modal toggle for the PSN lore drop-down.
   const [psnOpen, setPsnOpen] = useState(false);
   // Stripe checkout state — which tier's button is busy + last error/notice.
@@ -8801,6 +9640,7 @@ const PledgePage = ({ client, session, onSignIn }) => {
   // it from Stripe with the secret key and records the purchase) — never trust
   // the ?pledge_paid flag on its own, a URL can be typed by anyone.
   useEffect(() => {
+    if (manifestoOnly) return;   // the Shop owns the Stripe return flow when embedded
     let dead = false;
     (async () => {
       try {
@@ -9067,7 +9907,12 @@ const PledgePage = ({ client, session, onSignIn }) => {
             </Block>
           </div>
 
-          {/* ===== Tier grid ===== */}
+          {/* ===== Tier grid =====
+               ⚠ Skipped when the Shop renders this page purely for its
+               manifesto — the products now live in the storefront, and showing
+               the old hardcoded tiers underneath would be a second, stale copy
+               of the same packages. */}
+          {!manifestoOnly && (
           <div className="mb-12">
             <div className="text-center mb-8">
               <div id="shop-tiers-head" className="text-amber-300/80 text-xs tracking-[0.4em] uppercase mb-3">— City Nodes —</div>
@@ -9274,12 +10119,16 @@ const PledgePage = ({ client, session, onSignIn }) => {
               Secure checkout via Stripe · packages are delivered to your Mythic Spellbook account. Dominion, Titan &amp; Eternal Founder intake opens soon. Cash-out limits and royalty participation governed by Terms of Service.
             </p>
           </div>
+          )}
 
         </div>
       </section>
-      <Footer />
+      {/* When the Shop embeds this page for its "Why we built this" section, the
+          Shop already owns the footer and the purchase-confirmation modal —
+          rendering a second copy of each would duplicate them on the page. */}
+      {!manifestoOnly && <Footer />}
       <PsnLoreModal open={psnOpen} onClose={() => setPsnOpen(false)} />
-      <ShopSuccessModal info={paidInfo} onClose={() => setPaidInfo(null)} />
+      {!manifestoOnly && <ShopSuccessModal info={paidInfo} onClose={() => setPaidInfo(null)} />}
     </div>
   );
 };
@@ -10245,6 +11094,282 @@ const GaSignup = () => {
 };
 
 // ═══════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
+// 🏛 COMMUNITIES — the game's civic layer, readable and usable from the web.
+//
+// The point of this screen is that a player can keep up with their community
+// WITHOUT launching the game: read announcements, vote while a vote is open,
+// see who is in it, and talk on their corporation's wire.
+//
+// It is the SAME Supabase session as the rest of the site, so every RLS policy
+// written for the game applies here unchanged. Nothing is re-implemented and
+// nothing is trusted to the browser: a non-member simply reads nothing back.
+//
+// ⚠ Deliberately read + participate, NOT administer. Founding communities,
+//   approving members, closing votes and distributing rewards stay in-game.
+//   Those apply game state, and the web has no business being a second, subtly
+//   different control surface for them.
+// ═══════════════════════════════════════════════════════════════════════════
+function CommunitiesPage({ client, session, onSignIn }) {
+  // ⚠ `grotesk` is a const INSIDE the Emergency Broadcast component (~L13306),
+  //    not module scope — this component sits above it and cannot see it.
+  //    Referencing it threw "grotesk is not defined" straight into the error
+  //    boundary, which rendered as "this profile couldn't be displayed".
+  //    Declared locally rather than hoisted, so the EB component keeps its own.
+  const grotesk = { fontFamily: "'Space Grotesk', sans-serif" };
+  const uid = (session && session.user && session.user.id) || null;
+  const [loading, setLoading] = React.useState(true);
+  const [mine, setMine] = React.useState([]);        // [{community, role, status}]
+  const [openId, setOpenId] = React.useState(null);
+  const [tab, setTab] = React.useState('wire');
+  const [data, setData] = React.useState({ ann: [], votes: [], ballots: [], members: [], ledger: [] });
+  const [wire, setWire] = React.useState({ corp: null, rows: [] });
+  const [msg, setMsg] = React.useState('');
+  const [busy, setBusy] = React.useState(false);
+  const [err, setErr] = React.useState(null);
+
+  // Which communities am I in? Two steps rather than a join, so a policy change
+  // on one table cannot blank the whole screen.
+  React.useEffect(() => {
+    let dead = false;
+    (async () => {
+      if (!client || !uid) { setLoading(false); return; }
+      setLoading(true); setErr(null);
+      try {
+        const m = await client.from('community_members')
+          .select('community_id,role,status').eq('user_id', uid).limit(50);
+        if (m.error) throw m.error;
+        const ids = (m.data || []).map(r => r.community_id);
+        if (!ids.length) { if (!dead) { setMine([]); setLoading(false); } return; }
+        const c = await client.from('communities')
+          .select('id,name,tag,description,join_policy,war_target_name,levy_pct').in('id', ids);
+        if (c.error) throw c.error;
+        const byId = {}; (c.data || []).forEach(x => { byId[x.id] = x; });
+        const rows = (m.data || []).map(r => ({ ...r, community: byId[r.community_id] })).filter(r => r.community);
+        if (!dead) { setMine(rows); if (rows.length === 1) setOpenId(rows[0].community_id); }
+      } catch (e) {
+        if (!dead) setErr(/does not exist|schema cache|PGRST205/i.test(e.message || '')
+          ? 'The community tables are not set up on this server yet.'
+          : (e.message || 'Could not load your communities.'));
+      } finally { if (!dead) setLoading(false); }
+    })();
+    return () => { dead = true; };
+  }, [client, uid]);
+
+  const loadOne = React.useCallback(async (id) => {
+    if (!client || !id) return;
+    setBusy(true);
+    try {
+      const [ann, votes, members, ledger] = await Promise.all([
+        client.from('community_announcements').select('id,author_name,body,pinned,created_at')
+          .eq('community_id', id).order('pinned', { ascending: false }).order('created_at', { ascending: false }).limit(30),
+        client.from('community_votes').select('id,kind,title,options,status,result_label,closes_at,created_at')
+          .eq('community_id', id).order('created_at', { ascending: false }).limit(20),
+        client.from('community_members').select('user_id,user_name,role,status').eq('community_id', id).limit(200),
+        client.from('community_ledger').select('user_id,user_name,amount,kind,created_at').eq('community_id', id).limit(200),
+      ]);
+      const vids = ((votes.data) || []).map(v => v.id);
+      const bal = vids.length ? await client.from('community_ballots').select('vote_id,user_id,choice').in('vote_id', vids) : { data: [] };
+      setData({ ann: ann.data || [], votes: votes.data || [], ballots: bal.data || [], members: members.data || [], ledger: ledger.data || [] });
+
+      // 📻 The wire is per-CORPORATION. Find mine, then read its chat — the
+      //    same guild_chat table and the same RLS the game uses.
+      const cm = await client.from('corp_members').select('corp_id').eq('user_id', uid).maybeSingle();
+      const corpId = cm && cm.data && cm.data.corp_id;
+      if (corpId) {
+        const [corp, chat] = await Promise.all([
+          client.from('corporations').select('id,name,tag').eq('id', corpId).maybeSingle(),
+          client.from('guild_chat').select('id,user_name,body,kind,created_at')
+            .eq('corp_id', corpId).order('created_at', { ascending: false }).limit(80),
+        ]);
+        setWire({ corp: (corp && corp.data) || null, rows: ((chat.data) || []).slice().reverse() });
+      } else setWire({ corp: null, rows: [] });
+    } catch (e) { setErr(e.message || 'Could not load that community.'); }
+    finally { setBusy(false); }
+  }, [client, uid]);
+
+  React.useEffect(() => { if (openId) loadOne(openId); }, [openId, loadOne]);
+
+  const castVote = async (voteId, choice) => {
+    if (!client || busy) return;
+    setBusy(true);
+    try {
+      const r = await client.rpc('community_vote_cast', { p_vote_id: voteId, p_choice: choice });
+      if (r.error) throw r.error;
+      await loadOne(openId);
+    } catch (e) { setErr(e.message || 'Could not record your vote.'); }
+    finally { setBusy(false); }
+  };
+
+  const sendWire = async () => {
+    const body = msg.trim();
+    if (!client || !body || !wire.corp || busy) return;
+    setBusy(true);
+    try {
+      const name = (session && session.user && session.user.email) ? session.user.email.split('@')[0] : 'Survivor';
+      const r = await client.from('guild_chat').insert({
+        corp_id: wire.corp.id, user_id: uid, user_name: name.slice(0, 40), body: body.slice(0, 400), kind: 'chat',
+      });
+      if (r.error) throw r.error;
+      setMsg('');
+      await loadOne(openId);
+    } catch (e) { setErr(e.message || 'Message failed to send.'); }
+    finally { setBusy(false); }
+  };
+
+  const S = {
+    card: { background: '#12141A', border: '1px solid #262A33', borderRadius: 14, padding: 18, marginBottom: 14 },
+    h: { ...grotesk, fontSize: 13, letterSpacing: '.14em', color: '#E8B34B', fontWeight: 700, textTransform: 'uppercase', marginBottom: 10 },
+    row: { display: 'flex', gap: 10, alignItems: 'center', padding: '8px 0', borderTop: '1px solid #1E222A' },
+    muted: { color: '#9BA1AB', fontSize: 13 },
+    tab: (on) => ({ padding: '6px 13px', borderRadius: 9, cursor: 'pointer', fontSize: 13, fontWeight: 600,
+      border: '1px solid ' + (on ? '#E8B34B' : '#2A2F39'), color: on ? '#E8B34B' : '#9BA1AB',
+      background: on ? 'rgba(232,179,75,.12)' : 'transparent' }),
+    btn: { padding: '7px 14px', borderRadius: 9, border: '1px solid #E8B34B', background: 'rgba(232,179,75,.14)',
+      color: '#F0D9A0', cursor: 'pointer', fontSize: 13, fontWeight: 600 },
+    input: { flex: 1, background: '#0D0F14', border: '1px solid #2A2F39', color: '#E6E8EC',
+      borderRadius: 9, padding: '9px 12px', fontSize: 14 },
+  };
+
+  if (!session) {
+    return <div style={S.card}>
+      <div style={S.h}>Communities</div>
+      <div style={S.muted}>Sign in to see the communities you belong to, read announcements and vote — without opening the game.</div>
+      <div style={{ marginTop: 12 }}><button style={S.btn} onClick={onSignIn}>Sign in</button></div>
+    </div>;
+  }
+  if (loading) return <div style={S.card}><div style={S.muted}>Loading your communities…</div></div>;
+  if (err && !mine.length) return <div style={S.card}><div style={S.h}>Communities</div><div style={S.muted}>{err}</div></div>;
+  if (!mine.length) return <div style={S.card}>
+    <div style={S.h}>Communities</div>
+    <div style={S.muted}>You are not in a community yet. Communities are founded and joined in the game — once you are in one, it shows up here.</div>
+  </div>;
+
+  const openRow = mine.find(m => m.community_id === openId);
+  const c = openRow && openRow.community;
+
+  const tallyOf = (voteId) => {
+    const rows = data.ballots.filter(b => b.vote_id === voteId);
+    const counts = {}; rows.forEach(b => { counts[b.choice] = (counts[b.choice] || 0) + 1; });
+    const meB = rows.find(b => b.user_id === uid);
+    return { counts, total: rows.length, mine: meB ? meB.choice : null };
+  };
+  const pot = data.ledger.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
+        {mine.map(m => (
+          <div key={m.community_id} onClick={() => { setOpenId(m.community_id); setTab('wire'); }}
+               style={S.tab(m.community_id === openId)}>
+            [{m.community.tag}] {m.community.name}{m.status !== 'active' ? ' · ' + m.status : ''}
+          </div>
+        ))}
+      </div>
+      {err && <div style={{ ...S.card, borderColor: '#5A2E2E', color: '#F0B3A6' }}>{err}</div>}
+      {c && (
+        <div>
+          <div style={S.card}>
+            <div style={S.h}>{c.name}</div>
+            <div style={S.muted}>{c.description || 'No description.'}</div>
+            <div style={{ display: 'flex', gap: 18, marginTop: 12, flexWrap: 'wrap' }}>
+              <div><div style={{ ...S.muted, fontSize: 11 }}>MEMBERS</div><div style={{ ...grotesk, fontSize: 20 }}>{data.members.filter(m => m.status === 'active').length}</div></div>
+              <div><div style={{ ...S.muted, fontSize: 11 }}>POT</div><div style={{ ...grotesk, fontSize: 20 }}>🔥 {Math.floor(pot).toLocaleString()}</div></div>
+              {c.war_target_name && <div><div style={{ ...S.muted, fontSize: 11 }}>WAR TARGET</div><div style={{ ...grotesk, fontSize: 20 }}>{c.war_target_name}</div></div>}
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
+            {[['wire', '📻 Wire'], ['ann', 'Announcements'], ['votes', 'Votes'], ['members', 'Members']].map(([k, label]) => (
+              <div key={k} onClick={() => setTab(k)} style={S.tab(tab === k)}>{label}</div>
+            ))}
+          </div>
+
+          {tab === 'wire' && (
+            <div style={S.card}>
+              <div style={S.h}>📻 {wire.corp ? wire.corp.name + "'s wire" : 'Guild Wire'}</div>
+              {!wire.corp
+                ? <div style={S.muted}>The wire belongs to a corporation and you are not in one. The rest of this page works regardless.</div>
+                : <div>
+                    <div style={{ maxHeight: 380, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 7, padding: '6px 0' }}>
+                      {!wire.rows.length && <div style={S.muted}>Quiet on the wire.</div>}
+                      {wire.rows.map((m, i) => m.kind === 'sys'
+                        ? <div key={m.id || i} style={{ ...S.muted, fontSize: 11, textAlign: 'center' }}>— {m.body} —</div>
+                        : <div key={m.id || i}>
+                            <div style={{ ...S.muted, fontSize: 11 }}>{m.user_name || '?'} · {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                            <div style={{ background: '#171A21', border: '1px solid #262A33', borderRadius: 9, padding: '7px 11px', fontSize: 13.5, whiteSpace: 'pre-wrap' }}>{m.body}</div>
+                          </div>)}
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                      <input style={S.input} value={msg} maxLength={400} placeholder="Message your guild…"
+                             onChange={e => setMsg(e.target.value)}
+                             onKeyDown={e => { if (e.key === 'Enter') sendWire(); }} />
+                      <button style={S.btn} onClick={sendWire} disabled={busy}>Send</button>
+                    </div>
+                  </div>}
+            </div>
+          )}
+
+          {tab === 'ann' && (
+            <div>
+              {!data.ann.length && <div style={S.card}><div style={S.muted}>No announcements yet.</div></div>}
+              {data.ann.map(a => (
+                <div key={a.id} style={S.card}>
+                  <div style={{ ...S.muted, fontSize: 12 }}>{a.pinned ? '📌 ' : ''}{a.author_name || 'Leadership'} · {new Date(a.created_at).toLocaleDateString()}</div>
+                  <div style={{ whiteSpace: 'pre-wrap', marginTop: 6, fontSize: 14, lineHeight: 1.65 }}>{a.body}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {tab === 'votes' && (
+            <div>
+              {!data.votes.length && <div style={S.card}><div style={S.muted}>No votes yet.</div></div>}
+              {data.votes.map(v => {
+                const t = tallyOf(v.id);
+                const open = v.status === 'open';
+                return (
+                  <div key={v.id} style={S.card}>
+                    <div style={S.h}>{v.title}</div>
+                    <div style={{ ...S.muted, fontSize: 12, marginBottom: 8 }}>
+                      {v.kind === 'war_target' ? 'Sets the war target' : v.kind === 'levy' ? 'Sets the community levy' : 'Advisory'}
+                      {' · '}{v.status}{v.result_label ? ' · result: ' + v.result_label : ''}
+                    </div>
+                    {(Array.isArray(v.options) ? v.options : []).map(o => {
+                      const n = t.counts[o.value] || 0;
+                      const pct = t.total ? Math.round((n / t.total) * 100) : 0;
+                      return (
+                        <div key={o.value} style={S.row}>
+                          <div style={{ flex: 1 }}>{t.mine === o.value ? '✓ ' : ''}{o.label || o.value}
+                            <div style={{ ...S.muted, fontSize: 11 }}>{n} vote{n === 1 ? '' : 's'} · {pct}%</div></div>
+                          {open && <button style={S.btn} disabled={busy} onClick={() => castVote(v.id, o.value)}>{t.mine === o.value ? 'Voted' : 'Vote'}</button>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+              <div style={{ ...S.muted, fontSize: 12 }}>Closing a vote and applying its result stays in the game — this page is for reading and voting.</div>
+            </div>
+          )}
+
+          {tab === 'members' && (
+            <div style={S.card}>
+              <div style={S.h}>Roster</div>
+              {data.members.map(m => (
+                <div key={m.user_id} style={S.row}>
+                  <div style={{ flex: 1 }}>{m.user_name || 'Survivor'}</div>
+                  <div style={S.muted}>{m.status === 'active' ? (m.role || 'member') : m.status}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // EMERGENCY BROADCAST — the game's social platform (ex-Cinder Backing)
 // Platform chrome: neutral dark slate + ember accent. Game telemetry panels
 // (Node Power / Node Bank / Vital Signs) use the game's violet/amber palette
@@ -10762,8 +11887,8 @@ const MayorTermsForm = ({ terms, setTerms }) => {
         </div>
       </div>
       <div style={mhLabel}>Message</div>
-      <textarea rows={2} value={terms.note || ''} onChange={(e) => set('note', e.target.value)}
-        placeholder="Anything else you want on the record…" style={{ ...mhInput, resize: 'vertical' }} />
+      <textarea rows={3} value={terms.note || ''} onChange={(e) => set('note', e.target.value)}
+        placeholder="Anything else you want on the record…" style={{ ...mhInput, resize: 'vertical', minHeight: 68, lineHeight: 1.5 }} />
     </div>
   );
 };
@@ -10895,6 +12020,9 @@ const MayorHallPage = ({ client, session, nodes, onOpenProfile, onSignIn }) => {
       node_id: f.node_id, owner_id: uid, node_name: f.node_name || null,
       title: (f.title || '').slice(0, 120) || 'Hiring a mayor',
       blurb: (f.blurb || '').slice(0, 1200),
+      // The Message box is part of the opening terms, same as on an offer —
+      // it must be saved, or the owner types into a field that goes nowhere.
+      note: (f.note || '').slice(0, 600),
       player_pct: f.player_pct, currency: f.currency, hours_per_month: f.hours_per_month,
       card_policy: f.card_policy, resource_policy: f.resource_policy,
       open: true, updated_at: new Date().toISOString(),
@@ -11103,6 +12231,12 @@ const MayorHallPage = ({ client, session, nodes, onOpenProfile, onSignIn }) => {
                   {post.title ? <div style={{ fontWeight: 600, fontSize: 13.5, color: '#F2F3F5', marginTop: 10 }}>{post.title}</div> : null}
                   {post.blurb ? <div style={{ color: '#C6CAD1', fontSize: 12.5, lineHeight: 1.55, marginTop: 5, whiteSpace: 'pre-wrap' }}>{post.blurb}</div> : null}
                   <div style={{ marginTop: 10 }}><MayorTermsSummary t={post} /></div>
+                  {/* Whatever the owner put on the record with the opening terms. */}
+                  {post.note ? (
+                    <div style={{ marginTop: 8, borderLeft: '2px solid #FF6A2B', paddingLeft: 10, color: '#C6CAD1', fontSize: 12.5, lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>
+                      <span style={{ color: '#9BA1AB' }}>From the owner: </span>{post.note}
+                    </div>
+                  ) : null}
                   <div style={{ fontSize: 11, color: '#9BA1AB', marginTop: 6 }}>Opening terms — you can counter after applying.</div>
 
                   <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
@@ -11287,7 +12421,7 @@ const MayorHallPage = ({ client, session, nodes, onOpenProfile, onSignIn }) => {
                       {post ? (
                         <>
                           <span style={{ fontSize: 12, color: '#3ECF8E', fontWeight: 600 }}>📣 Listed as hiring · {apps} applicant{apps === 1 ? '' : 's'}</span>
-                          <button onClick={() => setPostFor({ node_id: key, node_name: n.name, title: post.title, blurb: post.blurb, player_pct: post.player_pct, currency: post.currency, hours_per_month: post.hours_per_month, card_policy: post.card_policy, resource_policy: post.resource_policy })} style={{ ...mhGhost, padding: '7px 13px', fontSize: 12 }}>Edit job post</button>
+                          <button onClick={() => setPostFor({ node_id: key, node_name: n.name, title: post.title, blurb: post.blurb, note: post.note || '', player_pct: post.player_pct, currency: post.currency, hours_per_month: post.hours_per_month, card_policy: post.card_policy, resource_policy: post.resource_policy })} style={{ ...mhGhost, padding: '7px 13px', fontSize: 12 }}>Edit job post</button>
                           <button onClick={() => setTab('hiring')} style={{ ...mhGhost, padding: '7px 13px', fontSize: 12 }}>See applicants</button>
                           <button onClick={() => closeNodePost(key)} disabled={busy} style={{ ...mhGhost, padding: '7px 13px', fontSize: 12, color: '#F0655A' }}>Close post</button>
                         </>
@@ -12387,6 +13521,9 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
     { key: 'discover', label: 'Discover', icon: '◈' },
     { key: 'stake', label: 'Stake MT', icon: '⛓' },
     { key: 'mayors', label: 'Mayor Hall', icon: '🏛' },
+    // 🏛 Communities — read announcements, vote and talk on your wire without
+    //    launching the game. Same Supabase session, so the game's RLS applies.
+    { key: 'communities', label: 'Communities', icon: '⛨' },
     { key: 'vip', label: 'VIP Room', icon: '🏛' },
     { key: 'rewards', label: 'Rewards', icon: '✦' },
     { key: 'leaderboard', label: 'Rankings', icon: '♛' },
@@ -13044,6 +14181,12 @@ const CinderBackingPage = ({ client, session, profile, refreshProfile, onBack, o
           })()}
 
           {/* ═══ 🏛 MAYOR HALL ═══ */}
+          {screen === 'communities' && (
+            <CbkBoundary onReset={() => go('dashboard')}>
+              <CommunitiesPage client={client} session={session} onSignIn={onSignIn} />
+            </CbkBoundary>
+          )}
+
           {screen === 'mayors' && (
             <CbkBoundary onReset={() => go('dashboard')}>
               <MayorHallPage
@@ -14244,6 +15387,10 @@ function App() {
       const u = q.get('u');
       if (u && /^[@A-Za-z0-9_-]{2,40}$/.test(u)) { setEbEntry({ screen: 'player', key: u }); setCurrentPage('backing'); }
       else if (q.get('feed')) { setEbEntry({ screen: 'feed' }); setCurrentPage('backing'); }
+      // 🛒 Shareable shop links: /?shop=1 and /?product=<slug>. The Shop nav
+      // button is signed-in only, so without these a product page could never
+      // be linked to, posted, or opened by someone who is not signed in yet.
+      else if (q.get('shop') || q.get('product') || q.get('pledge_paid') || q.get('pledge_cancel')) setCurrentPage('pledge');
     } catch (e) {}
   }, []);
 
@@ -14420,7 +15567,7 @@ function App() {
         <NewsPage />
       ) : currentPage === 'pledge' ? (
         /* ===== SHOP PAGE (ex-Pledge) — Founder & Node packages, Stripe checkout (edit PLEDGE_TIERS at top of file) ===== */
-        <PledgePage client={client} session={session} onSignIn={showHub} />
+        <ShopPage client={client} session={session} onSignIn={showHub} />
       ) : currentPage === 'backing' ? (
         /* ===== EMERGENCY BROADCAST — the game's social platform ===== */
         <div className="pt-14">
