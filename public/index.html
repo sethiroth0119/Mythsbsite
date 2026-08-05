@@ -11325,14 +11325,17 @@ function CommunitiesPage({ client, session, onSignIn }) {
     if (!client || !body || !wire.corp || busy) return;
     setBusy(true);
     try {
-      const name = (session && session.user && session.user.email) ? session.user.email.split('@')[0] : 'Survivor';
-      const r = await client.from('guild_chat').insert({
-        corp_id: wire.corp.id, user_id: uid, user_name: name.slice(0, 40), body: body.slice(0, 400), kind: 'chat',
-      });
+      // sql/011: the server is the only thing that can post to the wire. It
+      // derives the display name from the profile, so the web can no longer
+      // send one — which also means this page and the game always agree about
+      // who you are, instead of the web showing an email prefix.
+      const r = await client.rpc('guild_send', { p_corp_id: wire.corp.id, p_body: body.slice(0, 400) });
       if (r.error) throw r.error;
       setMsg('');
       await loadOne(openId);
-    } catch (e) { setErr(e.message || 'Message failed to send.'); }
+    } catch (e) {
+      setErr(/slow down/i.test(e.message || '') ? 'Slow down a moment.' : (e.message || 'Message failed to send.'));
+    }
     finally { setBusy(false); }
   };
 
