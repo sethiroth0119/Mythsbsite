@@ -74,6 +74,7 @@ create table if not exists public.mayor_node_listings (
   node_name        text,
   title            text,
   blurb            text,
+  note             text,                                 -- the "Message" box on the opening terms
   player_pct       numeric not null default 30,
   currency         text not null default 'CINDER',
   hours_per_month  int  not null default 20,
@@ -83,6 +84,9 @@ create table if not exists public.mayor_node_listings (
   created_at       timestamptz not null default now(),
   updated_at       timestamptz not null default now()
 );
+-- Safe to re-run on a table created before `note` existed: without this the
+-- Message box on the Advertise form fails the upsert (column does not exist).
+alter table public.mayor_node_listings add column if not exists note text;
 create index if not exists mayor_node_listings_open_idx on public.mayor_node_listings (open, updated_at desc);
 alter table public.mayor_node_listings enable row level security;
 drop policy if exists mayor_node_listings_read on public.mayor_node_listings;

@@ -3723,12 +3723,950 @@ const WEBSITE_PACK_CATALOG = [
 // Peg: 1 Aza Coin = $1 USD (5000 Cinder = $1). sp_starter is a deliberate
 // first-purchase sweetener at 2 Aza for $1.99; every other tier is on-peg.
 const AZA_COIN_PACKAGES = [
-  { id: 'sp_starter', name: 'Starter Cache',        usd: 1.99,   aza: 2,   bonus: 0, accent: '#88c8e0' },
-  { id: 'sp_adv',     name: "Adventurer's Coffer",  usd: 4.99,   aza: 5,   bonus: 0, accent: '#a0a8ff' },
-  { id: 'sp_hero',    name: "Hero's Vault",         usd: 19.99,  aza: 20,  bonus: 0, accent: '#b888ff', featured: true },
-  { id: 'sp_champ',   name: "Champion's Trove",     usd: 49.99,  aza: 50,  bonus: 0, accent: '#d0a0ff' },
-  { id: 'sp_legend',  name: "Legend's Hoard",       usd: 149.99, aza: 150, bonus: 0, accent: '#ffd166' },
+  { id: 'sp_starter', name: 'Starter Cache',        usd: 1.99,   aza: 2,   bonus: 0, accent: '#88c8e0', blurb: 'Toe-dip into the Ruin Exchange.' },
+  { id: 'sp_adv',     name: "Adventurer's Coffer",  usd: 4.99,   aza: 5,   bonus: 0, accent: '#a0a8ff', blurb: 'Five coins, five bucks.' },
+  { id: 'sp_hero',    name: "Hero's Vault",         usd: 19.99,  aza: 20,  bonus: 0, accent: '#b888ff', featured: true, badge: '⭐ MOST POPULAR', blurb: 'Twenty coins for twenty.' },
+  { id: 'sp_champ',   name: "Champion's Trove",     usd: 49.99,  aza: 50,  bonus: 0, accent: '#d0a0ff', blurb: 'Mid-tier stock-up.' },
+  { id: 'sp_legend',  name: "Legend's Hoard",       usd: 149.99, aza: 150, bonus: 0, accent: '#ffd166', blurb: 'Whale tier — fill the coffers.' },
 ];
+
+// 💱 Canonical currency peg, mirrored from the game (AZA_TO_CINDER, and the
+// same rate the cashout vault settles at: CASHOUT_RATE_PER_DOLLAR = 5000).
+// DISPLAY ONLY — the exchange RPC carries its own copy of the rate and is what
+// actually decides how much Cinder is minted.
+const AZA_TO_CINDER = 5000;
+
+// ───────────────────────────────────────────────────────────────────────────
+// 🔴 THE ONE AZA CHECKOUT CALL. Both the Shop page and the account page go
+// through here so there is exactly one place that talks to the buy rail.
+// It posts a pack ID and NOTHING else — no price, no coin count. The Worker
+// looks the ID up in its own AZA_PACKS table, builds the Stripe Checkout
+// Session from that, and credits only after /api/buy/confirm re-reads the
+// paid session with the secret key. Nothing is credited client-side, by
+// design (see the comment above handleBuyAza).
+//
+// IDs here MUST exist in worker.js's AZA_PACKS — an unknown one comes back
+// as `bad_pack` and no session is created.
+// ───────────────────────────────────────────────────────────────────────────
+async function azaCheckoutStart(session, packId) {
+  const r = await fetch(SHOP_API + '/api/buy/checkout', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+    body: JSON.stringify({ pack: packId }),
+  });
+  return await r.json().catch(() => ({}));
+}
+function azaCheckoutErrorText(j) {
+  return j.error === 'stripe_not_configured' ? 'Card payments are not switched on yet — top up inside the game instead.'
+    : j.error === 'unauthorized' ? 'Your session expired — sign out and back in, then try again.'
+    : j.error === 'bad_pack'     ? 'That package is no longer available.'
+    : 'Could not start checkout' + (j.error ? ' — ' + j.error : '') + '.';
+}
+
+// ═══ AZA COIN PACKAGES — the Shop page's top-up rail ═══════════════════════
+// Signed-out visitors get the full grid and both explainer panels; only the
+// checkout redirect needs an account, so a click just points them at sign-in.
+const AzaCoinSection = ({ session, onSignIn }) => {
+  const [busyId, setBusyId] = useState(null);
+  const [note, setNote] = useState(null);
+
+  const buy = async (pkg) => {
+    if (busyId) return;
+    if (!session) {
+      setNote({ ok: false, text: 'Sign in first — Aza coin is credited to your account, so we need to know whose.' });
+      if (onSignIn) onSignIn();
+      return;
+    }
+    setNote(null); setBusyId(pkg.id);
+    try {
+      const j = await azaCheckoutStart(session, pkg.id);
+      if (j && j.url) { window.location.href = j.url; return; }   // → Stripe
+      setNote({ ok: false, text: azaCheckoutErrorText(j || {}) });
+    } catch (e) {
+      setNote({ ok: false, text: 'Could not reach checkout — check your connection and try again.' });
+    }
+    setBusyId(null);
+  };
+
+  return (
+    <section id="aza-coin" className="border-t" style={{ borderColor: 'rgba(201,168,106,0.18)' }}>
+      <div className="max-w-6xl mx-auto px-4 md:px-6 py-14">
+        <div className="text-center mb-8">
+          <div className="text-[10px] uppercase tracking-[0.4em] text-amber-300/70 mb-3">Premium currency</div>
+          <h2 className="font-serif font-black text-yellow-100 text-3xl md:text-4xl flex items-center justify-center gap-3">
+            <AzaIcon size={34} /> Aza Coin
+          </h2>
+          <p className="text-stone-400 text-sm leading-relaxed max-w-2xl mx-auto mt-4">
+            Bought, never dropped. Checkout runs on Stripe and the price is set by our server — your browser
+            only ever sends which package you picked.
+          </p>
+        </div>
+
+        {/* ⭐ HOW THE VENDOR MARKET WORKS — the four-step explainer the GAME shows
+            above its shop. Ported here because the marketing page previously led
+            with five priced tiles and nothing else: a visitor saw "Starter Cache
+            — 2 — $1.99" with no way to know what an Aza coin is or what it buys.
+            Same four steps, same order, restyled into this page's language
+            (numbered gold discs, dark cards) rather than importing the game HUD. */}
+        <div className="grid gap-4 mb-8" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))' }}>
+          {[
+            { n: 1, t: 'Two currencies, one storefront',
+              b: <>Spend <strong className="text-orange-200">Cinders</strong> (earned in-game) or <strong style={{ color: '#8fc7e8' }}>Aza coin</strong> (purchased with real money) on the same packs. Aza coin is roughly <strong className="text-yellow-100">10× the rate</strong> of Cinders, so a heavy spender can skip the grind.</> },
+            { n: 2, t: 'Card Packs',
+              b: <>Seven pack types, each with its own rarity weight bag. Every pack opens <strong className="text-yellow-100">8 cards</strong> with a guaranteed slot of rare-or-better. Packs are themed — Spell, Trap, Battlefield, Champion.</> },
+            { n: 3, t: 'Aza coin Store',
+              b: <>Top up your premium currency with real money. Higher-tier bundles include a percentage bonus over base rate. Checkout runs on Stripe.</> },
+            { n: 4, t: 'New cards land in your Inventory',
+              b: <>Every drawn card is added to your inventory and becomes available in the <strong className="text-yellow-100">Deck Builder</strong> and <strong className="text-yellow-100">Black Market</strong>. Duplicates stack — extras can be smuggled at the Black Market for Cinders.</> },
+          ].map(step => (
+            <div key={step.n} style={{ borderRadius: 2, border: '1px solid rgba(201,168,106,0.25)', background: 'rgba(0,0,0,0.35)', padding: '18px 20px' }}>
+              <div className="flex items-center gap-3 mb-3">
+                <span className="flex items-center justify-center font-bold"
+                      style={{ width: 26, height: 26, borderRadius: '50%', background: 'linear-gradient(180deg,#e8c877,#c9a86a)', color: '#12100e', fontSize: 13 }}>{step.n}</span>
+                <span className="font-serif font-bold text-yellow-100">{step.t}</span>
+              </div>
+              <p className="text-stone-400 text-sm leading-relaxed">{step.b}</p>
+            </div>
+          ))}
+        </div>
+        <div className="mb-8 px-4 py-3 text-sm border"
+             style={{ borderRadius: 2, borderColor: 'rgba(201,168,106,0.3)', color: '#cbb37a', background: 'rgba(201,168,106,0.06)' }}>
+          💡 <strong className="text-yellow-100">Tip:</strong> Each pack opened also grants <strong className="text-yellow-100">+30 Account XP</strong> — packs feed the Account Level ladder that gates the Tutor Shop.
+        </div>
+
+        {!session && (
+          <div className="mb-6 px-4 py-3 text-sm border text-center"
+               style={{ borderRadius: 2, borderColor: 'rgba(201,168,106,0.4)', color: '#e8d5a8', background: 'rgba(201,168,106,0.07)' }}>
+            You are browsing signed out. <button onClick={onSignIn} className="underline font-bold" style={{ color: '#e8c877' }}>Sign in</button> before buying — Aza coin lands on your Mythic Spellbook account.
+          </div>
+        )}
+        {note && (
+          <div className="mb-6 px-4 py-3 text-sm border"
+               style={{ borderRadius: 2, borderColor: note.ok ? 'rgba(62,207,142,0.4)' : 'rgba(240,101,90,0.4)', color: note.ok ? '#3ECF8E' : '#F0655A', background: 'rgba(0,0,0,0.3)' }}>{note.text}</div>
+        )}
+
+        {/* Five tiers. auto-fit + a 190px floor keeps them on one row at desktop
+            widths and reflows to 3 / 2 / 1 as the viewport narrows — no
+            horizontal overflow at 375px, where each tier is full width. */}
+        <div style={{ display: 'grid', gap: 16, gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))' }}>
+          {AZA_COIN_PACKAGES.map(pkg => {
+            const busy = busyId === pkg.id;
+            return (
+              <div key={pkg.id} className="relative flex flex-col text-center"
+                   style={{
+                     borderRadius: 2, padding: '26px 18px 20px',
+                     background: 'linear-gradient(180deg, rgba(28,24,18,0.9), rgba(10,9,8,0.9))',
+                     border: '1px solid ' + (pkg.featured ? 'rgba(201,168,106,0.75)' : 'rgba(201,168,106,0.25)'),
+                     boxShadow: pkg.featured ? '0 10px 34px rgba(201,168,106,0.16)' : '0 6px 18px rgba(0,0,0,0.45)',
+                   }}>
+                {pkg.badge && (
+                  <div className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap"
+                       style={{ top: -10, padding: '3px 10px', fontSize: 9, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#12100e', background: 'linear-gradient(180deg,#e8c877,#c9a86a)', borderRadius: 2 }}>{pkg.badge}</div>
+                )}
+                <div className="flex justify-center mb-3"><AzaIcon size={44} /></div>
+                <h3 className="font-serif font-bold text-yellow-100 text-lg leading-tight">{pkg.name}</h3>
+                <div className="font-mono font-bold text-3xl mt-2" style={{ color: '#e8c877' }}>{pkg.aza.toLocaleString()}</div>
+                <div className="text-stone-500 text-[10px] tracking-[0.2em] uppercase mt-1">Aza Coin</div>
+                <p className="text-stone-400 text-xs leading-relaxed mt-3 mb-5 flex-1 italic">{pkg.blurb}</p>
+                <button onClick={() => buy(pkg)} disabled={busy}
+                  style={{
+                    width: '100%', padding: '11px 8px', fontWeight: 800, fontSize: 13, letterSpacing: '0.1em',
+                    borderRadius: 2, cursor: busy ? 'wait' : 'pointer', opacity: busy ? 0.6 : 1,
+                    border: '1px solid ' + (pkg.featured ? 'transparent' : 'rgba(201,168,106,0.6)'),
+                    background: pkg.featured ? 'linear-gradient(180deg,#e8c877,#c9a86a)' : 'transparent',
+                    color: pkg.featured ? '#12100e' : '#e8d5a8',
+                  }}>
+                  {busy ? 'Opening…' : '$' + pkg.usd.toFixed(2)}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Two explainer panels — what the coin does, and how it differs from
+            the currency that CAN be cashed out. The right-hand panel is a
+            promise, not decoration: see the ATM on the account page. */}
+        <div className="grid md:grid-cols-2 gap-5 mt-8">
+          <div style={{ borderRadius: 2, border: '1px solid rgba(201,168,106,0.25)', background: 'rgba(0,0,0,0.35)', padding: '22px 24px' }}>
+            <div className="font-serif font-bold text-yellow-100 text-lg mb-4 flex items-center gap-2"><AzaIcon size={18} /> What Aza coin does</div>
+            <ul className="space-y-3">
+              {[
+                <span>Buy any card pack at a discount — roughly <strong className="text-yellow-100">10× the rate</strong> of <CinderIcon size={13} /> Cinders.</span>,
+                <span>Spend in the <strong className="text-yellow-100">player Market</strong> on cards listed by other players.</span>,
+                <span>Unlock premium cosmetic frames <span className="text-stone-500 italic">(coming soon)</span>.</span>,
+              ].map((li, i) => (
+                <li key={i} className="text-stone-400 text-sm leading-relaxed flex gap-3">
+                  <span style={{ color: '#c9a86a' }}>·</span><span>{li}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div style={{ borderRadius: 2, border: '1px solid rgba(201,168,106,0.25)', background: 'rgba(0,0,0,0.35)', padding: '22px 24px' }}>
+            <div className="font-serif font-bold text-yellow-100 text-lg mb-4 flex items-center gap-2"><CinderIcon size={18} /> vs. Cinders</div>
+            <ul className="space-y-3">
+              {[
+                <span><strong className="text-orange-200">Cinders are earned</strong> — battles, dailies, achievements, the Black Market.</span>,
+                <span><strong className="text-sky-200">Aza coin is purchased</strong> — never dropped, never rewarded.</span>,
+                <span>Cinders can be <strong className="text-emerald-200">cashed out for real money</strong>. Aza coin cannot.</span>,
+              ].map((li, i) => (
+                <li key={i} className="text-stone-400 text-sm leading-relaxed flex gap-3">
+                  <span style={{ color: '#c9a86a' }}>·</span><span>{li}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
+
+// ═══ BANK OF ETHOS — Aza → Cinder exchange counter ════════════════════════
+// The site half of the in-game Bank of Ethos strip: dark bar, gold serif
+// wordmark, inline balances, a bare amount field, flat bordered buttons.
+// Balances come from the SAME user_profiles row the game writes
+// (gems = Cinder, sovereigns = Aza); the bank vault line is read best-effort
+// from bank_of_ethos and shows "—" if that table is unreachable.
+//
+// ─────────────────────────────────────────────────────────────────────────
+// 🔴 THE MOVE IS SERVER-SIDE. NEVER MUTATE A BALANCE FROM HERE.
+//   client.rpc('aza_to_cinder_exchange') debits Aza, credits Cinder and
+//   writes the non-withdrawable ledger row in ONE transaction, keyed by
+//   auth.uid() (sql/017_aza_cinder_exchange.sql in game-deploy). This file
+//   only renders what the RPC returns. A client-side balance write is the
+//   exact bug the Aza buy flow's comment says was already fixed once.
+//
+// 🔴 WHY THERE IS A LEDGER AT ALL. Aza is bought with a card; Cinder can be
+//   cashed out for real money. An unrestricted conversion would be a
+//   card → Aza → Cinder → payout pipe, and would silently void the promise
+//   printed one page over ("Aza coin cannot [be cashed out]"). So every
+//   exchange is tagged and cinder_cashable() subtracts the lifetime tagged
+//   total. The restriction is stated in the UI below, at the point of
+//   exchange, because a user must not learn it at withdrawal time.
+//
+//   If the migration has not been applied, cinder_from_aza_total() is
+//   missing and this component FAILS CLOSED — read-only balances, exchange
+//   disabled, reason shown. An honest disabled button beats an untagged
+//   conversion.
+// ─────────────────────────────────────────────────────────────────────────
+const BankOfEthosATM = ({ client, session, profile, refreshProfile }) => {
+  const [bank, setBank]     = useState(null);    // {balance, aza} | null → "—"
+  const [locked, setLocked] = useState(null);    // lifetime Cinder minted from Aza
+  const [ready, setReady]   = useState(null);    // null probing | true | false
+  const [amount, setAmount] = useState('');
+  const [busy, setBusy]     = useState(false);
+  const [msg, setMsg]       = useState(null);
+  const [reload, setReload] = useState(0);
+
+  const walletCinder = profile ? (profile.gems || 0) : 0;
+  const walletAza    = profile ? (profile.sovereigns || 0) : 0;
+
+  // Probe the exchange ledger. A missing RPC (migration not applied) is the
+  // signal to disable the counter rather than fall back to anything local.
+  useEffect(() => {
+    if (!client || !session) { setReady(null); setLocked(null); setBank(null); return; }
+    let dead = false;
+    client.rpc('cinder_from_aza_total').then(({ data, error }) => {
+      if (dead) return;
+      if (error) { setReady(false); setLocked(null); return; }
+      setLocked(Number(data) || 0); setReady(true);
+    }, () => { if (!dead) setReady(false); });
+    client.from('bank_of_ethos').select('balance,aza').eq('user_id', session.user.id).maybeSingle()
+      .then(({ data, error }) => { if (!dead) setBank(error ? null : (data || null)); }, () => { if (!dead) setBank(null); });
+    return () => { dead = true; };
+  }, [client, session, reload]);
+
+  const parsed  = parseInt((amount || '').replace(/[^0-9]/g, ''), 10);
+  const n       = Number.isFinite(parsed) ? parsed : 0;
+  const canGo   = ready === true && !busy && n > 0 && n <= walletAza;
+  const preview = n > 0 ? n * AZA_TO_CINDER : 0;
+
+  const exchange = async () => {
+    if (!canGo) return;
+    setBusy(true); setMsg(null);
+    try {
+      const { data, error } = await client.rpc('aza_to_cinder_exchange', { p_aza: n });
+      const res = data || {};
+      if (error || !res.ok) {
+        /* 🔴 AN UNMAPPED CODE MUST NOT LOOK LIKE A SHRUG.
+           This chain ended in 'The exchange did not go through — nothing moved',
+           which is what every player saw — and the counter had never once
+           worked: aza_to_cinder_exchange read v_cfg.max_aza_per_tx from an
+           aza_config row that has max_aza_per_DAY, and a missing field on a
+           plpgsql record RAISES. So the RPC threw on every call, arrived here as
+           `error` rather than a res.error code, and fell through to a sentence
+           that describes a no-op. A hard crash read as "nothing happened" for as
+           long as the counter has existed.
+           Two rules now. Every code the RPC can return has its own sentence —
+           including 'closed', which had none and is a state the readiness probe
+           cannot even detect (it probes cinder_from_aza_total, a different
+           function that succeeds regardless). And anything still unrecognised
+           SAYS so and shows what came back, so the next version of this bug is
+           one screenshot away from being diagnosed instead of invisible.
+           The Aza is safe either way: the debit is the last thing the RPC does
+           and plpgsql rolls the whole call back on a throw. */
+        const _detail = (error && (error.message || error.code)) || res.error || 'no code returned';
+        setMsg({ ok: false, text:
+          res.error === 'insufficient_aza'  ? 'Not enough Aza coin — your balance is ' + (Number(res.sovereigns) || 0).toLocaleString() + ' 👑. Nothing moved.'
+          : res.error === 'bad_amount'      ? 'Enter a whole number of Aza coin, at least ' + (Number(res.min_aza) || 1).toLocaleString() + ' 👑.'
+          : res.error === 'amount_too_large'? 'That is more than the whole daily limit of ' + (Number(res.max_aza_per_day) || 0).toLocaleString() + ' 👑. Nothing moved.'
+          : res.error === 'daily_cap'       ? 'Daily limit reached — you have exchanged ' + (Number(res.used_today) || 0).toLocaleString() + ' of ' + (Number(res.max_aza_per_day) || 0).toLocaleString() + ' 👑 today. ' + (Number(res.remaining) || 0).toLocaleString() + ' 👑 left; it resets tomorrow. Nothing moved.'
+          : res.error === 'closed'          ? 'The exchange counter is closed right now. Nothing moved — your Aza is untouched.'
+          : res.error === 'not_authenticated' ? 'Your session expired — sign out and back in, then try again.'
+          : 'The exchange failed and nothing moved — your Aza is untouched. Please send this to an admin: ' + _detail });
+        try { console.error('[BankOfEthos] exchange failed', { error: error, res: res }); } catch (_) {}
+        setBusy(false); return;
+      }
+      setLocked(Number(res.locked_cinder) || 0);
+      setAmount('');
+      setMsg({ ok: true, text: 'Exchanged ' + (Number(res.aza_spent) || 0).toLocaleString() + ' Aza → ' + (Number(res.cinder_credited) || 0).toLocaleString() + ' Cinder. Credited to your wallet, and tagged non-withdrawable.' });
+      if (refreshProfile) refreshProfile();
+      setReload(x => x + 1);
+    } catch (e) {
+      setMsg({ ok: false, text: 'Could not reach the bank — nothing moved.' });
+    }
+    setBusy(false);
+  };
+
+  const num = (v) => (v === null || v === undefined ? '—' : Number(v).toLocaleString());
+  const btn = {
+    padding: '9px 18px', fontSize: 11, fontWeight: 800, letterSpacing: '0.14em',
+    textTransform: 'uppercase', borderRadius: 2, background: 'transparent',
+    border: '1px solid rgba(201,168,106,0.55)', color: '#e8d5a8', cursor: 'pointer',
+  };
+
+  return (
+    <div className="mb-8" style={{
+      borderRadius: 2, border: '1px solid rgba(201,168,106,0.35)',
+      background: 'linear-gradient(180deg, #17130d 0%, #0b0a08 100%)',
+      boxShadow: '0 8px 28px rgba(0,0,0,0.5)',
+    }}>
+      {/* ── The strip: wordmark · balances · amount · actions ── */}
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-4 px-5 py-4">
+        <div style={{ minWidth: 150 }}>
+          <div className="font-serif font-bold" style={{ color: '#c9a86a', fontSize: 17, letterSpacing: '0.22em' }}>BANK OF ETHOS</div>
+          <div className="text-stone-500" style={{ fontSize: 9, letterSpacing: '0.3em', textTransform: 'uppercase', marginTop: 2 }}>Exchange counter</div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2" style={{ fontFamily: 'ui-monospace,monospace', fontSize: 12 }}>
+          <span className="flex items-center gap-2">
+            <CinderIcon size={15} />
+            <span className="text-stone-500 uppercase" style={{ fontSize: 9, letterSpacing: '0.18em' }}>Bank</span>
+            <span style={{ color: '#ffb070' }}>{num(bank ? bank.balance : null)}</span>
+            <span className="text-stone-600">·</span>
+            <span className="text-stone-500 uppercase" style={{ fontSize: 9, letterSpacing: '0.18em' }}>Wallet</span>
+            <span style={{ color: '#ffb070' }}>{walletCinder.toLocaleString()}</span>
+          </span>
+          <span className="flex items-center gap-2">
+            <AzaIcon size={15} />
+            <span className="text-stone-500 uppercase" style={{ fontSize: 9, letterSpacing: '0.18em' }}>Wallet</span>
+            <span style={{ color: '#a8c8f0' }}>{walletAza.toLocaleString()}</span>
+            <span className="text-stone-600">·</span>
+            <span className="text-stone-500 uppercase" style={{ fontSize: 9, letterSpacing: '0.18em' }}>Bank</span>
+            <span style={{ color: '#a8c8f0' }}>{num(bank ? bank.aza : null)}</span>
+          </span>
+        </div>
+
+        <div className="flex items-center gap-3 flex-wrap" style={{ marginLeft: 'auto' }}>
+          <input
+            value={amount}
+            onChange={(e) => { setAmount(e.target.value.replace(/[^0-9]/g, '')); setMsg(null); }}
+            onKeyDown={(e) => { if (e.key === 'Enter') exchange(); }}
+            inputMode="numeric" placeholder="amount" aria-label="Aza coin to exchange"
+            disabled={ready !== true}
+            style={{
+              width: 96, padding: '7px 2px', background: 'transparent', color: '#e8d5a8',
+              border: 'none', borderBottom: '1px solid rgba(201,168,106,0.45)', outline: 'none',
+              fontFamily: 'ui-monospace,monospace', fontSize: 14, textAlign: 'right',
+              opacity: ready === true ? 1 : 0.5,
+            }} />
+          <button onClick={() => setAmount(String(walletAza))} disabled={ready !== true || walletAza <= 0}
+                  style={{ ...btn, opacity: (ready === true && walletAza > 0) ? 1 : 0.4, cursor: (ready === true && walletAza > 0) ? 'pointer' : 'not-allowed' }}>Max</button>
+          <button onClick={exchange} disabled={!canGo}
+                  style={{ ...btn, opacity: canGo ? 1 : 0.4, cursor: canGo ? 'pointer' : 'not-allowed', background: canGo ? 'rgba(201,168,106,0.14)' : 'transparent' }}>
+            {busy ? 'Working…' : 'Exchange'}
+          </button>
+        </div>
+      </div>
+
+      {/* ── Rate, preview, and the restriction — stated where the trade happens ── */}
+      <div className="px-5 pb-4 pt-3" style={{ borderTop: '1px solid rgba(201,168,106,0.18)' }}>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-stone-400">
+          <span>1 <AzaIcon size={12} /> Aza coin = <strong style={{ color: '#ffb070' }}>{AZA_TO_CINDER.toLocaleString()}</strong> <CinderIcon size={12} /> Cinder</span>
+          <span className="text-stone-600">·</span>
+          <span>One-way — there is no Cinder → Aza direction</span>
+          {n > 0 && (
+            <span style={{ color: '#e8d5a8' }}>
+              <span className="text-stone-600 mr-2">·</span>
+              {n.toLocaleString()} 👑 → <strong style={{ color: '#ffb070' }}>{preview.toLocaleString()}</strong> Cinder
+            </span>
+          )}
+        </div>
+
+        <p className="text-xs leading-relaxed mt-3" style={{ color: '#d8b98a' }}>
+          <strong style={{ color: '#e8c877' }}>Exchanged Cinder is not withdrawable.</strong> It spends anywhere in the
+          game — packs, the player Market, the Black Market — but it is recorded as coming from purchased Aza and is
+          permanently excluded from cash-out. Only <strong style={{ color: '#e8c877' }}>earned</strong> Cinder can be
+          cashed out for real money. This is irreversible: Aza coin is not refundable once exchanged.
+        </p>
+
+        {ready === true && (
+          <div className="text-xs mt-2 text-stone-500">
+            Recorded as non-withdrawable so far: <strong style={{ color: '#ffb070' }}>{num(locked)}</strong> <CinderIcon size={12} /> ·
+            withdrawable balance: <strong style={{ color: '#3ECF8E' }}>{Math.max(0, walletCinder - (locked || 0)).toLocaleString()}</strong> <CinderIcon size={12} />
+          </div>
+        )}
+        {ready === false && (
+          <div className="text-xs mt-3 px-3 py-2" style={{ borderRadius: 2, border: '1px solid rgba(240,101,90,0.4)', color: '#F0655A', background: 'rgba(0,0,0,0.3)' }}>
+            The exchange counter is closed — the server-side exchange ledger is not available on this account yet
+            (migration <code>sql/017_aza_cinder_exchange.sql</code>). Balances above are live; nothing can be exchanged
+            until the ledger exists, because untagged conversion would make purchased coin cashable.
+          </div>
+        )}
+        {msg && (
+          <div className="text-xs mt-3 px-3 py-2" style={{ borderRadius: 2, border: '1px solid ' + (msg.ok ? 'rgba(62,207,142,0.4)' : 'rgba(240,101,90,0.4)'), color: msg.ok ? '#3ECF8E' : '#F0655A', background: 'rgba(0,0,0,0.3)' }}>{msg.text}</div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * 💵 CASHOUT VAULT (web) — read-only mirror of the in-game vault.
+ *
+ * 🔴 THE RULE THIS PANEL EXISTS TO ENFORCE.
+ * The product says, in its own copy, on this very page: "Aza coin is not
+ * cashable — only Cinders are." The Bank of Ethos ATM directly above converts
+ * PURCHASED Aza into Cinder. If this panel offered the raw `gems` balance,
+ * buying Aza would become a real-money cash-out in one hop — money
+ * transmission, plus chargeback exposure (buy, convert, withdraw, reverse the
+ * card). So every figure that gates a payout is `cashable_cinder(auth.uid())`
+ * read FROM THE SERVER — gems minus the lifetime Cinder minted from Aza.
+ * Nothing here derives the cashable number client-side, and if the server
+ * cannot state it, the panel FAILS CLOSED (tiers locked, reason shown).
+ *
+ * 🔒 What this panel deliberately CANNOT do:
+ *   · It never collects a bank number, card number or government ID. The one
+ *     "Verify Account" control is a labelled mock self-attestation stored in
+ *     localStorage; it grants nothing and is not read by any server. Real KYC
+ *     and bank details are entered on STRIPE'S OWN PAGES, never in this product.
+ *   · It never credits, debits or approves anything. The in-game
+ *     `requestCashout()` debits Profile.gems on the client — that is a
+ *     client-side debit and is deliberately NOT ported. Affordable tiers point
+ *     into the game, where the request is written to `cashout_requests`.
+ *   · The only mutating call it can make is POST /api/cashout/connect, which is
+ *     server-authoritative, checked against the caller's Supabase JWT, and only
+ *     mints a Stripe-hosted onboarding URL.
+ *
+ * Every rate, threshold and bonus below is MIRRORED from the game — see
+ * game-deploy/public/index.html L160836-160857 (constants) and L161457-161660
+ * (the vault screen). Nothing here is invented.
+ * ════════════════════════════════════════════════════════════════════════ */
+const CASHOUT_RATE_PER_DOLLAR = 5000;       // game L160836 — Cinder per $1.00
+const CASHOUT_MIN_CINDERS     = 500000;     // game L160837 — minimum threshold
+const CASHOUT_MIN_DOLLARS     = 100;        // game L160838 — dollar value of it
+const CASHOUT_TIERS = [                     // game L160839-160845, verbatim
+  { cinders: 500000,   dollars: 100,   bonus: 0  },
+  { cinders: 1000000,  dollars: 210,   bonus: 5  },
+  { cinders: 2500000,  dollars: 550,   bonus: 10 },
+  { cinders: 5000000,  dollars: 1150,  bonus: 15 },
+  { cinders: 10000000, dollars: 2400,  bonus: 20 },
+];
+const CASHOUT_COOLDOWN_MS   = 72 * 3600000; // game L160854 — 72h rate limit
+const CASHOUT_RESERVE_SHARE = 0.10;         // game L160856 — 10% of Treasury
+const CASHOUT_METHODS = ['PayPal', 'Bank transfer', 'Crypto wallet']; // L160857
+const CASHOUT_ATTEST_KEY = 'ms_cashout_attest_v1';
+
+const HubCashoutVault = ({ client, session, profile }) => {
+  // cashable === null means "the server did not tell us" — never a guess.
+  const [snap, setSnap]   = useState(null);   // server figures, or null
+  const [mode, setMode]   = useState('idle'); // idle|loading|snapshot|cashable|unknown
+  const [reqs, setReqs]   = useState(null);   // recent cashout_requests rows
+  const [ent, setEnt]     = useState({ tierName: 'Survivor Access', perMonth: 1, used: 0, left: 1, live: false });
+  const [treasury, setTreasury] = useState(null);
+  const [stripe, setStripe]     = useState({ enabled: false, payoutsEnabled: false, connected: false, payouts_enabled: false, probed: false });
+  const [attest, setAttest]     = useState(null);  // {verified, method} — device-local
+  const [attestOpen, setAttestOpen] = useState(false);
+  const [method, setMethod]   = useState(CASHOUT_METHODS[0]);
+  const [connectMsg, setConnectMsg] = useState(null);
+  const [connecting, setConnecting] = useState(false);
+
+  // ── Device-local self-attestation (grants nothing; see header) ──────────
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(CASHOUT_ATTEST_KEY);
+      const v = raw ? JSON.parse(raw) : null;
+      if (v && v.verified) { setAttest(v); setMethod(v.method || CASHOUT_METHODS[0]); }
+    } catch (e) { /* private mode — stays unverified */ }
+  }, []);
+
+  // ── Server reads. Cashable is ASKED FOR, never computed here. ───────────
+  useEffect(() => {
+    if (!client || !session) { setSnap(null); setReqs(null); setMode('idle'); return; }
+    let dead = false;
+    setMode('loading');
+
+    (async () => {
+      // 1st choice: cashout_snapshot() — one SECURITY DEFINER call scoped to
+      // auth.uid(); returns total, from-Aza, cashable, pending and lifetime so
+      // the client never has to work any of it out. (RUN_017 §5.)
+      try {
+        const { data, error } = await client.rpc('cashout_snapshot');
+        const row = Array.isArray(data) ? data[0] : data;
+        if (!error && row) {
+          if (dead) return;
+          setSnap({
+            total:    Number(row.cinder_total) || 0,
+            fromAza:  Number(row.cinder_from_aza) || 0,
+            cashable: Number(row.cinder_cashable) || 0,
+            pending:  Number(row.pending_usd) || 0,
+            lifetime: Number(row.lifetime_usd) || 0,
+          });
+          setMode('snapshot');
+          return;
+        }
+      } catch (e) { /* fall through */ }
+
+      // 2nd choice: cashable_cinder(p_user) / cinder_cashable() — still the
+      // server's number; only the surrounding $ totals come from the ledger.
+      let cashable = null;
+      try {
+        const r = await client.rpc('cashable_cinder', { p_user: session.user.id });
+        if (!r.error && r.data !== null && r.data !== undefined) cashable = Number(r.data);
+      } catch (e) {}
+      if (cashable === null) {
+        try {
+          const r = await client.rpc('cinder_cashable');
+          if (!r.error && r.data !== null && r.data !== undefined) cashable = Number(r.data);
+        } catch (e) {}
+      }
+      if (dead) return;
+      if (cashable === null) {
+        // FAIL CLOSED. We will not show gems as if it were withdrawable.
+        setSnap(null); setMode('unknown'); return;
+      }
+      const total = profile ? (profile.gems || 0) : 0;
+      let pending = 0, lifetime = 0;
+      try {
+        const { data } = await client.from('cashout_requests')
+          .select('usd,status').eq('user_id', session.user.id);
+        (data || []).forEach((r) => {
+          const v = Number(r.usd) || 0;
+          if (r.status === 'paid') lifetime += v;
+          else if (r.status === 'pending' || r.status === 'held') pending += v;
+        });
+      } catch (e) {}
+      if (dead) return;
+      setSnap({ total, fromAza: Math.max(0, total - cashable), cashable, pending, lifetime });
+      setMode('cashable');
+    })();
+
+    // Recent requests — drives the 72h cooldown, the HELD banner and history.
+    client.from('cashout_requests')
+      .select('id,cinders,usd,method,status,reason,created_at')
+      .eq('user_id', session.user.id)
+      .order('created_at', { ascending: false }).limit(10)
+      .then(({ data, error }) => { if (!dead) setReqs(error ? [] : (data || [])); },
+            () => { if (!dead) setReqs([]); });
+
+    // Monthly allowance — server-authoritative; free tier if unavailable.
+    client.rpc('my_entitlements').then(({ data, error }) => {
+      if (dead || error || !data || !data.ok) return;
+      setEnt({
+        tierName: data.tier_name || 'Survivor Access',
+        perMonth: data.cashouts_per_month | 0,
+        used: data.cashouts_used | 0,
+        left: data.cashouts_left | 0,
+        live: true,
+      });
+    }, () => {});
+
+    // Foundation Treasury → Reserve allowance (game L160885 formula).
+    client.from('api_tax_summary').select('total_tax').maybeSingle()
+      .then(({ data, error }) => { if (!dead && !error && data) setTreasury(Number(data.total_tax) || 0); },
+            () => {});
+
+    return () => { dead = true; };
+  }, [client, session]);
+
+  // ── Stripe Connect rail. Config is public; status needs the user's token.
+  useEffect(() => {
+    let dead = false;
+    (async () => {
+      let cfg = null;
+      try { cfg = await fetch(SHOP_API + '/api/cashout/config', { headers: { accept: 'application/json' } }).then((r) => r.json()); } catch (e) {}
+      if (dead) return;
+      const enabled = !!(cfg && cfg.enabled);
+      let st = null;
+      if (enabled && session && session.access_token) {
+        try {
+          st = await fetch(SHOP_API + '/api/cashout/status', {
+            headers: { accept: 'application/json', authorization: 'Bearer ' + session.access_token },
+          }).then((r) => r.json());
+        } catch (e) {}
+      }
+      if (dead) return;
+      setStripe({
+        enabled, payoutsEnabled: !!(cfg && cfg.payoutsEnabled),
+        connected: !!(st && st.connected), payouts_enabled: !!(st && st.payouts_enabled),
+        probed: true,
+      });
+    })();
+    return () => { dead = true; };
+  }, [session]);
+
+  const connectStripe = async () => {
+    if (connecting || !session || !session.access_token) return;
+    setConnecting(true); setConnectMsg(null);
+    try {
+      const r = await fetch(SHOP_API + '/api/cashout/connect', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: 'Bearer ' + session.access_token },
+      });
+      const j = await r.json().catch(() => ({}));
+      if (j && j.url) { window.location.href = j.url; return; }   // Stripe-hosted onboarding
+      setConnectMsg(j && j.error === 'stripe_not_configured'
+        ? 'Real payouts are not configured on this deployment — the vault stays in mock mode.'
+        : 'Could not open Stripe onboarding. Nothing changed on your account.');
+    } catch (e) {
+      setConnectMsg('Could not reach the payout service. Nothing changed on your account.');
+    }
+    setConnecting(false);
+  };
+
+  const doAttest = () => {
+    const v = { verified: true, method, ts: Date.now() };
+    try { window.localStorage.setItem(CASHOUT_ATTEST_KEY, JSON.stringify(v)); } catch (e) {}
+    setAttest(v); setAttestOpen(false);
+  };
+
+  // ── Derived display values ─────────────────────────────────────────────
+  const signedIn = !!session;
+  const cashable = snap ? snap.cashable : null;          // null ⇒ do not gate on a guess
+  const known    = cashable !== null && cashable !== undefined;
+  const pct      = known ? Math.min(100, (cashable / CASHOUT_MIN_CINDERS) * 100) : 0;
+  const remaining = known ? Math.max(0, CASHOUT_MIN_CINDERS - cashable) : null;
+  const reached  = known && cashable >= CASHOUT_MIN_CINDERS;
+
+  const newest   = reqs && reqs.length ? new Date(reqs[0].created_at).getTime() : 0;
+  const cdLeft   = newest ? Math.max(0, newest + CASHOUT_COOLDOWN_MS - Date.now()) : 0;
+  const heldRow  = (reqs || []).find((r) => r.status === 'held') || null;
+  const allowanceUsd  = treasury === null ? null : Math.floor((treasury * CASHOUT_RESERVE_SHARE) / CASHOUT_RATE_PER_DOLLAR);
+  const allowanceLeft = allowanceUsd === null ? null : Math.max(0, allowanceUsd - (snap ? snap.lifetime : 0));
+
+  const nf  = (v) => (v === null || v === undefined ? '—' : Number(v).toLocaleString());
+  const usd = (v) => (v === null || v === undefined ? '—' : '$' + Number(v).toFixed(2));
+
+  const gold = '#c9a86a';
+  const cardStyle = {
+    borderRadius: 2, border: '1px solid rgba(201,168,106,0.35)',
+    background: 'linear-gradient(180deg, #17130d 0%, #0b0a08 100%)',
+    boxShadow: '0 8px 28px rgba(0,0,0,0.5)',
+  };
+  const btn = {
+    padding: '9px 18px', fontSize: 11, fontWeight: 800, letterSpacing: '0.14em',
+    textTransform: 'uppercase', borderRadius: 2, background: 'transparent',
+    border: '1px solid rgba(201,168,106,0.55)', color: '#e8d5a8', cursor: 'pointer',
+  };
+  const eyebrow = { fontSize: 9, letterSpacing: '0.3em', textTransform: 'uppercase' };
+  const panel = { borderRadius: 2, border: '1px solid rgba(201,168,106,0.18)', background: 'rgba(0,0,0,0.28)' };
+
+  const Tile = ({ label, value, tone }) => (
+    <div className="px-4 py-3" style={panel}>
+      <div className="font-mono" style={{ fontSize: 17, color: tone || '#e8d5a8' }}>{value}</div>
+      <div className="text-stone-500" style={{ ...eyebrow, marginTop: 3 }}>{label}</div>
+    </div>
+  );
+
+  const steps = [
+    { t: 'Earn Cinder in-game',
+      d: 'Battles, daily challenges, achievements, event-card drops and selling duplicates at the Black Market all award Cinder. Aza coin is not cashable — only Cinders are. Cinder minted from purchased Aza at the Bank of Ethos is permanently tagged and excluded from every figure on this panel.' },
+    { t: 'Reach the 500,000 threshold',
+      d: 'The minimum payout is 500,000 Cinder = $100. Real payment processors charge per-transaction fees that make micro-payouts uneconomic, so there is a floor.' },
+    { t: 'Pick a payout tier',
+      d: 'The base rate is 5,000 Cinder = $1.00. Higher tiers (1M, 2.5M, 5M, 10M) earn bonus rates up to +20% — saving for a bigger payout means a better effective rate.' },
+    { t: 'The request queues, then settles',
+      d: 'A request enters Pending, is rate-limited, capped, fraud-screened, Reserve-protected and inflation-monitored, and is logged to an append-only audit trail. Settlement happens off-platform through a licensed processor after its own KYC. No money moves from this page.' },
+  ];
+
+  return (
+    <div className="mb-8" style={cardStyle}>
+      {/* ── Header strip ─────────────────────────────────────────────── */}
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-3 px-5 py-4">
+        <div style={{ minWidth: 150 }}>
+          <div className="font-serif font-bold" style={{ color: gold, fontSize: 17, letterSpacing: '0.22em' }}>CASHOUT VAULT</div>
+          <div className="text-stone-500" style={{ ...eyebrow, marginTop: 2 }}>Withdrawal counter</div>
+        </div>
+        <div className="text-xs text-stone-400" style={{ flex: '1 1 260px', minWidth: 0 }}>
+          Convert earned <CinderIcon size={12} /> Cinder into real-world money. Minimum payout is{' '}
+          <strong style={{ color: '#ffb070' }}>500,000 <CinderIcon size={12} /> = $100</strong>.{' '}
+          <strong style={{ color: '#e8c877' }}>Aza coin is not cashable.</strong>
+        </div>
+        <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
+          <div className="font-mono" style={{ fontSize: 20, color: known ? '#3ECF8E' : '#8a8078' }}>
+            {known ? cashable.toLocaleString() : '—'} <CinderIcon size={15} />
+          </div>
+          <div className="text-stone-500" style={eyebrow}>Withdrawable</div>
+        </div>
+      </div>
+
+      <div className="px-5 pb-5 pt-4" style={{ borderTop: '1px solid rgba(201,168,106,0.18)' }}>
+
+        {/* ── Signed out ────────────────────────────────────────────── */}
+        {!signedIn && (
+          <div className="text-xs mb-5 px-4 py-3" style={{ ...panel, color: '#d8b98a' }}>
+            <strong style={{ color: '#e8c877' }}>Sign in to see your withdrawable balance.</strong> The rates, thresholds
+            and safeguards below are the live ones, but your own figures — and whether a tier is within reach — are read
+            from the server only while you are signed in. Use the sign-in card above.
+          </div>
+        )}
+
+        {/* ── Fail-closed notice ────────────────────────────────────── */}
+        {signedIn && !known && mode !== 'loading' && (
+          <div className="text-xs mb-5 px-4 py-3" style={{ borderRadius: 2, border: '1px solid rgba(240,101,90,0.4)', color: '#F0655A', background: 'rgba(0,0,0,0.3)' }}>
+            <strong>Withdrawable balance unverified.</strong> The server could not state how much of your Cinder is
+            cashable (<code>cashout_snapshot()</code> / <code>cashable_cinder()</code> unavailable — migration{' '}
+            <code>RUN_017_aza_exchange_and_cashout.sql</code>). Your raw balance is deliberately NOT shown here as if it
+            were withdrawable, because Cinder bought through Aza is not. Every tier stays locked until the server answers.
+          </div>
+        )}
+
+        {/* ── Balance breakdown + progress to the minimum ───────────── */}
+        {signedIn && known && (
+          <div className="mb-5 px-4 py-4" style={panel}>
+            <div className="flex flex-wrap items-baseline gap-x-5 gap-y-2 font-mono" style={{ fontSize: 12 }}>
+              <span><span className="text-stone-500" style={eyebrow}>Balance</span>{' '}
+                <span style={{ color: '#ffb070' }}>{nf(snap.total)}</span></span>
+              <span className="text-stone-600">−</span>
+              <span><span className="text-stone-500" style={eyebrow}>From Aza (locked)</span>{' '}
+                <span style={{ color: '#a8c8f0' }}>{nf(snap.fromAza)}</span></span>
+              <span className="text-stone-600">=</span>
+              <span><span className="text-stone-500" style={eyebrow}>Cashable</span>{' '}
+                <strong style={{ color: '#3ECF8E', fontSize: 14 }}>{nf(cashable)}</strong></span>
+            </div>
+            {snap.fromAza > 0 && (
+              <div className="text-xs mt-2" style={{ color: '#d8b98a' }}>
+                {nf(snap.fromAza)} <CinderIcon size={12} /> Cinder from Aza — <strong style={{ color: '#e8c877' }}>not withdrawable</strong>.
+                It spends anywhere in the game, but purchased coin can never be cashed out.
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-baseline justify-between gap-2 mt-4">
+              <div className="text-stone-400" style={{ fontSize: 11 }}>
+                {reached ? 'Minimum cashout reached — $100 tier is within reach.' : 'Progress to minimum cashout ($100 payout)'}
+              </div>
+              <div className="font-mono text-stone-400" style={{ fontSize: 11 }}>
+                {nf(cashable)} / {CASHOUT_MIN_CINDERS.toLocaleString()}
+              </div>
+            </div>
+            <div style={{ height: 6, borderRadius: 2, background: 'rgba(201,168,106,0.14)', marginTop: 6, overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: pct + '%', background: reached ? 'linear-gradient(90deg,#3ECF8E,#8fe0b4)' : 'linear-gradient(90deg,#c9a86a,#ffb070)' }} />
+            </div>
+            <div className="text-stone-500 mt-2" style={{ fontSize: 11 }}>
+              {reached
+                ? '+' + (cashable - CASHOUT_MIN_CINDERS).toLocaleString() + ' over the threshold'
+                : nf(remaining) + ' more cashable Cinder to unlock cashout'}
+            </div>
+          </div>
+        )}
+
+        {/* ── Quick-look tiles ──────────────────────────────────────── */}
+        <div className="grid gap-3 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
+          <Tile label="Pending payout" value={usd(snap ? snap.pending : null)} />
+          <Tile label="Lifetime paid"  value={usd(snap ? snap.lifetime : null)} tone="#3ECF8E" />
+          <Tile label="= $1.00 base rate" value={CASHOUT_RATE_PER_DOLLAR.toLocaleString()} tone="#ffb070" />
+        </div>
+
+        {/* ── Withdrawal verification & safeguards ──────────────────── */}
+        <div className="mb-5 px-4 py-4" style={panel}>
+          <div className="font-serif font-bold mb-3" style={{ color: gold, fontSize: 13, letterSpacing: '0.18em' }}>WITHDRAWAL VERIFICATION &amp; SAFEGUARDS</div>
+          <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
+            <Tile label={attest && attest.verified ? (attest.method || 'account') : 'verify to enable payouts'}
+                  value={attest && attest.verified ? 'Verified' : 'Not verified'}
+                  tone={attest && attest.verified ? '#3ECF8E' : '#e0b870'} />
+            <Tile label="Request cooldown (72h)"
+                  value={!signedIn ? '—' : (cdLeft > 0 ? Math.ceil(cdLeft / 3600000) + 'h' : 'Ready')}
+                  tone={cdLeft > 0 ? '#e0b870' : '#3ECF8E'} />
+            <Tile label="AI inflation monitor"
+                  value={heldRow ? 'Paused' : 'In-game'}
+                  tone={heldRow ? '#F0655A' : '#8a8078'} />
+            <Tile label="Reserve allowance left"
+                  value={allowanceLeft === null ? '—' : '$' + allowanceLeft.toLocaleString()}
+                  tone="#a8c8f0" />
+          </div>
+
+          {heldRow && (
+            <div className="text-xs mt-3 px-3 py-2" style={{ borderRadius: 2, border: '1px solid rgba(240,101,90,0.45)', color: '#ffb499', background: 'rgba(0,0,0,0.35)' }}>
+              <strong>Payouts safeguarded:</strong> {heldRow.reason || 'held for review'} — new requests are recorded but{' '}
+              <strong>HELD</strong> until the economy stabilises (anti-inflation protection).
+            </div>
+          )}
+          <div className="text-stone-500 text-xs mt-3">
+            The inflation guard runs inside the game's economy engine and pauses payouts when it fires; its live state is
+            not exposed to the web, so this tile reports <em>In-game</em> until a real held request appears on your account.
+          </div>
+
+          {/* Payout method + mock self-attestation. No PII, ever. */}
+          {!(attest && attest.verified) ? (
+            <div className="mt-4">
+              <div className="flex flex-wrap items-center gap-3">
+                <select value={method} onChange={(e) => setMethod(e.target.value)} aria-label="Payout method"
+                        style={{ flex: '1 1 160px', minWidth: 140, padding: '8px 6px', borderRadius: 2, background: 'rgba(0,0,0,0.5)', color: '#e8d5a8', border: '1px solid rgba(201,168,106,0.45)', fontSize: 12 }}>
+                  {CASHOUT_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
+                </select>
+                <button onClick={() => setAttestOpen(true)} disabled={!signedIn}
+                        style={{ ...btn, opacity: signedIn ? 1 : 0.4, cursor: signedIn ? 'pointer' : 'not-allowed' }}>
+                  Verify Account
+                </button>
+              </div>
+              {attestOpen && (
+                <div className="text-xs mt-3 px-3 py-3" style={{ borderRadius: 2, border: '1px solid rgba(201,168,106,0.45)', background: 'rgba(0,0,0,0.4)', color: '#d8b98a' }}>
+                  <div className="mb-2">Attest that this account is yours and that <strong style={{ color: '#e8c877' }}>{method}</strong> is your intended payout method?</div>
+                  <div className="mb-3">
+                    <strong style={{ color: '#e8c877' }}>MOCK SELF-ATTESTATION</strong> — no bank, card or ID numbers are
+                    ever collected here, and nothing is sent anywhere. It is stored on this device only and grants no
+                    payout rights. Real identity verification happens on the payment processor's own pages, off-platform.
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button onClick={doAttest} style={{ ...btn, background: 'rgba(201,168,106,0.14)' }}>Attest</button>
+                    <button onClick={() => setAttestOpen(false)} style={btn}>Cancel</button>
+                  </div>
+                </div>
+              )}
+              <div className="text-stone-500 text-xs mt-2">
+                Verification here is a <strong>mock self-attestation</strong> — it never asks for bank/card/ID numbers.
+                Real KYC runs through the payment processor, off-platform.
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center gap-3 mt-4">
+              <div className="text-stone-500 text-xs" style={{ flex: '1 1 240px' }}>
+                Self-attested for <strong style={{ color: '#e8c877' }}>{attest.method}</strong> (mock, device-local — it
+                grants nothing). Requests made in-game are rate-limited, capped, fraud-screened, Reserve-protected,
+                inflation-monitored and logged.
+              </div>
+              <button onClick={() => { try { window.localStorage.removeItem(CASHOUT_ATTEST_KEY); } catch (e) {} setAttest(null); }} style={btn}>Clear</button>
+            </div>
+          )}
+
+          {/* Stripe Connect rail — identity and bank details live on Stripe. */}
+          <div className="mt-4 pt-4" style={{ borderTop: '1px solid rgba(201,168,106,0.18)' }}>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+              <span className="font-serif font-bold" style={{ color: gold, fontSize: 12, letterSpacing: '0.18em' }}>REAL PAYOUT RAIL — STRIPE CONNECT</span>
+              <span className="text-xs" style={{ color: !stripe.probed ? '#8a8078' : !stripe.enabled ? '#e0b870' : stripe.connected ? (stripe.payouts_enabled ? '#3ECF8E' : '#e0b870') : '#8a8078' }}>
+                {!stripe.probed ? 'Checking…'
+                  : !stripe.enabled ? 'Not configured — mock mode'
+                  : stripe.connected ? (stripe.payouts_enabled ? 'Connected · payouts enabled' : 'Connected · finish verification on Stripe')
+                  : 'Not connected'}
+              </span>
+            </div>
+            {signedIn && stripe.enabled && !(stripe.connected && stripe.payouts_enabled) && (
+              <button onClick={connectStripe} disabled={connecting}
+                      style={{ ...btn, marginTop: 10, opacity: connecting ? 0.5 : 1, cursor: connecting ? 'wait' : 'pointer' }}>
+                {connecting ? 'Opening…' : (stripe.connected ? 'Resume Stripe verification' : 'Connect payout account')}
+              </button>
+            )}
+            {connectMsg && (
+              <div className="text-xs mt-2 px-3 py-2" style={{ borderRadius: 2, border: '1px solid rgba(240,101,90,0.4)', color: '#F0655A', background: 'rgba(0,0,0,0.3)' }}>{connectMsg}</div>
+            )}
+            <div className="text-stone-500 text-xs mt-2">
+              Identity (KYC) and bank details are entered on <strong style={{ color: '#e8c877' }}>Stripe's own secure pages</strong> —
+              never in this product. This site stores no bank, card or government-ID data of any kind.
+              {stripe.enabled && !stripe.payoutsEnabled ? ' Live transfers are disabled on this deployment; the ledger stays mock.' : ''}
+            </div>
+          </div>
+        </div>
+
+        {/* ── Access tier / monthly allowance ───────────────────────── */}
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-3 px-4 py-3" style={panel}>
+          <div style={{ minWidth: 0 }}>
+            <div className="font-bold" style={{ color: ent.left <= 0 ? '#F0655A' : '#e8c877', fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase' }}>
+              {ent.tierName} — {ent.perMonth} cash out{ent.perMonth === 1 ? '' : 's'} per month
+            </div>
+            <div className="text-stone-500 text-xs mt-1">
+              {!signedIn ? 'Sign in to see your remaining allowance.'
+                : ent.left <= 0 ? 'All used for this month. Resets on the 1st — a bigger package raises the allowance.'
+                : ent.left + ' remaining this month (' + ent.used + ' used)' + (ent.live ? '' : ' — free-tier default; the server did not answer')}
+            </div>
+          </div>
+          <div style={{ whiteSpace: 'nowrap' }}>
+            {Array.from({ length: Math.min(12, Math.max(1, ent.perMonth)) }, (_, i) => (
+              <span key={i} style={{ display: 'inline-block', width: 9, height: 9, borderRadius: '50%', marginRight: 4, background: i < ent.used ? 'rgba(120,110,100,0.55)' : gold }} />
+            ))}
+          </div>
+        </div>
+
+        {/* ── Payout tiers. Gated on CASHABLE, never on the raw balance. ── */}
+        <div className="grid gap-3 mb-2" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(158px, 1fr))' }}>
+          {CASHOUT_TIERS.map((t) => {
+            const afford = known && cashable >= t.cinders;
+            const need   = known ? Math.max(0, t.cinders - cashable) : null;
+            const isMin  = t.cinders === CASHOUT_MIN_CINDERS;
+            return (
+              <div key={t.cinders} className="px-3 py-4 text-center" style={{
+                ...panel,
+                borderColor: afford ? 'rgba(62,207,142,0.45)' : 'rgba(201,168,106,0.18)',
+                opacity: afford || !signedIn ? 1 : 0.72,
+              }}>
+                {isMin && <div className="text-stone-500 mb-1" style={eyebrow}>Minimum</div>}
+                {!isMin && <div style={{ ...eyebrow, marginBottom: 4, visibility: 'hidden' }}>.</div>}
+                <div className="font-mono" style={{ color: '#ffb070', fontSize: 13, wordBreak: 'break-word' }}>{t.cinders.toLocaleString()}</div>
+                <div className="text-stone-600" style={{ fontSize: 11, margin: '2px 0' }}>↓</div>
+                <div className="font-serif font-bold" style={{ color: afford ? '#3ECF8E' : '#e8d5a8', fontSize: 20 }}>${t.dollars.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
+                <div style={{ fontSize: 10, color: t.bonus ? '#a3d977' : 'transparent', letterSpacing: '0.1em' }}>{t.bonus ? '+' + t.bonus + '% bonus' : '.'}</div>
+                <div className="mt-3" style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase',
+                     color: !signedIn ? '#8a8078' : !known ? '#F0655A' : afford ? '#3ECF8E' : '#8a8078',
+                     border: '1px solid ' + (afford ? 'rgba(62,207,142,0.45)' : 'rgba(201,168,106,0.28)'),
+                     borderRadius: 2, padding: '7px 4px', wordBreak: 'break-word' }}>
+                  {!signedIn ? 'Sign in to check'
+                    : !known ? 'Balance unverified'
+                    : afford ? 'Available — request in game'
+                    : 'Need ' + need.toLocaleString() + ' more'}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div className="text-stone-500 text-xs mb-5">
+          Tier availability is measured against your <strong style={{ color: '#e8c877' }}>cashable</strong> Cinder, not your
+          balance — Cinder minted from purchased Aza never counts toward a payout. Requests are made and settled in the
+          game; nothing on this page moves money or changes a balance.
+        </div>
+
+        {/* ── How the Cashout Vault works ───────────────────────────── */}
+        <div className="mb-5 px-4 py-4" style={panel}>
+          <div className="font-serif font-bold mb-3" style={{ color: gold, fontSize: 13, letterSpacing: '0.18em' }}>HOW THE CASHOUT VAULT WORKS</div>
+          <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))' }}>
+            {steps.map((s, i) => (
+              <div key={i} className="flex gap-3">
+                <div className="font-serif font-bold flex-shrink-0" style={{ color: gold, fontSize: 18, lineHeight: 1, width: 22 }}>{i + 1}</div>
+                <div style={{ minWidth: 0 }}>
+                  <div className="font-bold" style={{ color: '#e8d5a8', fontSize: 12 }}>{s.t}</div>
+                  <div className="text-stone-400 text-xs leading-relaxed mt-1">{s.d}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Recent requests ───────────────────────────────────────── */}
+        {signedIn && reqs && reqs.length > 0 && (
+          <div className="px-4 py-3" style={panel}>
+            <div className="text-stone-500 mb-2" style={eyebrow}>Recent requests</div>
+            {reqs.map((r) => (
+              <div key={r.id} className="flex flex-wrap items-center justify-between gap-2 py-1.5 font-mono text-xs" style={{ borderTop: '1px solid rgba(201,168,106,0.12)' }}>
+                <span className="text-stone-500">{new Date(r.created_at).toLocaleDateString()}</span>
+                <span style={{ color: '#ffb070' }}>−{Number(r.cinders || 0).toLocaleString()}</span>
+                <span style={{ color: '#e8d5a8' }}>${Number(r.usd || 0).toFixed(2)}</span>
+                <span style={{ color: r.status === 'paid' ? '#3ECF8E' : r.status === 'held' ? '#F0655A' : '#e0b870' }}>{r.status}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 
 const PlayerHub = ({ client, session, profile, refreshProfile, onSignedOut, onShowBacking, onShowShop, onShowProfile, onShowDirectory, onShowFeed }) => {
   const [buyingId, setBuyingId] = useState(null);
@@ -3924,19 +4862,10 @@ const PlayerHub = ({ client, session, profile, refreshProfile, onSignedOut, onSh
     if (buyingId) return;
     setBuyMsg(''); setBuyingId(pkg.id);
     try {
-      const r = await fetch(SHOP_API + '/api/buy/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
-        body: JSON.stringify({ pack: pkg.id }),
-      });
-      const j = await r.json().catch(() => ({}));
+      // Same rail as the Shop page — one helper, one endpoint, one payload.
+      const j = await azaCheckoutStart(session, pkg.id);
       if (j && j.url) { window.location.href = j.url; return; }   // → Stripe
-      setBuyMsg(
-        j.error === 'stripe_not_configured' ? 'Card payments are not switched on yet — top up inside the game instead.'
-        : j.error === 'unauthorized' ? 'Your session expired — sign out and back in, then try again.'
-        : j.error === 'bad_pack' ? 'That package is no longer available.'
-        : 'Could not start checkout' + (j.error ? ' — ' + j.error : '') + '.'
-      );
+      setBuyMsg(azaCheckoutErrorText(j || {}));
     } catch (e) {
       setBuyMsg('Could not reach checkout — check your connection and try again.');
     }
@@ -4190,6 +5119,11 @@ const PlayerHub = ({ client, session, profile, refreshProfile, onSignedOut, onSh
               </div>
             </div>
 
+            {/* ===== Bank of Ethos — Aza → Cinder exchange counter =====
+                 Sits directly under the two wallet tiles it moves value
+                 between. Server-side move only; see the component header. */}
+            <BankOfEthosATM client={client} session={session} profile={profile} refreshProfile={refreshProfile} />
+
             {/* ===== Emergency Broadcast — account-connected summary ===== */}
             <HubBackingPanel client={client} session={session} onShowBacking={onShowBacking} />
 
@@ -4440,6 +5374,15 @@ const PlayerHub = ({ client, session, profile, refreshProfile, onSignedOut, onSh
             )}
           </>
         )}
+
+        {/* ===== Cashout Vault — earned Cinder → real money =====
+             Outside the auth ternary on purpose: signed-out visitors still see
+             the rates, tiers and safeguards (with a sign-in prompt), and the
+             panel never crashes without a session. Every personal figure is
+             read from cashout_snapshot() / cashable_cinder() — the CASHABLE
+             balance, never the raw one, because Cinder bought through Aza at
+             the ATM above must never become withdrawable. */}
+        <HubCashoutVault client={client} session={session} profile={profile} />
       </div>
     </section>
 
@@ -8463,7 +9406,7 @@ const EbFeedPage = ({ client, session, onBack, onOpenProfile, onSignIn, embedded
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <button onClick={() => onOpenProfile(it.handle || it.author_id)} style={{ background: 'none', border: 'none', padding: 0, color: '#EDEFF3', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>{it.author}</button>
                   <div style={{ color: EB_INK.dim, fontSize: 11 }}>
-                    {it.handle ? '@' + it.handle + ' · ' : ''}{when(it.at)}{it.kind === 'clip' ? ' · 🎬 clip' : ''}
+                    {it.handle ? '@' + it.handle + ' · ' : ''}{when(it.at)}{ebIsImageUrl(it.clip_url) ? ' · 🖼 photo' : (it.kind === 'clip' || ebIsVideoUrl(it.clip_url)) ? ' · 🎬 clip' : ''}
                   </div>
                 </div>
                 {session && (
@@ -8531,7 +9474,12 @@ const EbFeedPage = ({ client, session, onBack, onOpenProfile, onSignIn, embedded
                     </div>
                   );
                 })()
-              ) : it.kind === 'clip' ? (
+              ) : (it.kind === 'clip' || ebIsImageUrl(it.clip_url) || ebIsVideoUrl(it.clip_url)) ? (
+                /* ⚠ Branch on the MEDIA, never on `kind`. A photo/GIF is stored
+                   in eb_posts as kind='clip', but the eb_feed RPC re-labels
+                   every eb_posts row as kind='post' — so this test used to miss
+                   image posts entirely and they rendered as text with the
+                   picture silently dropped. */
                 (() => {
                   const url = String(it.clip_url || '');
                   // A "clip" post carries media in clip_url. It may be a gameplay VIDEO
@@ -8804,7 +9752,7 @@ const ShopSuccessModal = ({ info, onClose }) => {
    the first question is always "which build is that?". Run __MSB__() in the
    console: it reports the build and measures the Shop's sections so a missing
    block can be proven rather than guessed at. */
-const MSB_BUILD = '2026-08-05-shop-back-btn';
+const MSB_BUILD = '2026-08-07-feed-photo-fix';
 try {
   window.__MSB__ = function () {
     const out = { build: MSB_BUILD, url: location.href, viewport: document.documentElement.clientWidth + '×' + document.documentElement.clientHeight, sections: [] };
@@ -8817,6 +9765,38 @@ try {
       const cs = getComputedStyle(el), r = el.getBoundingClientRect();
       out.sections.push({ text: txt, found: true, w: Math.round(r.width), h: Math.round(r.height),
         opacity: cs.opacity, visibility: cs.visibility, color: cs.color, display: cs.display });
+    });
+    console.log(JSON.stringify(out, null, 1));
+    return out;
+  };
+  /* 🔬 __SHOPLINES__() — for the "the contents show as bare 01..07 with no
+     words" report that has now survived two fixes. The numbers paint and their
+     sibling text does not, so this reports, per line, everything that could
+     account for that: whether the string is even there, its measured box, and
+     the computed colour / opacity / font actually resolved for it. Run it on a
+     product page and paste the output. */
+  window.__SHOPLINES__ = function () {
+    const nums = [].slice.call(document.querySelectorAll('span')).filter(function (s) {
+      return /^\d\d$/.test((s.textContent || '').trim()) && s.children.length === 0;
+    });
+    const out = { build: MSB_BUILD, url: location.href, found: nums.length, lines: [] };
+    nums.forEach(function (n) {
+      const t = n.nextElementSibling;
+      if (!t) { out.lines.push({ n: n.textContent, sibling: 'MISSING' }); return; }
+      const cs = getComputedStyle(t), r = t.getBoundingClientRect();
+      const nr = n.getBoundingClientRect();
+      out.lines.push({
+        n: (n.textContent || '').trim(),
+        text: (t.textContent || '').slice(0, 40),
+        len: (t.textContent || '').length,
+        box: Math.round(r.width) + 'x' + Math.round(r.height),
+        numBox: Math.round(nr.width) + 'x' + Math.round(nr.height),
+        color: cs.color, bg: cs.backgroundColor, opacity: cs.opacity,
+        visibility: cs.visibility, display: cs.display, fontSize: cs.fontSize,
+        font: (cs.fontFamily || '').slice(0, 40),
+        clip: cs.clipPath, filter: cs.filter, transform: cs.transform,
+        textIndent: cs.textIndent, webkitTextFillColor: cs.webkitTextFillColor,
+      });
     });
     console.log(JSON.stringify(out, null, 1));
     return out;
@@ -8839,11 +9819,13 @@ const ShopProductCard = ({ p, onOpen, onAdd, inCart }) => (
   <div
     onClick={() => onOpen(p)}
     className="group relative cursor-pointer overflow-hidden border transition"
-    style={{ borderColor: 'rgba(201,168,106,0.28)', background: 'linear-gradient(180deg, rgba(18,16,14,0.96), rgba(8,7,6,0.99))', borderRadius: 3 }}
+    /* height:100% + column flex so every card in a row ends level and the price
+       row sits on the baseline, however many contents lines each one has. */
+    style={{ borderColor: 'rgba(201,168,106,0.28)', background: 'linear-gradient(180deg, rgba(18,16,14,0.96), rgba(8,7,6,0.99))', borderRadius: 3, height: '100%', display: 'flex', flexDirection: 'column' }}
     onMouseEnter={(e) => { e.currentTarget.style.borderColor = p.accent || '#c9a86a'; }}
     onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(201,168,106,0.28)'; }}
   >
-    <div className="relative overflow-hidden" style={{ aspectRatio: '16 / 10', background: '#0b0a09' }}>
+    <div className="relative overflow-hidden" style={{ aspectRatio: '16 / 10', background: '#0b0a09', flexShrink: 0 }}>
       {p.image_url
         ? <img src={p.image_url} alt="" loading="lazy" className="w-full h-full object-cover transition duration-500 group-hover:scale-105" />
         : <div className="w-full h-full flex items-center justify-center text-5xl opacity-25">🛒</div>}
@@ -8857,9 +9839,31 @@ const ShopProductCard = ({ p, onOpen, onAdd, inCart }) => (
         <div className="font-serif font-bold text-yellow-100 text-xl leading-tight mt-0.5">{p.name}</div>
       </div>
     </div>
-    <div className="p-4">
-      {p.tagline ? <p className="text-stone-400 text-xs leading-relaxed mb-3 line-clamp-2">{p.tagline}</p> : null}
-      <div className="flex items-center justify-between gap-2">
+    <div style={{ padding: 16, flex: 1, display: 'flex', flexDirection: 'column' }}>
+      {p.tagline ? <p style={{ color: '#a8a29e', fontSize: 12, lineHeight: 1.6, marginBottom: 12 }}>{p.tagline}</p> : null}
+      {/* What's included, one per line, right on the card — a storefront tile
+          that only shows a price makes you open every product to compare them.
+          Inline styles on purpose (see ShopSectionHead). */}
+      {(Array.isArray(p.includes) ? p.includes : []).length > 0 && (
+        <div style={{ marginBottom: 14, paddingBottom: 12, borderBottom: '1px solid rgba(201,168,106,0.16)' }}>
+          {(p.includes || []).slice(0, 6).map((it, i) => {
+            const line = typeof it === 'string' ? it : ((it && it.label) || '');
+            if (!line) return null;
+            return (
+              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginTop: i ? 5 : 0 }}>
+                <span style={{ color: p.accent || '#c9a86a', fontSize: 9, lineHeight: '18px', flexShrink: 0 }}>◆</span>
+                <span style={{ color: '#d6d3d1', fontSize: 12.5, lineHeight: 1.45 }}>{line}</span>
+              </div>
+            );
+          })}
+          {(p.includes || []).length > 6 && (
+            <div style={{ color: '#8a8480', fontSize: 11.5, marginTop: 7, paddingLeft: 16 }}>
+              + {(p.includes || []).length - 6} more — see the full list
+            </div>
+          )}
+        </div>
+      )}
+      <div className="flex items-center justify-between gap-2" style={{ marginTop: 'auto' }}>
         <span className="font-mono font-bold text-lg" style={{ color: p.accent || '#c9a86a' }}>{shopMoney(p.price_cents, p.currency)}</span>
         <button
           onClick={(e) => { e.stopPropagation(); onAdd(p); }}
@@ -8881,7 +9885,7 @@ const ShopProductCard = ({ p, onOpen, onAdd, inCart }) => (
    utility stylesheet loading. */
 const ShopSectionHead = ({ children, accent }) => (
   <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
-    <span style={{ color: accent || '#c9a86a', fontSize: 10, fontWeight: 700, letterSpacing: '0.35em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{children}</span>
+    <span style={{ color: accent || '#c9a86a', WebkitTextFillColor: accent || '#c9a86a', fontFamily: 'system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif', fontSize: 10, fontWeight: 700, letterSpacing: '0.35em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{children}</span>
     <span style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, rgba(201,168,106,0.35), transparent)' }} />
   </div>
 );
@@ -8893,6 +9897,15 @@ const ShopSectionHead = ({ children, accent }) => (
    small print. Everything below the fold is driven by columns on
    shop_products, so a product the admin creates gets the same page.
    ═══════════════════════════════════════════════════════════════════════════ */
+/* 🔴 Every element that has EVER painted for this user in the blank regions had
+   its own compositing layer (the numbered spans carry opacity 0.65). Everything
+   without one came out blank. So the fix is not another colour or font tweak —
+   it is to promote the content itself. `mgLayer` forces a layer the same way
+   opacity < 1 does, without changing how anything looks: 0.999 is visually
+   identical to 1, and translateZ(0) is a no-op move. Applied to each section
+   below the hero. If a future section renders blank, give it this too. */
+const mgLayer = { opacity: 0.999, transform: 'translateZ(0)' };
+
 const ShopProductDetail = ({ p, onBack, onAdd, onBuy, busy, inCart, related, onOpen }) => {
   const [shot, setShot] = useState(0);
   const [qty, setQty] = useState(1);
@@ -8908,7 +9921,7 @@ const ShopProductDetail = ({ p, onBack, onAdd, onBuy, busy, inCart, related, onO
       {/* ── Back button + breadcrumb ──
            The gold pill is the site's standard back control. It sits above the
            art so it is the first thing reachable on the page, on every width. */}
-      <div style={{ maxWidth: 1152, margin: '0 auto', padding: '8px 16px 20px', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+      <div style={{ ...mgLayer, maxWidth: 1152, margin: '0 auto', padding: '8px 16px 20px', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
         <button onClick={onBack}
           style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 20px', borderRadius: 99, border: '1px solid rgba(201,168,106,0.55)', background: 'rgba(201,168,106,0.10)', color: '#e8d5a8', fontSize: 12, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'pointer' }}
           onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(201,168,106,0.22)'; }}
@@ -8923,16 +9936,17 @@ const ShopProductDetail = ({ p, onBack, onAdd, onBuy, busy, inCart, related, onO
       </div>
 
       {/* ── HERO: art + sticky buy panel ── */}
-      <div className="relative">
-        {/* The product's own art, blurred right back, as the band's backdrop. */}
-        {hero ? (
-          <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
-            <img src={hero} alt="" className="w-full h-full object-cover" style={{ filter: 'blur(48px) saturate(0.7)', opacity: 0.28, transform: 'scale(1.15)' }} />
-            <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(10,9,8,0.55) 0%, rgba(10,9,8,0.92) 70%, #0a0908 100%)' }} />
-          </div>
-        ) : null}
+      <div style={{ position: 'relative' }}>
+        {/* ⚠ NO filter/blur here, deliberately. This backdrop used to be the
+            product's own art under `filter: blur(48px)`. On the user's machine
+            that large blurred layer blew the compositing budget and EVERYTHING
+            painted after it came out blank — the contents, the headings, the
+            back button — while the only survivors were the number spans, which
+            had opacity 0.65 and therefore their own layer. A plain gradient
+            gives the same depth with no filter and no extra layer. */}
+        <div aria-hidden="true" style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none', background: 'radial-gradient(1200px 520px at 50% -10%, ' + accent + '1f, transparent 68%), linear-gradient(180deg, rgba(10,9,8,0.35) 0%, #0a0908 100%)' }} />
 
-        <div className="relative max-w-6xl mx-auto px-4 md:px-6 grid lg:grid-cols-[1.35fr_1fr] gap-8 lg:gap-10 items-start">
+        <div className="max-w-6xl mx-auto px-4 md:px-6 grid lg:grid-cols-[1.35fr_1fr] gap-8 lg:gap-10 items-start" style={{ position: 'relative' }}>
           {/* Art + gallery */}
           <div>
             <div className="relative border overflow-hidden" style={{ borderColor: 'rgba(201,168,106,0.32)', borderRadius: 3, background: '#0b0a09', aspectRatio: '16 / 10' }}>
@@ -9010,7 +10024,7 @@ const ShopProductDetail = ({ p, onBack, onAdd, onBuy, busy, inCart, related, onO
 
       {/* ── WHAT'S INCLUDED ── */}
       {includes.length > 0 && (
-        <div className="max-w-6xl mx-auto px-4 md:px-6 mt-14">
+        <div className="max-w-6xl mx-auto px-4 md:px-6 mt-14" style={mgLayer}>
           <ShopSectionHead accent={accent}>What’s included</ShopSectionHead>
           {p.inherits ? (
             <div style={{ marginBottom: 20, padding: '12px 16px', fontSize: 14, borderLeft: '2px solid ' + accent, background: 'rgba(201,168,106,0.06)', color: '#e8d5a8' }}>
@@ -9021,7 +10035,13 @@ const ShopProductDetail = ({ p, onBack, onAdd, onBuy, busy, inCart, related, onO
             {includes.map((it, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 16, padding: '14px 0', borderBottom: '1px solid rgba(201,168,106,0.14)' }}>
                 <span style={{ color: accent, opacity: 0.65, fontFamily: 'ui-monospace,monospace', fontSize: 11, paddingTop: 2, flexShrink: 0 }}>{String(i + 1).padStart(2, '0')}</span>
-                <span style={{ color: '#e7e5e4', fontSize: 14, lineHeight: 1.6 }}>{it}</span>
+                {/* WebkitTextFillColor + an explicit system font stack: the two
+                    ways this text could stay invisible even with `color` set —
+                    a gradient-text rule painting the fill transparent, or a web
+                    font that never loaded with nothing to fall back to. The
+                    numbers beside it survive because they are already on a
+                    monospace system font. */}
+                <span style={{ color: '#e7e5e4', WebkitTextFillColor: '#e7e5e4', fontFamily: 'system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif', fontSize: 14, lineHeight: 1.6 }}>{it}</span>
               </div>
             ))}
           </div>
@@ -9030,7 +10050,7 @@ const ShopProductDetail = ({ p, onBack, onAdd, onBuy, busy, inCart, related, onO
 
       {/* ── ECONOMY BOOSTS — the numbers that keep paying after the purchase ── */}
       {boosts.length > 0 && (
-        <div className="max-w-6xl mx-auto px-4 md:px-6 mt-14">
+        <div className="max-w-6xl mx-auto px-4 md:px-6 mt-14" style={mgLayer}>
           <ShopSectionHead accent={accent}>Permanent economy boosts</ShopSectionHead>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {boosts.map((b, i) => {
@@ -9048,7 +10068,7 @@ const ShopProductDetail = ({ p, onBack, onAdd, onBuy, busy, inCart, related, onO
 
       {/* ── ABOUT + WHO IT'S FOR ── */}
       {(p.description || p.audience) && (
-        <div className="max-w-6xl mx-auto px-4 md:px-6 mt-14 grid lg:grid-cols-[1.6fr_1fr] gap-10">
+        <div className="max-w-6xl mx-auto px-4 md:px-6 mt-14 grid lg:grid-cols-[1.6fr_1fr] gap-10" style={mgLayer}>
           {p.description ? (
             <div>
               <ShopSectionHead accent={accent}>About this package</ShopSectionHead>
@@ -9065,7 +10085,7 @@ const ShopProductDetail = ({ p, onBack, onAdd, onBuy, busy, inCart, related, onO
       )}
 
       {/* ── BEFORE YOU BUY ── */}
-      <div className="max-w-6xl mx-auto px-4 md:px-6 mt-14">
+      <div className="max-w-6xl mx-auto px-4 md:px-6 mt-14" style={mgLayer}>
         <ShopSectionHead accent={accent}>Before you buy</ShopSectionHead>
         <div className="grid md:grid-cols-2" style={{ columnGap: 40, rowGap: 20, fontSize: 14, color: '#a8a29e', lineHeight: 1.7 }}>
           {p.fine_print ? <div className="md:col-span-2" style={{ color: '#d6d3d1' }}>{p.fine_print}</div> : null}
@@ -9078,7 +10098,7 @@ const ShopProductDetail = ({ p, onBack, onAdd, onBuy, busy, inCart, related, onO
 
       {/* ── MORE FROM THE SHOP ── */}
       {Array.isArray(related) && related.length > 0 && (
-        <div className="max-w-6xl mx-auto px-4 md:px-6 mt-16">
+        <div className="max-w-6xl mx-auto px-4 md:px-6 mt-16" style={mgLayer}>
           <ShopSectionHead accent={accent}>More from the shop</ShopSectionHead>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {related.map(r => (
@@ -9102,7 +10122,7 @@ const ShopProductDetail = ({ p, onBack, onAdd, onBuy, busy, inCart, related, onO
       )}
 
       {/* A second back control at the foot, so you never have to scroll up. */}
-      <div style={{ maxWidth: 1152, margin: '0 auto', padding: '56px 16px 0' }}>
+      <div style={{ ...mgLayer, maxWidth: 1152, margin: '0 auto', padding: '56px 16px 0' }}>
         <button onClick={onBack}
           style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 20px', borderRadius: 99, border: '1px solid rgba(201,168,106,0.55)', background: 'rgba(201,168,106,0.10)', color: '#e8d5a8', fontSize: 12, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'pointer' }}
           onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(201,168,106,0.22)'; }}
@@ -9173,17 +10193,28 @@ const ShopCartDrawer = ({ open, items, products, onClose, onQty, onRemove, onChe
    ⚠ price_cents written here is what Stripe charges (the Worker reads it), so
    this form is the price control panel. Module scope: declared inside the admin
    modal it would remount on every keystroke and drop focus. */
-const ShopAdminField = ({ label, value, onChange, area, type, hint, placeholder }) => (
-  <div className="mb-3">
-    <label className="block text-stone-500 text-[10px] uppercase tracking-[0.2em] mb-1">{label}</label>
-    {area
-      ? <textarea rows={area} value={value || ''} onChange={(e) => onChange(e.target.value)} placeholder={placeholder || ''}
-          className="w-full bg-black/50 border border-stone-700 rounded px-3 py-2 text-stone-100 text-sm" />
-      : <input type={type || 'text'} value={value == null ? '' : value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder || ''}
-          className="w-full bg-black/50 border border-stone-700 rounded px-3 py-2 text-stone-100 text-sm" />}
-    {hint ? <div className="text-stone-600 text-[10px] mt-1">{hint}</div> : null}
-  </div>
-);
+const shopAdminInput = {
+  width: '100%', background: 'rgba(0,0,0,0.5)', border: '1px solid #57534e', borderRadius: 4,
+  padding: '8px 12px', color: '#f5f5f4', fontSize: 14, lineHeight: 1.5, fontFamily: 'inherit',
+  display: 'block', boxSizing: 'border-box',
+};
+const ShopAdminField = ({ label, value, onChange, area, type, hint, placeholder }) => {
+  // A list field grows with its content. At rows={4} a nine-line "what's
+  // included" list scrolled inside a box too short to read, which is no way to
+  // check the contract you are selling.
+  const rows = area ? Math.max(area, String(value || '').split('\n').length + 1) : 0;
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <label style={{ display: 'block', color: '#78716c', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 5 }}>{label}</label>
+      {area
+        ? <textarea rows={rows} value={value || ''} onChange={(e) => onChange(e.target.value)} placeholder={placeholder || ''}
+            style={{ ...shopAdminInput, resize: 'vertical' }} />
+        : <input type={type || 'text'} value={value == null ? '' : value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder || ''}
+            style={shopAdminInput} />}
+      {hint ? <div style={{ color: '#78716c', fontSize: 10.5, marginTop: 5, lineHeight: 1.5 }}>{hint}</div> : null}
+    </div>
+  );
+};
 
 const AdminShopManager = ({ client }) => {
   const [rows, setRows] = useState(null);
@@ -9576,6 +10607,13 @@ const ShopPage = ({ client, session, onSignIn }) => {
           </div>
         </div>
       )}
+
+      {/* ═══ AZA COIN ═══
+           Deliberately OUTSIDE the products block above: that block has three
+           empty/loading branches, and the coin rail does not come from
+           shop_products — it must render even when Supabase is unreachable and
+           the shelves are bare. Hidden only on a product detail page. */}
+      {!open && <AzaCoinSection session={session} onSignIn={onSignIn} />}
 
       {/* ═══ WHY WE BUILT THIS ═══
            The REAL manifesto page, rendered inline here. It was previously a
@@ -15631,7 +16669,19 @@ function App() {
   // News page — patch notes / devlogs / announcements. Add new posts to NEWS_POSTS at top of file.
   const showNews = () => { setCurrentPage('news'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
   // Shop page (ex-Pledge) — Founder & Node packages with Stripe checkout.
-  const showPledge = () => { setCurrentPage('pledge'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+  // 🛒 Shop in the nav must always land on the STORE, never on whatever product
+  // was open last. Opening a product pushes ?product=<slug>, and without this
+  // the Shop button re-entered that one product and the grid was unreachable.
+  const showPledge = () => {
+    try {
+      if (new URLSearchParams(window.location.search).get('product')) {
+        window.history.pushState({}, '', window.location.pathname + '?shop=1');
+        window.dispatchEvent(new PopStateEvent('popstate'));   // ShopPage listens for this
+      }
+    } catch (e) {}
+    setCurrentPage('pledge');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
   // 📡 Open Emergency Broadcast focused on a screen. Everything social lives
   // inside the platform now, so these all route to the same page.
   const showEb = (screen, key) => {
