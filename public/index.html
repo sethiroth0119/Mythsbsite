@@ -6308,50 +6308,24 @@ const PsnLoreModal = ({ open, onClose }) => {
   }, [open, onClose]);
   if (!open) return null;
 
-  // Inline body renderer — same shape as renderNewsBody but with PSN-tuned
-  // colors so the modal feels like its own document.
-  const out = [];
-  let bulletBuf = [];
-  const flushBullets = (k) => {
-    if (!bulletBuf.length) return;
-    out.push(
-      <ul key={`b-${k}`} className="text-stone-300 leading-relaxed space-y-1.5 my-3 pl-1">
-        {bulletBuf.map((b, j) => (
-          <li key={j} className="flex items-start gap-2"><span className="text-amber-400/80 mt-0.5 shrink-0">▸</span><span>{b}</span></li>
-        ))}
-      </ul>
-    );
-    bulletBuf = [];
-  };
-  PSN_LORE.body.forEach((line, i) => {
-    if (line.startsWith('• ')) {
-      bulletBuf.push(line.slice(2));
-    } else if (line.startsWith('### ')) {
-      flushBullets(i);
-      out.push(<h4 key={i} className="text-amber-200 font-serif font-bold text-lg mt-5 mb-2 tracking-wide">{line.slice(4)}</h4>);
-    } else if (line.startsWith('## ')) {
-      flushBullets(i);
-      out.push(<h3 key={i} className="text-yellow-100 font-serif font-bold text-2xl md:text-3xl mt-8 mb-3 tracking-wide border-b border-amber-600/40 pb-2">{line.slice(3)}</h3>);
-    } else {
-      flushBullets(i);
-      out.push(<p key={i} className="text-stone-300 leading-relaxed my-3">{line}</p>);
-    }
-  });
-  flushBullets('end');
+  // Shares the news article renderer so both long-form readers get the same
+  // roomy spacing; `accent: 'amber'` just re-tints it for this modal.
+  const out = renderNewsBody(PSN_LORE.body, { accent: 'amber' });
 
   return (
     <div className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md flex items-start justify-center p-4 md:p-8 overflow-y-auto" onClick={onClose} style={{ animation: 'rise 0.3s' }}>
       <button onClick={onClose} aria-label="Close" className="fixed top-6 right-6 w-12 h-12 rounded bg-red-900/40 hover:bg-red-700/50 border border-red-500/40 text-white text-2xl font-bold leading-none flex items-center justify-center transition z-[110]">×</button>
       <article
         onClick={(e) => e.stopPropagation()}
-        className="relative bg-gradient-to-br from-stone-950/95 to-black/95 border border-amber-600/40 rounded-lg p-7 md:p-12 my-8 max-w-3xl w-full"
+        className="relative bg-gradient-to-br from-stone-950/95 to-black/95 border border-amber-600/40 rounded-lg px-6 py-9 sm:px-10 md:px-14 md:py-14 my-8 max-w-[56rem] w-full"
         style={{ boxShadow: '0 24px 80px rgba(0,0,0,0.7), 0 0 60px rgba(255,180,40,0.18)' }}
       >
         <HazardStripe className="absolute top-0 left-0 right-0" />
-        <div className="pt-4">
+        {/* Same reading measure as the news reader — see NewsPostModal. */}
+        <div className="pt-4 mx-auto w-full max-w-[42rem]">
           <div className="text-amber-300/80 text-[10px] tracking-[0.45em] uppercase mb-3 font-bold">— Planetary Survival Network —</div>
-          <DistressedHeading level="h2" className="text-4xl md:text-6xl font-serif font-bold text-yellow-100 mb-4">{PSN_LORE.title}</DistressedHeading>
-          <p className="text-amber-200/90 italic text-lg md:text-xl leading-snug mb-6 border-l-4 border-amber-500/60 pl-5">
+          <DistressedHeading level="h2" className="text-[34px] md:text-6xl font-serif font-bold text-yellow-100 leading-[1.12] mb-5">{PSN_LORE.title}</DistressedHeading>
+          <p className="text-amber-200/90 italic text-[17px] md:text-xl leading-[1.7] mb-10 pb-8 border-b border-amber-600/25 border-l-4 border-l-amber-500/60 pl-5">
             {PSN_LORE.subtitle}
           </p>
           <div>{out}</div>
@@ -11398,36 +11372,114 @@ const NEWS_POSTS = [
 // with the full body.
 //
 // Body renderer supports:
-//   • "## "  — section heading (h2)
-//   • "### " — sub-heading   (h3)
-//   • "• "   — bullet (consecutive bullets group into a list)
+//   • "## "   — section heading (h2)
+//   • "### "  — sub-heading (h3)
+//   • "• "    — bullet (consecutive bullets group into a list)
+//   • "> "    — pull quote
+//   • "---"   — horizontal divider / scene break
+//   • ""      — deliberate breathing room between beats
+//   • "![alt](src)", "img: src" or a bare image URL/path — figure (alt = caption)
 //   • anything else — paragraph
-const renderNewsBody = (body) => {
+// Inline: **bold** and *italic*.
+//
+// Long-form posts are written as lots of short one-line paragraphs, so the
+// spacing here is deliberately generous — cramped one-liners read like a wall.
+const NEWS_ACCENTS = {
+  orange: { bullet: 'text-orange-500/80', h3: 'text-orange-200', rule: 'border-orange-600/30', quote: 'border-orange-500/60 text-orange-100/90', strong: 'text-orange-100' },
+  amber:  { bullet: 'text-amber-400/80',  h3: 'text-amber-200',  rule: 'border-amber-600/40',  quote: 'border-amber-500/60 text-amber-100/90',  strong: 'text-amber-100' },
+};
+
+// Splits **bold** / *italic* runs out of a line so emphasis survives without a
+// markdown dependency. Returns an array React can render directly.
+const renderNewsInline = (text, accent) => {
+  const parts = String(text).split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g).filter(Boolean);
+  if (parts.length === 1) return parts[0];
+  return parts.map((p, i) => {
+    if (p.startsWith('**') && p.endsWith('**') && p.length > 4) {
+      return <strong key={i} className={`font-bold ${accent.strong}`}>{p.slice(2, -2)}</strong>;
+    }
+    if (p.startsWith('*') && p.endsWith('*') && p.length > 2) {
+      return <em key={i} className="italic text-stone-200">{p.slice(1, -1)}</em>;
+    }
+    return <React.Fragment key={i}>{p}</React.Fragment>;
+  });
+};
+
+const NEWS_IMG_RE = /^!\[([^\]]*)\]\(([^)]+)\)$/;
+const NEWS_BARE_IMG_RE = /^(https?:\/\/|\.\/|\/)\S+\.(png|jpe?g|gif|webp|avif)(\?\S*)?$/i;
+
+const renderNewsBody = (body, opts = {}) => {
+  const accent = NEWS_ACCENTS[opts.accent] || NEWS_ACCENTS.orange;
   const out = [];
   let bulletBuf = [];
+  // `lead` styles only the very first paragraph of the post a touch larger, so
+  // the article has an opening beat instead of starting flat.
+  let seenParagraph = false;
   const flushBullets = (keyBase) => {
     if (!bulletBuf.length) return;
     out.push(
-      <ul key={`b-${keyBase}`} className="text-stone-300 leading-relaxed space-y-1.5 my-3 pl-1">
+      <ul key={`b-${keyBase}`} className="text-stone-300/95 text-[16px] md:text-[17px] leading-[1.8] space-y-3 my-7 pl-1">
         {bulletBuf.map((b, j) => (
-          <li key={j} className="flex items-start gap-2"><span className="text-orange-500/80 mt-0.5 shrink-0">▸</span><span>{b}</span></li>
+          <li key={j} className="flex items-start gap-3"><span className={`${accent.bullet} mt-[3px] shrink-0`}>▸</span><span>{renderNewsInline(b, accent)}</span></li>
         ))}
       </ul>
     );
     bulletBuf = [];
   };
-  body.forEach((line, i) => {
-    if (line.startsWith('• ')) {
-      bulletBuf.push(line.slice(2));
-    } else if (line.startsWith('### ')) {
-      flushBullets(i);
-      out.push(<h4 key={i} className="text-orange-200 font-serif font-bold text-lg mt-5 mb-2 tracking-wide">{line.slice(4)}</h4>);
-    } else if (line.startsWith('## ')) {
-      flushBullets(i);
-      out.push(<h3 key={i} className="text-yellow-100 font-serif font-bold text-2xl mt-7 mb-3 tracking-wide border-b border-orange-600/30 pb-2">{line.slice(3)}</h3>);
+  body.forEach((raw, i) => {
+    const line = String(raw ?? '');
+    const trimmed = line.trim();
+    // Accept both markdown image syntax and a plain "img: <src>" line, since
+    // posts get authored in either shape.
+    const img = trimmed.match(NEWS_IMG_RE) || (/^img(?:age)?:\s*\S+/i.test(trimmed)
+      ? [null, '', trimmed.replace(/^img(?:age)?:\s*/i, '')]
+      : null);
+
+    if (trimmed.startsWith('• ')) {
+      bulletBuf.push(trimmed.slice(2));
+      return;
+    }
+    flushBullets(i);
+
+    if (!trimmed) {
+      out.push(<div key={i} className="h-5" aria-hidden />);
+    } else if (trimmed === '---' || trimmed === '***') {
+      out.push(<hr key={i} className={`my-10 border-t ${accent.rule}`} />);
+    } else if (img || NEWS_BARE_IMG_RE.test(trimmed)) {
+      const src = img ? img[2].trim() : trimmed;
+      const caption = img ? img[1].trim() : '';
+      out.push(
+        <figure key={i} className="my-9">
+          <img src={src} alt={caption} loading="lazy"
+            className="w-full h-auto rounded-lg border border-stone-700/60 bg-black/60"
+            style={{ boxShadow: '0 14px 40px rgba(0,0,0,0.55)' }} />
+          {caption && <figcaption className="mt-2.5 text-center text-stone-500 text-[12px] tracking-wide italic">{caption}</figcaption>}
+        </figure>
+      );
+    } else if (trimmed.startsWith('> ')) {
+      out.push(
+        <blockquote key={i} className={`my-8 border-l-2 pl-5 py-1 font-serif italic text-[18px] md:text-[20px] leading-[1.7] ${accent.quote}`}>
+          {renderNewsInline(trimmed.slice(2), accent)}
+        </blockquote>
+      );
+    } else if (trimmed.startsWith('### ')) {
+      out.push(<h4 key={i} className={`${accent.h3} font-serif font-bold text-lg md:text-xl mt-10 mb-3 tracking-wide`}>{trimmed.slice(4)}</h4>);
+    } else if (trimmed.startsWith('## ')) {
+      out.push(
+        <h3 key={i} className={`text-yellow-100 font-serif font-bold text-[26px] md:text-[32px] leading-tight mt-14 mb-5 pt-7 tracking-wide border-t ${accent.rule}`}>
+          {trimmed.slice(3)}
+        </h3>
+      );
     } else {
-      flushBullets(i);
-      out.push(<p key={i} className="text-stone-300 leading-relaxed my-3">{line}</p>);
+      const lead = !seenParagraph;
+      seenParagraph = true;
+      out.push(
+        <p key={i} className={lead
+          ? 'text-stone-200 text-[18px] md:text-[19px] leading-[1.85] my-6'
+          : 'text-stone-300/95 text-[16.5px] md:text-[17.5px] leading-[1.9] my-6'}>
+          {renderNewsInline(trimmed, accent)}
+        </p>
+      );
     }
   });
   flushBullets('end');
@@ -11462,19 +11514,21 @@ const NewsPostModal = ({ post, onClose }) => {
       <button onClick={onClose} aria-label="Close" className="fixed top-6 right-6 w-12 h-12 rounded bg-red-900/40 hover:bg-red-700/50 border border-red-500/40 text-white text-2xl font-bold leading-none flex items-center justify-center transition z-[110]">×</button>
       <article
         onClick={(e) => e.stopPropagation()}
-        className="relative bg-gradient-to-br from-stone-950/95 to-black/95 border border-orange-600/40 rounded-lg p-7 md:p-12 my-8 max-w-3xl w-full"
+        className="relative bg-gradient-to-br from-stone-950/95 to-black/95 border border-orange-600/40 rounded-lg px-6 py-9 sm:px-10 md:px-14 md:py-14 my-8 max-w-[56rem] w-full"
         style={{ boxShadow: '0 24px 80px rgba(0,0,0,0.7), 0 0 60px rgba(255,140,60,0.15)' }}
       >
         <HazardStripe className="absolute top-0 left-0 right-0" />
-        <div className="pt-4">
-          <div className="flex flex-wrap items-center gap-3 mb-4">
+        {/* Cap the column at a comfortable measure (~66 characters) so long
+            posts never stretch into hard-to-track full-width lines. */}
+        <div className="pt-4 mx-auto w-full max-w-[42rem]">
+          <div className="flex flex-wrap items-center gap-3 mb-6">
             <span className={`px-2.5 py-0.5 border rounded text-[10px] uppercase tracking-widest font-bold ${newsCategoryStyle(post.category)}`}>{post.category}</span>
             {post.tag && (
               <span className="px-2.5 py-0.5 bg-stone-500/10 border border-stone-500/40 rounded text-stone-300 text-[10px] uppercase tracking-widest">{post.tag}</span>
             )}
             <span className="text-stone-500 text-[11px] uppercase tracking-widest font-mono ml-auto">{post.date}</span>
           </div>
-          <DistressedHeading level="h2" className="text-3xl md:text-5xl font-serif font-bold text-yellow-100 mb-4">{post.title}</DistressedHeading>
+          <DistressedHeading level="h2" className="text-[32px] md:text-5xl font-serif font-bold text-yellow-100 leading-[1.12] mb-5">{post.title}</DistressedHeading>
           {post.logos && post.logos.length > 0 && (
             <div className="flex items-center justify-center gap-6 md:gap-10 my-8 py-6 border-y border-orange-600/30 bg-black/40 rounded">
               {post.logos.map((logo, j) => (
@@ -11489,9 +11543,17 @@ const NewsPostModal = ({ post, onClose }) => {
             </div>
           )}
           {post.summary && (
-            <p className="text-stone-300 italic text-lg leading-relaxed mb-6 border-l-2 border-orange-500/50 pl-4">{post.summary}</p>
+            <p className="text-stone-300 italic text-[17px] md:text-[19px] leading-[1.7] mb-10 pb-8 border-b border-orange-600/25 border-l-2 border-l-orange-500/50 pl-5">{post.summary}</p>
           )}
           <div>{renderNewsBody(post.body || [])}</div>
+          <div className="mt-12 pt-6 border-t border-orange-600/25 flex justify-end">
+            <button
+              onClick={onClose}
+              className="px-5 py-2.5 bg-black/60 border border-orange-500/50 text-orange-200 font-bold text-xs rounded tracking-widest uppercase hover:bg-orange-500/10 transition"
+            >
+              Close
+            </button>
+          </div>
         </div>
       </article>
     </div>
