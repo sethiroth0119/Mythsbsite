@@ -1,0 +1,216 @@
+/* proto-fx piece: inspector — the prototype's card inspector (#inspect-dialog / .inspect-* rules and the
+   inspect-veil / inspect-copy / inspect-toolbar keyframes), ported 1:1 with the "mythic-brand" gold overrides.
+   The prototype drew the card on a WebGL canvas; here the stage is a CSS 3D card (front art + card back)
+   lit by a moving specular sheen. Scoped under html.pfx-inspector so ?pfxOff=inspector turns it all off. */
+
+html.pfx-inspector.pfx-inspect-open { overflow: hidden; }
+
+html.pfx-inspector #pfx-inspect {
+  position: fixed; inset: 0; width: 100%; height: 100dvh; max-width: none; max-height: none; margin: 0;
+  border: 0; padding: 0; color: var(--pfx-ice, #f3e8cf); background: transparent; box-shadow: none; overflow: hidden;
+  font-family: var(--pfx-body, 'Crimson Text', Georgia, serif);
+}
+html.pfx-inspector #pfx-inspect:not([open]) { display: none; }
+html.pfx-inspector #pfx-inspect::backdrop {
+  background: rgba(3, 10, 16, .74); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+  animation: pfx-inspect-veil-in .45s ease-out both;
+}
+html.pfx-inspector #pfx-inspect.is-closing::backdrop { animation: pfx-inspect-veil-out .28s ease-in both; }
+html.pfx-inspector #pfx-inspect button { font-family: inherit; cursor: pointer; }
+html.pfx-inspector #pfx-inspect :focus-visible { outline: 1px solid #dfbb70; outline-offset: 3px; }
+
+/* ---- scene: the card on a 3D stage ------------------------------------------------------------- */
+html.pfx-inspector #pfx-inspect .inspect-scene {
+  position: absolute; inset: 0; background: transparent; transition: opacity .3s;
+  display: flex; align-items: center; justify-content: center; perspective: 1400px;
+  touch-action: none; cursor: grab; outline: none;
+}
+html.pfx-inspector #pfx-inspect .inspect-scene.is-dragging { cursor: grabbing; }
+html.pfx-inspector #pfx-inspect .pfx-insp-fly {
+  position: relative; height: min(64dvh, 96vw, 660px); aspect-ratio: 2 / 3; margin-top: -2dvh;
+  transform-style: preserve-3d; will-change: transform;
+}
+html.pfx-inspector #pfx-inspect .pfx-insp-swap { position: absolute; inset: 0; transform-style: preserve-3d; transition: opacity .22s ease, transform .22s ease; }
+html.pfx-inspector #pfx-inspect .pfx-insp-swap.is-out-l { opacity: 0; transform: translateX(-46px) rotateY(-14deg); }
+html.pfx-inspector #pfx-inspect .pfx-insp-swap.is-out-r { opacity: 0; transform: translateX(46px) rotateY(14deg); }
+html.pfx-inspector #pfx-inspect .pfx-insp-card { position: absolute; inset: 0; transform-style: preserve-3d; will-change: transform; }
+html.pfx-inspector #pfx-inspect .pfx-insp-shadow {
+  position: absolute; left: 8%; right: 8%; bottom: -9%; height: 9%; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(0, 0, 0, .72), rgba(0, 0, 0, 0)); filter: blur(6px);
+  pointer-events: none; transform-origin: 50% 0;
+}
+html.pfx-inspector #pfx-inspect .pfx-insp-face {
+  position: absolute; inset: 0; border-radius: 3.6% / 2.4%; overflow: hidden;
+  backface-visibility: hidden; -webkit-backface-visibility: hidden;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, .62), 0 0 0 1px rgba(255, 226, 150, .18);
+}
+/* card thickness: gold core slices between the two faces */
+html.pfx-inspector #pfx-inspect .pfx-insp-core {
+  position: absolute; inset: .3%; border-radius: 3.6% / 2.4%;
+  background: linear-gradient(135deg, #7a5516, #d4a017 45%, #6d4a12);
+}
+html.pfx-inspector #pfx-inspect .pfx-insp-front { transform: translateZ(2.5px); }
+html.pfx-inspector #pfx-inspect .pfx-insp-back { transform: rotateY(180deg) translateZ(2.5px); background: #0d130f center / cover no-repeat; }
+
+/* front: the site's art dressed in the prototype's engraved gold bezel + plate */
+html.pfx-inspector #pfx-inspect .pfx-insp-front {
+  background: linear-gradient(150deg, #f6dc8a 0%, #c8961f 18%, #8a6112 42%, #e9c25a 62%, #a37414 82%, #f0d27a 100%);
+  padding: 3.4%;
+}
+html.pfx-inspector #pfx-inspect .pfx-insp-front.is-full { background: transparent; padding: 0; box-shadow: none; }
+html.pfx-inspector #pfx-inspect .pfx-insp-art {
+  position: relative; width: 100%; height: 100%; border-radius: 2.6% / 1.8%; overflow: hidden; background: #0b0d0b;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .7);
+}
+html.pfx-inspector #pfx-inspect .pfx-insp-art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top; user-select: none; -webkit-user-drag: none; pointer-events: none; }
+html.pfx-inspector #pfx-inspect .pfx-insp-front.is-full .pfx-insp-art { background: transparent; box-shadow: none; border-radius: 0; }
+html.pfx-inspector #pfx-inspect .pfx-insp-front.is-full .pfx-insp-art img { object-fit: contain; object-position: center; }
+html.pfx-inspector #pfx-inspect .pfx-insp-fallback { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; padding: 12%; font: 600 22px/1.25 var(--pfx-display); color: #dfbb7066; }
+html.pfx-inspector #pfx-inspect .pfx-insp-plate {
+  position: absolute; left: 0; right: 0; bottom: 0; padding: 4.4% 5% 4.2%;
+  background: linear-gradient(180deg, #e8c769 0%, #d4a017 38%, #b08212 100%);
+  border-top: 2px solid #f6e3a4; box-shadow: 0 -8px 26px rgba(0, 0, 0, .45);
+  color: #1d1406; text-align: center;
+}
+html.pfx-inspector #pfx-inspect .pfx-insp-plate b { display: block; font: 700 clamp(13px, 2.1dvh, 20px)/1.15 var(--pfx-display); letter-spacing: .04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html.pfx-inspector #pfx-inspect .pfx-insp-plate i { display: block; font: normal clamp(8px, 1.2dvh, 11px) var(--pfx-display); letter-spacing: .16em; text-transform: uppercase; opacity: .72; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html.pfx-inspector #pfx-inspect .pfx-insp-front.is-full .pfx-insp-plate { display: none; }
+html.pfx-inspector #pfx-inspect .pfx-insp-gem {
+  position: absolute; top: 3.2%; left: 50%; transform: translateX(-50%); padding: 3px 10px; white-space: nowrap;
+  font: 9px var(--pfx-display); letter-spacing: .18em; text-transform: uppercase; color: #f3dc9e;
+  background: #10160fe6; border: 1px solid #cda84e; box-shadow: inset 0 0 0 2px #0c130d;
+}
+html.pfx-inspector #pfx-inspect .pfx-insp-front.is-full .pfx-insp-gem { display: none; }
+/* lighting: a specular hot-spot + a sweeping foil band that follow the tilt */
+html.pfx-inspector #pfx-inspect .pfx-insp-sheen {
+  position: absolute; inset: 0; pointer-events: none; mix-blend-mode: screen; border-radius: inherit;
+  background:
+    radial-gradient(circle at var(--gx, 50%) var(--gy, 30%), rgba(255, 244, 214, .34), rgba(255, 244, 214, 0) 42%),
+    linear-gradient(115deg, rgba(255, 255, 255, 0) 38%, rgba(255, 236, 186, .2) 48%, rgba(255, 255, 255, 0) 58%);
+  background-size: 100% 100%, 260% 100%; background-position: 0 0, var(--gp, 50%) 0; background-repeat: no-repeat;
+  opacity: var(--go, .55);
+}
+
+/* ---- chrome: topbar, detail panels, toolbar (prototype rules + gold brand overrides) ------------ */
+html.pfx-inspector #pfx-inspect .inspect-topbar {
+  position: absolute; top: max(30px, env(safe-area-inset-top)); left: 4vw; right: 4vw; display: flex; align-items: center;
+  justify-content: space-between; pointer-events: none; font: 10px var(--pfx-display); letter-spacing: .2em; color: #ddc492;
+}
+html.pfx-inspector #pfx-inspect .close-dialog {
+  position: static; pointer-events: auto; width: 42px; height: 42px; border-radius: 50%; background: #09141e99;
+  color: #c8dde1; border: 1px solid #78949755; font-size: 24px; line-height: 1; display: inline-flex; align-items: center; justify-content: center;
+  transition: border-color .2s;
+}
+html.pfx-inspector #pfx-inspect .close-dialog:hover { border-color: var(--pfx-gold, #d4a017); }
+html.pfx-inspector #pfx-inspect .inspect-counter { color: #d5e5df; margin-left: 16px; }
+
+html.pfx-inspector #pfx-inspect .inspect-details { display: none; }
+html.pfx-inspector #pfx-inspect.details-open .inspect-details { display: contents; }
+html.pfx-inspector #pfx-inspect .inspect-panel {
+  position: absolute; top: 50%; width: clamp(210px, 19vw, 290px); max-height: calc(100dvh - 180px); overflow: auto;
+  scrollbar-width: thin; transform: translateY(-50%); animation: pfx-inspect-copy-in .65s .24s both; border-color: #c49c4944;
+}
+html.pfx-inspector #pfx-inspect .inspect-identity { left: 4vw; }
+html.pfx-inspector #pfx-inspect .inspect-facts { right: 4vw; animation-delay: .34s; }
+html.pfx-inspector #pfx-inspect .eyebrow {
+  font: 9px var(--pfx-display); letter-spacing: .16em; line-height: 1.6; color: #dfbb70; display: flex; align-items: center;
+  gap: 10px; text-transform: uppercase;
+}
+html.pfx-inspector #pfx-inspect .eyebrow:before { content: ""; width: 20px; height: 1px; flex-shrink: 0; background: #d4a017; }
+html.pfx-inspector #pfx-inspect .inspect-panel h2 {
+  font: 500 clamp(26px, 2.7vw, 40px)/1.12 var(--pfx-display); letter-spacing: -.04em; margin: 22px 0; color: var(--pfx-ice, #f3e8cf);
+}
+html.pfx-inspector #pfx-inspect .inspect-panel p { font-size: 19px; line-height: 1.5; color: #c9bfaa; margin: 12px 0 0; }
+html.pfx-inspector #pfx-inspect .inspect-rarity { display: inline-block; font: 10px var(--pfx-display); letter-spacing: .18em; color: #decca2; margin-top: 28px; text-transform: uppercase; }
+html.pfx-inspector #pfx-inspect .inspect-stats { display: flex; gap: 32px; padding-bottom: 24px; border-bottom: 1px solid #c49c4938; margin-bottom: 24px; }
+html.pfx-inspector #pfx-inspect .inspect-stats:empty { display: none; }
+html.pfx-inspector #pfx-inspect .inspect-stats strong { display: block; font: 400 36px var(--pfx-display); color: #f3e8cf; }
+html.pfx-inspector #pfx-inspect .inspect-stats span { display: block; font: 9px var(--pfx-display); letter-spacing: .15em; color: #c1b6a2; margin-top: 6px; }
+html.pfx-inspector #pfx-inspect .inspect-ability strong,
+html.pfx-inspector #pfx-inspect .inspect-strategy strong { font: 400 10px var(--pfx-display); color: #dfbb70; letter-spacing: .15em; line-height: 1.5; text-transform: uppercase; }
+html.pfx-inspector #pfx-inspect .inspect-strategy { border-top: 1px solid #c49c4938; margin-top: 22px; padding-top: 22px; }
+html.pfx-inspector #pfx-inspect .inspect-strategy p { font-size: 17px; }
+html.pfx-inspector #pfx-inspect .inspect-links { display: flex; flex-direction: column; align-items: flex-start; gap: 16px; margin-top: 22px; padding-left: 6px; }
+
+/* the prototype's engraved angle button (brand variant) + round buttons */
+html.pfx-inspector #pfx-inspect .angle-button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 12px; position: relative; isolation: isolate;
+  background: linear-gradient(120deg, #20351e, #111b13 55%, #26391c); border: 1px solid #cda84e; border-radius: 2px;
+  box-shadow: inset 0 0 0 3px #0c130d, inset 0 0 0 4px #ab873757, 0 5px 20px #090b0990;
+  color: #f3dc9e; text-shadow: 0 1px 2px #0b0b0b; font: 600 10px var(--pfx-display); letter-spacing: .08em; text-decoration: none;
+  min-height: 42px; padding: 11px 23px; min-width: 134px; transition: filter .2s, transform .2s; text-transform: none;
+}
+html.pfx-inspector #pfx-inspect .angle-button:hover { filter: brightness(1.17); transform: translateY(-2px); }
+html.pfx-inspector #pfx-inspect .angle-button:active { transform: scale(.98); }
+html.pfx-inspector #pfx-inspect .angle-button:before,
+html.pfx-inspector #pfx-inspect .angle-button:after {
+  content: ""; position: absolute; width: 7px; height: 7px; background: #172215; border: 1px solid #d4a017;
+  top: 50%; transform: translateY(-50%) rotate(45deg); pointer-events: none;
+}
+html.pfx-inspector #pfx-inspect .angle-button:before { left: -5px; }
+html.pfx-inspector #pfx-inspect .angle-button:after { right: -5px; }
+html.pfx-inspector #pfx-inspect .round-button {
+  width: 40px; height: 40px; border-radius: 50%; border: 1px solid #b08e4c; color: #ecd49a; background: #121a1180;
+  font-size: 21px; line-height: 1; display: inline-flex; align-items: center; justify-content: center; transition: background .2s;
+}
+html.pfx-inspector #pfx-inspect .round-button:hover { background: #d4a01720; }
+html.pfx-inspector #pfx-inspect .round-button[disabled] { opacity: .35; cursor: default; }
+
+html.pfx-inspector #pfx-inspect .inspect-toolbar {
+  position: absolute; bottom: max(27px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 17px; width: max-content; max-width: calc(100% - 24px);
+  animation: pfx-inspect-toolbar-in .55s .7s both;
+}
+html.pfx-inspector #pfx-inspect .inspect-tip { font: 9px var(--pfx-display); letter-spacing: .15em; color: #ddc492; text-align: center; pointer-events: none; margin: 0; }
+html.pfx-inspector #pfx-inspect .inspect-actions { display: flex; align-items: center; justify-content: center; gap: 12px; }
+html.pfx-inspector #pfx-inspect .inspect-reset,
+html.pfx-inspector #pfx-inspect .inspect-details-toggle {
+  border: 0; border-bottom: 1px solid #708c9866; background: transparent; color: #e2c790; font: 11px var(--pfx-display);
+  padding: 10px 3px; cursor: pointer; text-decoration: none;
+}
+html.pfx-inspector #pfx-inspect .inspect-toolbar-extra { display: flex; gap: 22px; justify-content: center; }
+
+html.pfx-inspector #pfx-inspect.is-closing .inspect-panel,
+html.pfx-inspector #pfx-inspect.is-closing .inspect-toolbar,
+html.pfx-inspector #pfx-inspect.is-closing .inspect-topbar { opacity: 0; transition: opacity .18s; animation: none; }
+html.pfx-inspector #pfx-inspect.is-closing .inspect-scene,
+html.pfx-inspector #pfx-inspect.is-closing.details-open .inspect-scene { opacity: 1; transition: none; }
+
+@keyframes pfx-inspect-veil-in { from { opacity: 0 } to { opacity: 1 } }
+@keyframes pfx-inspect-veil-out { from { opacity: 1 } to { opacity: 0 } }
+@keyframes pfx-inspect-copy-in { from { opacity: 0; translate: 0 14px } to { opacity: 1; translate: 0 0 } }
+@keyframes pfx-inspect-toolbar-in { from { opacity: 0; translate: 0 10px } to { opacity: 1; translate: 0 0 } }
+
+@media (max-width: 1100px) {
+  html.pfx-inspector #pfx-inspect .inspect-topbar { left: 24px; right: 24px; top: 22px; }
+  html.pfx-inspector #pfx-inspect .inspect-details-toggle { display: block; }
+  html.pfx-inspector #pfx-inspect .inspect-reset { font-size: 10px; }
+  html.pfx-inspector #pfx-inspect .inspect-details {
+    display: none; position: absolute; left: 50%; bottom: 155px; transform: translateX(-50%); width: min(500px, calc(100% - 32px));
+    max-height: calc(100dvh - 240px); overflow: auto; padding: 12px 16px; background: transparent; border: 0; box-shadow: none; scrollbar-width: thin;
+  }
+  html.pfx-inspector #pfx-inspect.details-open .inspect-details { display: block; animation: pfx-inspect-veil-in .2s ease-out; }
+  html.pfx-inspector #pfx-inspect.details-open .inspect-scene { opacity: .08; }
+  html.pfx-inspector #pfx-inspect .inspect-panel { position: static; width: auto; max-height: none; overflow: visible; transform: none; animation: none; }
+  html.pfx-inspector #pfx-inspect .inspect-facts { margin-top: 24px; }
+  html.pfx-inspector #pfx-inspect .inspect-panel h2 { font-size: 29px; margin: 14px 0; }
+  html.pfx-inspector #pfx-inspect .inspect-panel p { font-size: 17px; }
+  html.pfx-inspector #pfx-inspect .inspect-rarity { margin-top: 16px; }
+  html.pfx-inspector #pfx-inspect .inspect-stats { margin-bottom: 20px; padding-bottom: 20px; }
+  html.pfx-inspector #pfx-inspect .inspect-toolbar { bottom: 22px; gap: 14px; }
+  html.pfx-inspector #pfx-inspect .inspect-tip { font-size: 8px; letter-spacing: .1em; }
+  html.pfx-inspector #pfx-inspect .inspect-actions { gap: 9px; }
+  html.pfx-inspector #pfx-inspect .inspect-actions .angle-button { min-width: 115px; padding: 11px 19px; }
+  html.pfx-inspector #pfx-inspect .inspect-actions .round-button { width: 35px; height: 35px; }
+  html.pfx-inspector #pfx-inspect .pfx-insp-fly { height: min(56dvh, 96vw); margin-top: -8dvh; }
+}
+@media (max-height: 540px) {
+  html.pfx-inspector #pfx-inspect .inspect-topbar { top: 12px; }
+  html.pfx-inspector #pfx-inspect .inspect-toolbar { bottom: 12px; gap: 8px; }
+  html.pfx-inspector #pfx-inspect .inspect-tip { display: none; }
+  html.pfx-inspector #pfx-inspect .inspect-details { bottom: 112px; max-height: calc(100dvh - 180px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  html.pfx-inspector #pfx-inspect, html.pfx-inspector #pfx-inspect *, html.pfx-inspector #pfx-inspect *:before,
+  html.pfx-inspector #pfx-inspect *:after, html.pfx-inspector #pfx-inspect::backdrop { animation: none !important; transition: none !important; }
+}

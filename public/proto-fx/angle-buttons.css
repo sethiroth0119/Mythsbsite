@@ -1,0 +1,111 @@
+/* proto-fx piece: angle-buttons — the prototype's engraved "angle-button" (#mythic-brand .angle-button),
+   ported rule-for-rule onto the website's CTAs.
+   Targets:
+     .ga-btn                      -> .angle-button            (Play Now, View More Cards, How the economy works, Subscribe ...)
+     .ga-btn--ghost               -> .angle-button.outline    (Log In, More Articles)
+     .pfx-ab / .pfx-ab--outline   -> tagged by angle-buttons.js (orange->red gradient primary CTAs on
+                                     deck builder, card/hero modals, news "Read Full", hub sign-in ...)
+     .pfx-angle-button(.outline)  -> opt-in class other pieces may use for their own injected buttons
+   Everything is scoped under html.pfx-angle-buttons so ?pfxOff=angle-buttons restores the old look.
+   Broadcast (.cbk) controls and form inputs are never touched. */
+
+html.pfx-angle-buttons :is(.ga-btn, .pfx-ab, .pfx-angle-button) {
+  /* prototype base: .angle-button{display:inline-flex;align-items:center;justify-content:center;gap:20px;
+     position:relative;font:600 15px var(--display);transition:filter .2s,transform .2s} */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  position: relative;
+  /* #mythic-brand .angle-button,.angle-button.outline */
+  background: linear-gradient(120deg, #20351e, #111b13 55%, #26391c);
+  border: 1px solid #cda84e;
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 3px #0c130d, inset 0 0 0 4px #ab873757, 0 5px 20px #090b0990;
+  color: #f3dc9e;
+  text-shadow: 0 1px 2px #0b0b0b;
+  padding: 16px 35px;
+  min-height: 54px;
+  font-family: var(--pfx-display, 'Cinzel', Georgia, serif);
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 1.2;
+  letter-spacing: .08em;
+  text-transform: none;
+  text-decoration: none;
+  isolation: isolate;
+  filter: none;
+  transform: none;
+  transition: filter .2s, transform .2s;
+  cursor: pointer;
+}
+/* w-full / block CTAs keep filling their row */
+html.pfx-angle-buttons .pfx-ab.pfx-ab--block { display: flex; }
+
+/* 7px diamond end caps */
+html.pfx-angle-buttons :is(.ga-btn, .pfx-ab, .pfx-angle-button)::before,
+html.pfx-angle-buttons :is(.ga-btn, .pfx-ab, .pfx-angle-button)::after {
+  content: "";
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  background: #172215;
+  border: 1px solid #d4a017;
+  top: 50%;
+  transform: translateY(-50%) rotate(45deg);
+  pointer-events: none;
+  box-sizing: content-box;
+}
+html.pfx-angle-buttons :is(.ga-btn, .pfx-ab, .pfx-angle-button)::before { left: -5px; }
+html.pfx-angle-buttons :is(.ga-btn, .pfx-ab, .pfx-angle-button)::after { right: -5px; }
+
+/* hover: .angle-button:hover{transform:translateY(-2px)} + #mythic-brand hover fill/ring (filter:none wins) */
+html.pfx-angle-buttons :is(.ga-btn, .pfx-ab, .pfx-angle-button):not(:disabled):hover {
+  background: linear-gradient(120deg, #304329, #192716);
+  filter: none;
+  box-shadow: inset 0 0 0 3px #101a10, inset 0 0 0 4px #d4a01790, 0 8px 24px #080b0890;
+  color: #f3dc9e;
+  transform: translateY(-2px);
+}
+/* press: .angle-button:active{transform:scale(.98)} */
+html.pfx-angle-buttons :is(.ga-btn, .pfx-ab, .pfx-angle-button):not(:disabled):active {
+  transform: scale(.98);
+}
+
+/* ghost -> .angle-button.outline (the #mythic-brand outline rule comes after :hover in the prototype,
+   so the outline keeps its own fill and ring on hover; only the lift and the text colour change) */
+html.pfx-angle-buttons :is(.ga-btn--ghost, .pfx-ab--outline, .pfx-angle-button.outline),
+html.pfx-angle-buttons :is(.ga-btn--ghost, .pfx-ab--outline, .pfx-angle-button.outline):not(:disabled):hover {
+  background: #121019a8;
+  border-color: #ae884a;
+  box-shadow: inset 0 0 0 3px #121019, inset 0 0 0 4px #ae884a40;
+  min-height: 45px;
+  font-size: 12px;
+}
+html.pfx-angle-buttons :is(.ga-btn--ghost, .pfx-ab--outline, .pfx-angle-button.outline):not(:disabled):hover {
+  color: #edffff;
+}
+
+/* the newsletter Subscribe button sits flush against the email input: no left cap there */
+html.pfx-angle-buttons input + .ga-btn::before { display: none; }
+
+html.pfx-angle-buttons :is(.ga-btn, .pfx-ab, .pfx-angle-button):disabled { cursor: not-allowed; }
+
+html.pfx-angle-buttons :is(.ga-btn, .pfx-ab, .pfx-angle-button):focus-visible {
+  outline: 2px solid #f3cc72;
+  outline-offset: 3px;
+}
+
+/* prototype: @media (max-width:760px) .hero-actions .angle-button{padding-inline:17px;min-height:46px} */
+@media (max-width: 760px) {
+  html.pfx-angle-buttons [data-pfx="hero"] :is(.ga-btn, .pfx-ab) {
+    font-size: 11px;
+    padding-inline: 17px;
+    min-height: 46px;
+  }
+}
+
+/* prototype: @media (prefers-reduced-motion:reduce){*{transition:none!important}} */
+@media (prefers-reduced-motion: reduce) {
+  html.pfx-angle-buttons :is(.ga-btn, .pfx-ab, .pfx-angle-button) { transition: none !important; }
+}

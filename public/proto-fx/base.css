@@ -1,0 +1,20 @@
+/* proto-fx shared tokens — the prototype's "mythic-brand" palette (engraved gold, forest-black,
+   arcane violet). Owned by the seam; pieces read these, they do not redefine them. */
+html.pfx {
+  --pfx-ink: #0b0d0b;          /* page black */
+  --pfx-forest: #0d130f;       /* chapter background */
+  --pfx-forest-2: #10160f;
+  --pfx-violet: #1a0f3d;       /* header / finale violet */
+  --pfx-ice: #f3e8cf;          /* primary text (parchment) */
+  --pfx-muted: #c1b6a2;        /* secondary text */
+  --pfx-body-copy: #d0c5b2;
+  --pfx-gold: #d4a017;         /* accent gold */
+  --pfx-gold-soft: #dfbb70;    /* eyebrows, em */
+  --pfx-gold-title: #ecd49c;   /* h1 */
+  --pfx-gold-border: #cda84e;
+  --pfx-gold-text: #f3dc9e;    /* button text */
+  --pfx-line: rgba(212, 160, 23, .28);
+  --pfx-display: 'Cinzel', Georgia, serif;
+  --pfx-body: 'Crimson Text', 'EB Garamond', Georgia, serif;
+  --pfx-ease: cubic-bezier(.2, .7, .2, 1);
+}

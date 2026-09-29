@@ -1,0 +1,115 @@
+/* proto-fx piece: survivor-portraits — the prototype's Survivor roster (#survivors .survivor-filters /
+   .survivor-roster .survivor-portrait, rules from <style id="survivor-brand"> + the "reading-space"
+   overrides) applied to the website's real "Choose Your Survivor" roster (#champions).
+   The JS injects the prototype markup (data-pfx-owned) filled from MSBridge.heroes and hides the
+   React filter row + grid it replaces; clicking a portrait opens the real HeroModal. */
+
+/* the React originals this piece stands in for (only hidden once the replacement exists) */
+html.pfx-survivor-portraits [data-pfx-sv-hide] { display: none !important; }
+
+html.pfx-survivor-portraits .pfx-sv {
+  --sv-line: var(--pfx-line, rgba(212, 160, 23, .28));
+  position: relative;
+  z-index: 1;
+  max-width: 1260px;
+  margin: 0 auto;
+  text-align: left;
+  font-family: var(--pfx-body, 'Crimson Text', Georgia, serif);
+}
+
+/* ---- filter row ---- */
+html.pfx-survivor-portraits .pfx-sv .survivor-filters {
+  display: flex; flex-wrap: wrap; gap: 30px;
+  border-bottom: 1px solid var(--sv-line);
+  margin: 46px auto 46px;
+}
+html.pfx-survivor-portraits .pfx-sv .survivor-filters button {
+  background: none; border: 0; border-bottom: 2px solid transparent; border-radius: 0;
+  color: #aaa38e; padding: 12px 0; margin: 0 0 -1px;
+  font: 12px var(--pfx-display, 'Cinzel', Georgia, serif); letter-spacing: normal; text-transform: none;
+  display: flex; align-items: center; gap: 12px; cursor: pointer;
+  transition: color .2s, border-color .2s;
+}
+html.pfx-survivor-portraits .pfx-sv .survivor-filters button:hover { color: #ecd49c; }
+html.pfx-survivor-portraits .pfx-sv .survivor-filters button[aria-pressed="true"] { color: #ecd49c; border-bottom-color: #d4a017; }
+html.pfx-survivor-portraits .pfx-sv .survivor-filters button:focus-visible { outline: 1px solid #d4a017; outline-offset: 4px; }
+html.pfx-survivor-portraits .pfx-sv .survivor-filters span { font: 11px var(--pfx-body, 'Crimson Text', Georgia, serif); opacity: .7; }
+
+/* ---- roster ---- */
+html.pfx-survivor-portraits .pfx-sv .survivor-roster {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 64px 42px;
+}
+html.pfx-survivor-portraits .pfx-sv .survivor-portrait {
+  display: block; border: 0; background: none; padding: 0; margin: 0; text-align: left;
+  color: var(--pfx-ice, #f3e8cf); min-width: 0; cursor: pointer; font: inherit;
+}
+html.pfx-survivor-portraits .pfx-sv .survivor-portrait[hidden] { display: none; }
+html.pfx-survivor-portraits .pfx-sv .survivor-portrait:focus-visible { outline: 1px solid #d4a017; outline-offset: 6px; }
+
+html.pfx-survivor-portraits .pfx-sv .survivor-photo {
+  display: block; position: relative; aspect-ratio: 3 / 4; overflow: hidden;
+  background: #151a15; border: 1px solid #bb945c55;
+}
+html.pfx-survivor-portraits .pfx-sv .survivor-photo > img {
+  position: relative; z-index: 0; display: block;
+  width: 100%; height: 100%; object-fit: cover; object-position: top;
+  transition: transform .45s ease;
+}
+html.pfx-survivor-portraits .pfx-sv .survivor-photo::after {
+  content: ""; position: absolute; inset: 55% 0 0; z-index: 0; pointer-events: none;
+  background: linear-gradient(transparent, #090d0ee8);
+}
+html.pfx-survivor-portraits .pfx-sv .survivor-portrait:hover img,
+html.pfx-survivor-portraits .pfx-sv .survivor-portrait:focus-visible img { transform: scale(1.045); }
+
+/* the site's "art pending" fallback, kept behind the photo */
+html.pfx-survivor-portraits .pfx-sv .survivor-initial {
+  position: absolute; inset: 0; display: grid; place-items: center; z-index: 0;
+  font: 72px var(--pfx-display, 'Cinzel', Georgia, serif); color: #bb945c66;
+}
+html.pfx-survivor-portraits .pfx-sv .survivor-photo.is-missing > img { visibility: hidden; }
+
+html.pfx-survivor-portraits .pfx-sv .survivor-rarity,
+html.pfx-survivor-portraits .pfx-sv .survivor-elements {
+  position: absolute; z-index: 1;
+  font: 9px var(--pfx-display, 'Cinzel', Georgia, serif); letter-spacing: .1em; color: #ecd49c;
+}
+html.pfx-survivor-portraits .pfx-sv .survivor-rarity { top: 13px; right: 13px; padding: 6px 9px; background: #10140fe8; border: 1px solid #b6924966; }
+html.pfx-survivor-portraits .pfx-sv .survivor-elements { bottom: 15px; left: 17px; }
+
+html.pfx-survivor-portraits .pfx-sv .survivor-identity { display: block; padding: 25px 0 0; }
+html.pfx-survivor-portraits .pfx-sv .survivor-label {
+  display: block; font: 10px/1.6 var(--pfx-display, 'Cinzel', Georgia, serif);
+  color: #c5a664; letter-spacing: .13em; text-transform: uppercase;
+}
+html.pfx-survivor-portraits .pfx-sv .survivor-identity strong {
+  display: block; font: 400 23px/1.2 var(--pfx-display, 'Cinzel', Georgia, serif); margin: 12px 0; color: var(--pfx-ice, #f3e8cf);
+}
+html.pfx-survivor-portraits .pfx-sv .survivor-identity em { display: block; font-size: 17px; font-style: italic; color: #b7b09d; }
+html.pfx-survivor-portraits .pfx-sv .survivor-open {
+  display: flex; justify-content: space-between;
+  border-bottom: 1px solid var(--sv-line); padding: 26px 0 18px;
+  color: #d8bf88; font-size: 15px;
+}
+html.pfx-survivor-portraits .pfx-sv .survivor-results {
+  font: 11px var(--pfx-display, 'Cinzel', Georgia, serif); color: #a59d85; margin: 36px 0 0;
+}
+
+@media (max-width: 1000px) {
+  html.pfx-survivor-portraits .pfx-sv .survivor-roster { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 50px 30px; }
+}
+@media (max-width: 600px) {
+  html.pfx-survivor-portraits .pfx-sv .survivor-filters { gap: 18px; margin-bottom: 35px; }
+  html.pfx-survivor-portraits .pfx-sv .survivor-filters button { font-size: 10px; gap: 6px; }
+  html.pfx-survivor-portraits .pfx-sv .survivor-roster { gap: 44px 20px; }
+  html.pfx-survivor-portraits .pfx-sv .survivor-identity { padding-top: 20px; }
+  html.pfx-survivor-portraits .pfx-sv .survivor-identity strong { font-size: 17px; }
+  html.pfx-survivor-portraits .pfx-sv .survivor-identity em { font-size: 15px; }
+  html.pfx-survivor-portraits .pfx-sv .survivor-identity .survivor-label { font-size: 8px; }
+  html.pfx-survivor-portraits .pfx-sv .survivor-elements { font-size: 7px; left: 9px; bottom: 12px; }
+  html.pfx-survivor-portraits .pfx-sv .survivor-rarity { font-size: 7px; right: 7px; top: 8px; padding: 4px; }
+  html.pfx-survivor-portraits .pfx-sv .survivor-open { font-size: 12px; padding-top: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html.pfx-survivor-portraits .pfx-sv .survivor-photo > img { transition: none; }
+}

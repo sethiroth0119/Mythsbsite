@@ -1,0 +1,207 @@
+/* proto-fx piece: realm-footer — port of the prototype's <style id="footer-brand"> (.realm-footer,
+   .mythic-finale, .finale-*, footer.mythic-footer, .footer-rule, .footer-directory, .footer-join,
+   .footer-colophon) including its later override block. All rules scoped under html.pfx-realm-footer. */
+
+/* ---------- realm backdrop + finale (fills [data-pfx-slot=finale]) ---------- */
+html.pfx-realm-footer [data-pfx-slot="finale"] { display: block; position: relative; z-index: 3; }
+html.pfx-realm-footer .rf-realm {
+  position: relative; z-index: 3; isolation: isolate; overflow: hidden;
+  background: #070708; color: #eee7db; pointer-events: auto; margin-top: 48px;
+}
+html.pfx-realm-footer .rf-backdrop { position: absolute; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+html.pfx-realm-footer .rf-landscape {
+  position: absolute; inset: -130px 0; width: 100%; height: calc(100% + 260px); max-width: none;
+  object-fit: cover; object-position: center 35%;
+}
+html.pfx-realm-footer .rf-mist {
+  position: absolute; inset: -130px -5%;
+  background: radial-gradient(ellipse at 50% 53%, #070708a3, transparent 40%),
+              linear-gradient(180deg, #07070833, transparent 30%, #07070833 55%, #070708ed 90%);
+}
+/* the prototype's "relics" layer is lost from its save; the site's own cliff art frames the scene instead */
+html.pfx-realm-footer .rf-relics {
+  position: absolute; bottom: -55px; width: 46%; height: 62%; max-width: none;
+  object-fit: contain; object-position: bottom; filter: brightness(.55) drop-shadow(0 -10px 30px #000);
+}
+html.pfx-realm-footer .rf-relics-l { left: -4%; object-position: left bottom; }
+html.pfx-realm-footer .rf-relics-r { right: -4%; object-position: right bottom; }
+html.pfx-realm-footer .rf-backdrop::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(#080d0b 0%, transparent 10%, transparent 55%, #0707089c 72%, #070708e8 100%);
+}
+html.pfx-realm-footer.rf-parallax-active .rf-realm [data-footer-speed] { will-change: transform; }
+
+html.pfx-realm-footer .rf-finale {
+  position: relative; display: block; height: auto; text-align: center; overflow: visible;
+  padding: 130px 24px 90px;
+}
+html.pfx-realm-footer .rf-marginalia {
+  position: absolute; top: 64px; left: 6.2%; margin: 0; padding: 0 0 0 22px;
+  border-left: 1px solid #deac46; font: 11px/2.1 var(--pfx-display); letter-spacing: .26em;
+  text-transform: uppercase; text-align: left; color: #f5e9ad; z-index: 2;
+}
+html.pfx-realm-footer .rf-marginalia::after {
+  content: "◇"; position: absolute; left: -7px; top: 50%; font-size: 14px; line-height: 1;
+  background: #171821; color: #f5e9ad;
+}
+html.pfx-realm-footer .rf-copy { position: relative; z-index: 2; width: min(100%, 760px); margin: 0 auto; }
+html.pfx-realm-footer .rf-copy h2 { padding: 0; margin: 0 auto; width: min(100%, 600px); font-size: inherit; line-height: 1; letter-spacing: normal; }
+html.pfx-realm-footer .rf-copy h2 img {
+  display: block; width: 100%; height: auto; aspect-ratio: 1; object-fit: contain;
+  filter: drop-shadow(0 8px 16px #000b);
+}
+html.pfx-realm-footer .rf-invitation {
+  width: fit-content; max-width: 100%; margin: 28px auto 46px; padding-top: 25px;
+  border-top: 1px solid #c38a33; font: 16px/2 var(--pfx-display); letter-spacing: .29em;
+  color: #f5e9ad; text-transform: uppercase; text-shadow: 0 2px 8px #000;
+}
+
+/* the gold "Enter the realm ↗" angle-button */
+html.pfx-realm-footer .rf-enter {
+  position: relative; isolation: isolate; display: inline-flex; align-items: center; justify-content: center;
+  gap: 36px; width: min(100%, 430px); min-height: 88px; padding: 24px 40px; border-radius: 2px;
+  font: 600 17px/1.4 var(--pfx-display); letter-spacing: .14em; text-transform: none; text-decoration: none;
+  background: linear-gradient(125deg, #f5e9ad, #deac46 42%, #c38a33 78%, #eccf6f);
+  border: 1px solid #f5e9ad; color: #1e1713; text-shadow: none;
+  box-shadow: inset 0 0 0 5px #c38a33, inset 0 0 0 6px #f5e9ad99, 0 12px 45px #000a;
+  transition: filter .2s, transform .2s, box-shadow .2s, color .2s;
+}
+html.pfx-realm-footer .rf-enter > span { font-size: 26px; letter-spacing: 0; }
+html.pfx-realm-footer .rf-enter::before,
+html.pfx-realm-footer .rf-enter::after {
+  content: ""; position: absolute; top: 50%; width: 10px; height: 10px; pointer-events: none;
+  background: #deac46; border: 1px solid #f5e9ad; transform: translateY(-50%) rotate(45deg);
+}
+html.pfx-realm-footer .rf-enter::before { left: -6px; }
+html.pfx-realm-footer .rf-enter::after { right: -6px; }
+html.pfx-realm-footer .rf-enter:hover,
+html.pfx-realm-footer .rf-enter:focus-visible {
+  background: linear-gradient(125deg, #fff2bc, #eccf6f 50%, #deac46); color: #070708;
+  box-shadow: inset 0 0 0 5px #deac46, inset 0 0 0 6px #f5e9ad, 0 12px 45px #000a, 0 0 38px #eccf6f55;
+  transform: translateY(-2px); outline: none;
+}
+html.pfx-realm-footer .rf-enter:active { transform: scale(.98); }
+
+/* ---------- footer[data-pfx=footer] as the prototype's footer.mythic-footer ---------- */
+html.pfx-realm-footer footer[data-pfx="footer"] {
+  position: relative; z-index: 2; display: block; margin-top: 0; padding: 0 4.5% 25px;
+  background: #070708; border: 0; color: #eee7db;
+}
+/* the slot is empty (and the backdrop absent) only when the finale failed to render: keep a gap then */
+html.pfx-realm-footer [data-pfx-slot="finale"]:empty + footer[data-pfx="footer"] { margin-top: 48px; }
+
+html.pfx-realm-footer .rf-rule {
+  position: relative; height: 20px; display: flex; align-items: center; gap: 16px;
+  max-width: 1320px; margin: 0 auto; color: #eccf6f;
+}
+html.pfx-realm-footer .rf-rule::before,
+html.pfx-realm-footer .rf-rule::after {
+  content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, #c38a33 15%, #eccf6f);
+}
+html.pfx-realm-footer .rf-rule::after { transform: scaleX(-1); }
+html.pfx-realm-footer .rf-rule span { font-size: 25px; line-height: 1; text-shadow: 0 0 12px #a56d26; }
+
+html.pfx-realm-footer .rf-directory {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(245px, 1.8fr); gap: 38px;
+  max-width: 1190px; margin: 0 auto; padding: 64px 0 76px; text-align: left;
+}
+html.pfx-realm-footer .rf-directory nav { display: block; margin: 0; padding: 0; letter-spacing: normal; }
+html.pfx-realm-footer .rf-directory h3 {
+  font: 12px/1.4 var(--pfx-display); text-transform: uppercase; color: #eccf6f; margin: 0 0 24px; letter-spacing: .05em;
+}
+html.pfx-realm-footer .rf-directory ul { list-style: none; margin: 0; padding: 0; }
+html.pfx-realm-footer .rf-directory li { margin: 0 0 16px; }
+html.pfx-realm-footer .rf-directory a {
+  font: 16px/1.4 var(--pfx-body); color: #eee7db; text-decoration: none; transition: color .2s;
+}
+html.pfx-realm-footer .rf-directory a:hover,
+html.pfx-realm-footer .rf-directory a:focus-visible {
+  color: #eccf6f; text-decoration: underline; text-underline-offset: 4px; outline: none;
+}
+
+html.pfx-realm-footer .rf-join { position: relative; padding-left: 32px; border-left: 1px solid #c38a33; }
+html.pfx-realm-footer .rf-join::before {
+  content: "◇"; position: absolute; left: -7px; top: 48%; background: #070708; color: #eccf6f; font-size: 14px; line-height: 1;
+}
+html.pfx-realm-footer .rf-join h3 { font-size: 16px; margin-bottom: 8px; }
+html.pfx-realm-footer .rf-join p { font: italic 16px/1.65 var(--pfx-body); margin: 0 0 16px; color: #eee7db; }
+html.pfx-realm-footer .rf-directory a.rf-news {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  min-height: 54px; margin-top: 25px; padding-left: 16px; border: 1px solid #c2b7a0; background: #070708a8;
+  font-size: 15px; text-decoration: none;
+}
+html.pfx-realm-footer .rf-news span {
+  display: grid; place-items: center; align-self: stretch; width: 43px; flex-shrink: 0;
+  background: linear-gradient(125deg, #f5e9ad, #deac46 50%, #a56d26); color: #1e1713; font-family: serif; font-size: 25px;
+  transition: filter .2s;
+}
+html.pfx-realm-footer .rf-news:hover span { filter: brightness(1.12); }
+html.pfx-realm-footer .rf-join .rf-oath {
+  font: 9px/1.6 var(--pfx-display); text-transform: uppercase; letter-spacing: .16em; color: #eccf6f; margin: 25px 0 0;
+}
+
+/* the React footer's own content (logo + © line, Play Now / Login / Discord / Privacy / Terms,
+   season line) restyled as the prototype's .footer-colophon */
+html.pfx-realm-footer footer[data-pfx="footer"] > div.max-w-6xl {
+  max-width: 1320px; padding-top: 28px; gap: 32px; font: 12px/1.5 var(--pfx-body); color: #c2b7a0;
+}
+html.pfx-realm-footer footer[data-pfx="footer"] > div.max-w-6xl .text-neutral-500 { color: #c2b7a0; font: 13px/1.5 var(--pfx-body); letter-spacing: .02em; }
+html.pfx-realm-footer footer[data-pfx="footer"] > div.max-w-6xl .ga-serif { color: #eccf6f; font-family: var(--pfx-display); letter-spacing: .06em; }
+html.pfx-realm-footer footer[data-pfx="footer"] > div.max-w-6xl > div:last-child { gap: 24px; }
+html.pfx-realm-footer footer[data-pfx="footer"] > div.max-w-6xl > div:last-child a {
+  font: 10px/1.5 var(--pfx-display); letter-spacing: .18em; text-transform: uppercase; color: #eee7db;
+  white-space: nowrap; transition: color .2s;
+}
+html.pfx-realm-footer footer[data-pfx="footer"] > div.max-w-6xl > div:last-child a:hover {
+  color: #eccf6f; text-decoration: underline; text-underline-offset: 4px;
+}
+html.pfx-realm-footer footer[data-pfx="footer"] > div.text-center:last-child {
+  margin-top: 22px; font: 9px/1.8 var(--pfx-display); letter-spacing: .5em; text-transform: uppercase; color: #eccf6f;
+}
+
+@media (min-width: 1700px) {
+  html.pfx-realm-footer .rf-finale { padding-top: 150px; }
+  html.pfx-realm-footer .rf-copy h2 { width: 610px; }
+}
+@media (max-width: 1000px) {
+  html.pfx-realm-footer .rf-directory { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 38px 24px; padding: 28px 0; }
+  html.pfx-realm-footer .rf-join {
+    grid-column: 1 / -1; padding: 22px 0 0; border-left: 0; border-top: 1px solid #a56d2670;
+    display: grid; grid-template-columns: 1fr 1fr; column-gap: 30px;
+  }
+  html.pfx-realm-footer .rf-join::before { display: none; }
+  html.pfx-realm-footer .rf-join h3, html.pfx-realm-footer .rf-join p { grid-column: 1; }
+  html.pfx-realm-footer .rf-directory a.rf-news { grid-column: 2; grid-row: 1 / 3; align-self: center; }
+  html.pfx-realm-footer .rf-join .rf-oath { grid-column: 2; margin: 0; }
+  html.pfx-realm-footer .rf-marginalia { font-size: 9px; left: 4.5%; }
+  html.pfx-realm-footer .rf-copy h2 { width: 470px; max-width: 100%; }
+  html.pfx-realm-footer .rf-finale { padding-top: 115px; }
+  html.pfx-realm-footer .rf-relics { width: 60%; height: 45%; }
+}
+@media (max-width: 600px) {
+  html.pfx-realm-footer .rf-finale { padding: 145px 24px 70px; }
+  html.pfx-realm-footer .rf-marginalia { top: 28px; left: 24px; font-size: 8px; line-height: 1.8; letter-spacing: .22em; padding-left: 14px; }
+  html.pfx-realm-footer .rf-copy h2 { width: 100%; }
+  html.pfx-realm-footer .rf-invitation { font-size: 10px; letter-spacing: .18em; margin-top: 24px; margin-bottom: 35px; padding-top: 20px; line-height: 1.9; }
+  html.pfx-realm-footer .rf-enter { min-height: 78px; padding: 22px 25px; font-size: 13px; letter-spacing: .1em; gap: 22px; }
+  html.pfx-realm-footer .rf-enter > span { font-size: 22px; }
+  html.pfx-realm-footer .rf-landscape { object-position: 43% 15%; height: calc(65% + 260px); }
+  html.pfx-realm-footer .rf-backdrop::after { background: linear-gradient(#080d0b 0%, transparent 8%, transparent 25%, #070708ca 49%, #070708 75%); }
+  html.pfx-realm-footer .rf-relics { width: 80%; height: 30%; }
+  html.pfx-realm-footer footer[data-pfx="footer"] { padding: 0 24px 28px; }
+  html.pfx-realm-footer .rf-directory { grid-template-columns: 1fr 1fr; gap: 45px 26px; padding: 45px 0 50px; }
+  html.pfx-realm-footer .rf-directory h3 { font-size: 11px; margin-bottom: 22px; }
+  html.pfx-realm-footer .rf-directory li { margin-bottom: 17px; }
+  html.pfx-realm-footer .rf-join { display: block; padding-top: 34px; }
+  html.pfx-realm-footer .rf-join h3 { font-size: 16px; }
+  html.pfx-realm-footer .rf-directory a.rf-news { margin-top: 18px; }
+  html.pfx-realm-footer .rf-join .rf-oath { margin-top: 17px; font-size: 8px; }
+  html.pfx-realm-footer footer[data-pfx="footer"] > div.max-w-6xl { gap: 18px; text-align: center; }
+  html.pfx-realm-footer footer[data-pfx="footer"] > div.max-w-6xl > div:last-child { flex-wrap: wrap; justify-content: center; gap: 14px 22px; }
+  html.pfx-realm-footer footer[data-pfx="footer"] > div.text-center:last-child { font-size: 8px; letter-spacing: .35em; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html.pfx-realm-footer .rf-realm [data-footer-speed] { transform: none !important; will-change: auto !important; }
+  html.pfx-realm-footer .rf-enter, html.pfx-realm-footer .rf-directory a { transition: none; }
+  html.pfx-realm-footer .rf-enter:hover { transform: none; }
+}

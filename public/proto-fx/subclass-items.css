@@ -1,0 +1,200 @@
+/* proto-fx piece: subclass-items — the prototype's Survivor chapter ledger for subclass paths (#subclass)
+   and held items (#items). Rules ported from the prototype's <style id="survivor-brand"> block
+   (.survivor-full, .survivor-subhead, .subclass-grid/.subclass-entry/.subclass-art/.subclass-copy,
+   .subclass-notes, .source-note, .survivor-items/.survivor-item/.held-art/.held-copy/.survivor-stats,
+   .survivor-end) plus its "reading-space" overrides and 1000px / 600px breakpoints.
+   The hover language is the prototype's own: .survivor-portrait:hover img{scale(1.045)} with
+   transform .45s ease for portraits, .custom-card:hover img{translateY(-8px) rotate(-1deg)} with .3s for objects.
+   Scoped under html.pfx-subclass-items so ?pfxOff=subclass-items restores the React originals. */
+
+html.pfx-subclass-items {
+  --pfx-si-line: var(--pfx-line, rgba(212, 160, 23, .28));
+  --pfx-si-display: var(--pfx-display, 'Cinzel', Georgia, serif);
+  --pfx-si-body: var(--pfx-body, 'Crimson Text', 'EB Garamond', Georgia, serif);
+  --pfx-si-chapter: clamp(100px, 10vw, 170px);   /* reading-space --chapter-space */
+  --pfx-si-group: clamp(72px, 7vw, 112px);       /* reading-space --group-space  */
+}
+
+/* ── The section becomes a .survivor-full chapter; the React original is hidden only once the
+      prototype markup exists (JS sets [data-pfx-si]). ── */
+html.pfx-subclass-items section[data-pfx-si] {
+  padding: 0 max(7vw, 24px);
+  background: radial-gradient(ellipse at 100% 25%, #25183355, transparent 35%), #0d130f;
+  color: var(--pfx-ice, #f3e8cf);
+  overflow: visible;
+}
+html.pfx-subclass-items section[data-pfx-si="subclass"] { padding-top: calc(var(--pfx-si-chapter) * .5); padding-bottom: 0; }
+html.pfx-subclass-items section[data-pfx-si="items"] { padding-top: 1px; padding-bottom: var(--pfx-si-chapter); }
+html.pfx-subclass-items section[data-pfx-si] > :not(.pfx-si) { display: none !important; }
+
+html.pfx-subclass-items .pfx-si {
+  max-width: 1260px;
+  margin: 0 auto;
+  text-align: left;
+  font-family: var(--pfx-si-body);
+  color: var(--pfx-ice, #f3e8cf);
+}
+html.pfx-subclass-items .pfx-si * { box-sizing: border-box; }
+html.pfx-subclass-items .pfx-si h3,
+html.pfx-subclass-items .pfx-si h4,
+html.pfx-subclass-items .pfx-si h5 { font-weight: 500; }
+
+/* ── .eyebrow / .survivor-subhead ── */
+html.pfx-subclass-items .pfx-si .eyebrow {
+  font: 11px var(--pfx-si-display);
+  letter-spacing: .24em;
+  color: var(--pfx-gold, #d4a017);
+  display: flex; align-items: center; gap: 16px;
+  text-transform: uppercase;
+  margin: 0;
+}
+html.pfx-subclass-items .pfx-si .eyebrow::before { content: ""; width: 20px; height: 1px; flex-shrink: 0; background: #d4a017; }
+
+html.pfx-subclass-items .pfx-si .survivor-subhead { margin-top: 85px; margin-bottom: 35px; }
+html.pfx-subclass-items .pfx-si--subclass .survivor-subhead { margin-top: 0; }
+html.pfx-subclass-items .pfx-si--items .survivor-subhead { margin-top: var(--pfx-si-group); }
+html.pfx-subclass-items .pfx-si .survivor-subhead h3 {
+  font: 500 clamp(32px, 3.7vw, 54px)/1.12 var(--pfx-si-display);
+  letter-spacing: -.035em;
+  margin: 20px 0;
+  color: var(--pfx-ice, #f3e8cf);
+}
+html.pfx-subclass-items .pfx-si .survivor-subhead h3 em { font-style: normal; color: #dfbb70; }
+html.pfx-subclass-items .pfx-si .survivor-subhead > p:not(.eyebrow) {
+  max-width: 730px; font-size: 20px; line-height: 1.8; color: #c7bfac; margin: 0 0 14px;
+}
+html.pfx-subclass-items .pfx-si .survivor-subhead strong { font-weight: 600; color: #e1c690; }
+html.pfx-subclass-items .pfx-si .survivor-subhead em { color: #dfbb70; }
+html.pfx-subclass-items .pfx-si .survivor-subhead > p.survivor-subhead-motto {
+  font: 11px/1.8 var(--pfx-si-display); letter-spacing: .12em; text-transform: uppercase; color: #a79a7a; margin-top: 22px;
+}
+html.pfx-subclass-items .pfx-si .survivor-subhead > p.survivor-subhead-aside { font-size: 18px; font-style: italic; color: #ada490; }
+
+/* ── .survivor-label / h5 ── */
+html.pfx-subclass-items .pfx-si .survivor-label {
+  display: block; font: 10px/1.6 var(--pfx-si-display); color: #c5a664; letter-spacing: .13em; text-transform: uppercase;
+}
+html.pfx-subclass-items .pfx-si h5 {
+  font: 11px var(--pfx-si-display); color: #d5b773; letter-spacing: .12em; margin: 24px 0 12px;
+}
+
+/* ── Subclass paths ── */
+html.pfx-subclass-items .pfx-si .subclass-grid {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 70px 64px;
+}
+html.pfx-subclass-items .pfx-si .subclass-entry { min-width: 0; }
+html.pfx-subclass-items .pfx-si .subclass-art {
+  position: relative; height: 470px; overflow: hidden; border-bottom: 1px solid #d4a01788;
+  background: radial-gradient(ellipse at 50% 30%, #25183355, transparent 70%), #0b0e0b;
+}
+html.pfx-subclass-items .pfx-si .subclass-art > img {
+  display: block; height: 100%; width: 100%; max-width: none; object-fit: cover; object-position: top;
+  transition: transform .45s ease;
+}
+html.pfx-subclass-items .pfx-si .subclass-entry:hover .subclass-art > img { transform: scale(1.045); }
+html.pfx-subclass-items .pfx-si .subclass-art.is-missing > img { opacity: 0; }
+html.pfx-subclass-items .pfx-si .subclass-art::after {
+  content: ""; position: absolute; inset: 50% 0 0; background: linear-gradient(transparent, #0b0e0bf5); pointer-events: none;
+}
+html.pfx-subclass-items .pfx-si .subclass-art > div { position: absolute; bottom: 18px; left: 18px; right: 12px; z-index: 1; }
+html.pfx-subclass-items .pfx-si .subclass-art h4 { font: 25px var(--pfx-si-display); margin: 7px 0 0; color: var(--pfx-ice, #f3e8cf); }
+html.pfx-subclass-items .pfx-si .subclass-copy { padding: 30px 0; }
+html.pfx-subclass-items .pfx-si .subclass-copy p { font-size: 18px; line-height: 1.8; color: #c0b7a4; max-width: 46ch; margin: 12px 0 0; }
+html.pfx-subclass-items .pfx-si .subclass-copy ul {
+  list-style: disc; padding-left: 18px; margin: 0; font-size: 16px; line-height: 2; color: #d3c3a3;
+}
+html.pfx-subclass-items .pfx-si .subclass-copy li::marker { color: #b89046; }
+
+html.pfx-subclass-items .pfx-si .subclass-notes {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 60px;
+  border-top: 1px solid var(--pfx-si-line); margin-top: 65px; padding-top: 42px;
+}
+html.pfx-subclass-items .pfx-si .subclass-notes h4 { font: 17px var(--pfx-si-display); margin: 0 0 14px; color: #e1c690; }
+html.pfx-subclass-items .pfx-si .subclass-notes p { font-size: 18px; line-height: 1.8; color: #bcb39f; margin: 0; }
+html.pfx-subclass-items .pfx-si .subclass-notes strong { font-weight: 600; color: #e1c690; }
+html.pfx-subclass-items .pfx-si .subclass-notes em { color: #dfbb70; }
+
+/* .survivor-end — the prototype's closing line (Cinzel 27px over a gold rule) */
+html.pfx-subclass-items .pfx-si .survivor-end {
+  border-top: 1px solid var(--pfx-si-line); padding-top: 50px; margin-top: 65px;
+}
+html.pfx-subclass-items .pfx-si .survivor-end .eyebrow { font-size: 10px; letter-spacing: .2em; }
+html.pfx-subclass-items .pfx-si .survivor-end-quote {
+  font: 27px/1.3 var(--pfx-si-display); max-width: 620px; margin: 18px 0 0; color: var(--pfx-ice, #f3e8cf);
+}
+
+/* .source-note */
+html.pfx-subclass-items .pfx-si .source-note {
+  font-size: 15px; line-height: 1.6; color: #a9a28f; border-left: 1px solid #b89046; padding-left: 20px; margin: 45px 0 0;
+}
+
+/* ── Held items ledger ── */
+html.pfx-subclass-items .pfx-si .survivor-items {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 60px;
+}
+html.pfx-subclass-items .pfx-si .survivor-item { min-width: 0; }
+html.pfx-subclass-items .pfx-si .held-art {
+  height: 300px; position: relative;
+  background: radial-gradient(ellipse, #44422444, transparent 70%);
+  border-bottom: 1px solid var(--pfx-si-line);
+}
+html.pfx-subclass-items .pfx-si .held-art > img {
+  position: relative; z-index: 1; display: block; width: 100%; height: 100%; max-width: none;
+  object-fit: contain; padding: 22px;
+  filter: drop-shadow(0 15px 18px #0009);
+  transition: transform .3s;
+}
+html.pfx-subclass-items .pfx-si .survivor-item:hover .held-art > img { transform: translateY(-8px) rotate(-1deg); }
+html.pfx-subclass-items .pfx-si .survivor-item:active .held-art > img { transform: scale(.98); }
+html.pfx-subclass-items .pfx-si .held-initial {
+  position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
+  font: 110px var(--pfx-si-display); color: var(--pfx-si-accent, #d4a017); opacity: .18;
+}
+html.pfx-subclass-items .pfx-si .held-art.is-missing .held-initial { display: flex; }
+html.pfx-subclass-items .pfx-si .held-art.is-missing > img { display: none; }
+html.pfx-subclass-items .pfx-si .held-art > .survivor-label { position: absolute; bottom: 14px; left: 0; z-index: 2; }
+html.pfx-subclass-items .pfx-si .held-copy h4 { font: 26px var(--pfx-si-display); margin: 34px 0 8px; color: var(--pfx-ice, #f3e8cf); }
+html.pfx-subclass-items .pfx-si .held-title { font-size: 18px; font-style: italic; color: #ada490; margin: 0; }
+html.pfx-subclass-items .pfx-si .held-copy > p:not(.held-title) { font-size: 18px; line-height: 1.8; color: #c3b9a6; margin: 0; }
+html.pfx-subclass-items .pfx-si .held-copy blockquote {
+  font-size: 17px; font-style: italic; line-height: 1.8; color: #a79c88;
+  margin: 20px 0; border-left: 1px solid var(--pfx-si-line); padding-left: 17px; quotes: none;
+}
+html.pfx-subclass-items .pfx-si .survivor-stats { display: flex; flex-wrap: wrap; gap: 10px; margin: 30px 0; }
+html.pfx-subclass-items .pfx-si .survivor-stats > div { padding: 10px 13px; border: 1px solid #ad8a4344; min-width: 52px; }
+html.pfx-subclass-items .pfx-si .survivor-stats dt { font: 9px var(--pfx-si-display); color: #a79a7a; letter-spacing: .1em; }
+html.pfx-subclass-items .pfx-si .survivor-stats dd {
+  margin: 7px 0 0; font-size: 21px; line-height: 1.2; color: #ead19c; font-variant-numeric: tabular-nums;
+}
+
+/* ── Breakpoints (prototype 1000px / 600px) ── */
+@media (max-width: 1000px) {
+  html.pfx-subclass-items .pfx-si .subclass-grid { gap: 55px 36px; }
+  html.pfx-subclass-items .pfx-si .subclass-art { height: 420px; }
+  html.pfx-subclass-items .pfx-si .survivor-items,
+  html.pfx-subclass-items .pfx-si .subclass-notes { gap: 36px; }
+  html.pfx-subclass-items .pfx-si .held-art { height: 240px; }
+}
+@media (max-width: 600px) {
+  html.pfx-subclass-items { --pfx-si-chapter: 90px; --pfx-si-group: 60px; }
+  html.pfx-subclass-items section[data-pfx-si] { padding-left: 24px; padding-right: 24px; }
+  html.pfx-subclass-items .pfx-si .survivor-subhead { margin-top: 55px; }
+  html.pfx-subclass-items .pfx-si .survivor-subhead h3 { font-size: 34px; }
+  html.pfx-subclass-items .pfx-si .survivor-subhead > p:not(.eyebrow) { font-size: 18px; }
+  html.pfx-subclass-items .pfx-si .subclass-grid,
+  html.pfx-subclass-items .pfx-si .survivor-items,
+  html.pfx-subclass-items .pfx-si .subclass-notes { grid-template-columns: 1fr; gap: 60px; }
+  html.pfx-subclass-items .pfx-si .subclass-art { height: 430px; }
+  html.pfx-subclass-items .pfx-si .subclass-art h4 { font-size: 33px; }
+  html.pfx-subclass-items .pfx-si .subclass-copy { padding-top: 25px; padding-bottom: 4px; }
+  html.pfx-subclass-items .pfx-si .subclass-notes { margin-top: 45px; gap: 34px; }
+  html.pfx-subclass-items .pfx-si .held-art { height: 340px; }
+  html.pfx-subclass-items .pfx-si .survivor-item { border-bottom: 1px solid var(--pfx-si-line); padding-bottom: 25px; }
+  html.pfx-subclass-items .pfx-si .survivor-end-quote { font-size: 26px; }
+}
+
+/* prototype: *,*:before,*:after{animation:none!important;transition:none!important} + portrait/card img transition:none */
+@media (prefers-reduced-motion: reduce) {
+  html.pfx-subclass-items .pfx-si .subclass-art > img,
+  html.pfx-subclass-items .pfx-si .held-art > img { transition: none; }
+}

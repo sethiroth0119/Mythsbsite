@@ -1,0 +1,184 @@
+/* proto-fx piece: chapters — the prototype's chapter typography and surfaces on the home page.
+   Ported from the prototype's base rules (.eyebrow, h2, .section-head, .steps), its
+   #mythic-brand block (gold/parchment recolour, .world-chapter / .expedition-chapter /
+   .chapter-rule / .world-illustration / .expedition-ledger) and its #reading-space block
+   (--chapter-space / --group-space rhythm, 1.75-1.8 line-heights).
+   Everything is scoped under html.pfx-chapters so ?pfxOff=chapters restores the site. */
+
+html.pfx-chapters {
+  --pfx-ch-space: clamp(100px, 10vw, 170px);   /* reading-space --chapter-space */
+  --pfx-ch-group: clamp(72px, 7vw, 112px);     /* reading-space --group-space  */
+  --pfx-ch-gutter: max(7vw, 24px);
+  --pfx-ch-line: var(--pfx-line, rgba(212, 160, 23, .28));
+  --pfx-ch-display: var(--pfx-display, 'Cinzel', Georgia, serif);
+  --pfx-ch-body: var(--pfx-body, 'Crimson Text', 'EB Garamond', Georgia, serif);
+}
+
+/* ── Surfaces: forest-black and violet-tinged chapters replace the gatcg grey noise ── */
+html.pfx-chapters .pfx-ch { background-image: none; }
+html.pfx-chapters .pfx-ch--about   { background: linear-gradient(#0c1010, #10150e 55%, #120e1a); }          /* .custom-gallery */
+html.pfx-chapters .pfx-ch--play    { background: radial-gradient(ellipse at 85% 85%, #26331b70, transparent 65%), #0c110e; } /* .expedition-chapter */
+html.pfx-chapters .pfx-ch--story   { background: #0d130f; }                                                   /* .world-chapter */
+html.pfx-chapters .pfx-ch--economy { background: linear-gradient(110deg, #10160f, #15111b); }                /* .survivor-chapter */
+html.pfx-chapters .pfx-ch--articles{ background: #0c100f; }                                                   /* .how */
+html.pfx-chapters .pfx-ch--signup  { background: linear-gradient(#0c100f, #1a0f3d80 55%, #0b0d0b); }        /* .closing */
+/* the gatcg black top/bottom fades are not part of the prototype's flat chapters */
+html.pfx-chapters .pfx-ch[data-pfx="ga-section"] > .absolute.pointer-events-none { display: none; }
+
+/* ── Chapter column: prototype 1260px measure, reading-space rhythm ── */
+html.pfx-chapters .pfx-ch .pfx-ch-inner {
+  max-width: calc(1260px + 2 * var(--pfx-ch-gutter));
+  padding: var(--pfx-ch-space) var(--pfx-ch-gutter);
+}
+
+/* ── Eyebrow: 11px Cinzel, .24em, #dfbb70, 30px gold rule before it ── */
+html.pfx-chapters .pfx-ch-eyebrow {
+  display: flex; align-items: center; justify-content: center; gap: 16px;
+  margin: 0; font: 11px/1.6 var(--pfx-ch-display); letter-spacing: .24em;
+  text-transform: uppercase; color: var(--pfx-gold-soft, #dfbb70);
+}
+html.pfx-chapters .pfx-ch-eyebrow::before {
+  content: ""; flex: none; width: 30px; height: 1px; background: var(--pfx-gold, #d4a017);
+}
+
+/* ── Chapter title: Cinzel h2 with a gold <em> accent line ── */
+html.pfx-chapters .pfx-ch h2.pfx-ch-title {
+  font-family: var(--pfx-ch-display) !important; font-weight: 500 !important;
+  font-size: clamp(36px, 4.3vw, 66px); line-height: 1.1; letter-spacing: -.045em;
+  color: var(--pfx-ice, #f3e8cf); margin: 28px auto 32px; max-width: 850px;
+  text-wrap: balance; text-shadow: none;
+}
+html.pfx-chapters .pfx-ch h2.pfx-ch-title em { font-style: normal; color: var(--pfx-gold-soft, #dfbb70); }
+
+/* ── Subtitle / body copy: parchment Crimson, line-height 1.75 ── */
+html.pfx-chapters .pfx-ch p.pfx-ch-sub {
+  font-family: var(--pfx-ch-body); font-size: 20px; line-height: 1.75;
+  color: var(--pfx-body-copy, #d0c5b2); max-width: 48ch; margin-left: auto; margin-right: auto;
+}
+
+/* ── Chapter rule: 10px Cinzel #bea46b, border-top var(--line), a label each side ── */
+html.pfx-chapters .pfx-ch-rule {
+  display: flex; justify-content: space-between; gap: 24px; width: 100%;
+  max-width: 1260px; margin: 0 auto var(--pfx-ch-group); padding-top: 24px;
+  border-top: 1px solid var(--pfx-ch-line); text-align: left;
+  font: 10px/1.6 var(--pfx-ch-display); letter-spacing: .15em; text-transform: uppercase; color: #bea46b;
+}
+html.pfx-chapters .pfx-ch-rule span:last-child { text-align: right; }
+
+/* ── #play — expedition heading (left aligned) + expedition ledger ── */
+html.pfx-chapters .pfx-ch--play .pfx-ch-inner { text-align: left; }
+html.pfx-chapters .pfx-ch--play .pfx-ch-eyebrow { justify-content: flex-start; }
+html.pfx-chapters .pfx-ch--play h2.pfx-ch-title { margin-left: 0; }
+html.pfx-chapters .pfx-ch--play p.pfx-ch-sub { max-width: 660px; margin-left: 0; line-height: 1.8; }
+html.pfx-chapters .pfx-ch-ledger {
+  counter-reset: pfx-ch-step;
+  display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 64px;
+  max-width: 1260px !important; margin: var(--pfx-ch-group) auto 30px;
+  padding-top: 44px; border-top: 1px solid var(--pfx-ch-line); text-align: left;
+}
+html.pfx-chapters .pfx-ch-ledger > * { margin-top: 0 !important; margin-bottom: 0 !important; }
+html.pfx-chapters .pfx-ch-step { display: block; grid-column: span 2; counter-increment: pfx-ch-step; }
+html.pfx-chapters .pfx-ch-step:nth-child(n+4) { grid-column: span 3; }
+html.pfx-chapters .pfx-ch-num { font-size: 0 !important; line-height: 1; margin: 0; color: transparent !important; }
+html.pfx-chapters .pfx-ch-num::before {
+  content: counter(pfx-ch-step, decimal-leading-zero);
+  font: 11px var(--pfx-ch-display); letter-spacing: .2em; color: #c6a25a;
+}
+html.pfx-chapters .pfx-ch-step .pfx-ch-num + div > div:first-child {
+  font: 24px/1.25 var(--pfx-ch-display); color: var(--pfx-ice, #f3e8cf); margin: 28px 0 22px;
+}
+html.pfx-chapters .pfx-ch-step p {
+  font-family: var(--pfx-ch-body); font-size: 19px; line-height: 1.8; color: #bfb7a8; margin: 0;
+}
+
+/* ── #story — the Goddess banner framed like .world-illustration ── */
+html.pfx-chapters .pfx-ch--story {
+  display: grid; grid-template-columns: minmax(0, 1260px); justify-content: center;
+  grid-template-rows: auto auto; padding: var(--pfx-ch-space) var(--pfx-ch-gutter);
+}
+html.pfx-chapters .pfx-ch--story > * { grid-column: 1 / 2; grid-row: 2 / 3; }  /* explicit ends: abs-pos auto lines = padding edge */
+html.pfx-chapters .pfx-ch--story > .pfx-ch-rule { grid-row: 1 / 2; }
+html.pfx-chapters .pfx-ch--story > .pfx-ch-art {
+  border: 1px solid #b38c4540; filter: brightness(.65) saturate(.7);
+}
+html.pfx-chapters .pfx-ch--story > .pfx-ch-art + div {          /* tint -> world-illustration bottom fade */
+  background: linear-gradient(transparent 45%, #0a110ed9), rgba(8, 12, 10, .34) !important;
+  z-index: 1; margin: 1px;
+}
+html.pfx-chapters .pfx-ch--story > .absolute.h-28 { display: none; }
+html.pfx-chapters .pfx-ch--story > .relative {
+  z-index: 2; width: 100%; min-height: 610px; display: flex; flex-direction: column; justify-content: center;
+  padding: 90px clamp(24px, 6vw, 90px) 110px;
+}
+html.pfx-chapters .pfx-ch--story .pfx-ch-inner > p { font-family: var(--pfx-ch-body); color: var(--pfx-body-copy, #d0c5b2); line-height: 1.8; }
+html.pfx-chapters .pfx-ch--story .pfx-ch-inner > p.pfx-ch-sub { max-width: 52ch; font-size: 20px; }
+html.pfx-chapters .pfx-ch--story .pfx-ch-inner > p.italic { color: #c7bfac; font-size: 18px; }
+html.pfx-chapters .pfx-ch--story > .pfx-ch-caption {
+  position: relative; z-index: 3; align-self: end; justify-self: start;
+  margin: 0 30px 28px; font: 11px/1.7 var(--pfx-ch-display); letter-spacing: .14em;
+  text-transform: uppercase; color: #e4cea1; pointer-events: none;
+}
+
+/* ── Economy — faction-ledger styled notes ── */
+html.pfx-chapters .pfx-ch-notes > div:not(.inline-flex) { border-top: 1px solid var(--pfx-ch-line); padding: 20px 0 0; }
+html.pfx-chapters .pfx-ch-notes > div:not(.inline-flex) > div { font: 17px/1.4 var(--pfx-ch-display); color: #e3c991; }
+html.pfx-chapters .pfx-ch-notes p { font-family: var(--pfx-ch-body); font-size: 17px; line-height: 1.6; color: #bfb7a8; margin-top: 10px; }
+html.pfx-chapters .pfx-ch-notes > .inline-flex { font-family: var(--pfx-ch-display); border-color: #cda84e80 !important; color: #ecd49c !important; }
+
+/* ── Articles — gold hairline card, prototype lift on hover (.custom-card: .3s, -8px) ── */
+html.pfx-chapters .pfx-ch-article {
+  background: #0e1410cc; border: 1px solid var(--pfx-ch-line) !important; border-radius: 0 !important;
+  transition: transform .3s var(--pfx-ease, ease), border-color .3s, box-shadow .3s;
+}
+html.pfx-chapters .pfx-ch-article img { transition: transform .6s var(--pfx-ease, ease), filter .6s; filter: brightness(.85) saturate(.8); }
+html.pfx-chapters .pfx-ch-article:hover,
+html.pfx-chapters .pfx-ch-article:focus-visible {
+  transform: translateY(-8px); border-color: #cda84e !important;
+  box-shadow: 0 18px 40px #000a, 0 0 0 1px #d4a0171f;
+}
+html.pfx-chapters .pfx-ch-article:hover img { transform: scale(1.04); filter: none; }
+html.pfx-chapters .pfx-ch-article:active { transform: translateY(-8px) scale(.98); }
+html.pfx-chapters .pfx-ch-article .ga-serif { font: 17px/1.45 var(--pfx-ch-display); color: #e9d4a6; }
+html.pfx-chapters .pfx-ch-article p { font-family: var(--pfx-ch-body); font-size: 17px; line-height: 1.6; color: #bfb7a8; }
+html.pfx-chapters .pfx-ch-article p + div { font: 10px var(--pfx-ch-display); letter-spacing: .16em; text-transform: uppercase; color: #c7a966; }
+
+/* ── Signup — newsletter box on a hairline ── */
+html.pfx-chapters .pfx-ch-news { border-top: 1px solid var(--pfx-ch-line) !important; }
+html.pfx-chapters .pfx-ch-news h3 { font: 500 26px/1.2 var(--pfx-ch-display) !important; letter-spacing: -.02em; color: var(--pfx-ice, #f3e8cf); }
+html.pfx-chapters .pfx-ch-news p, html.pfx-chapters .pfx-ch-news > div.ga-serif { font-family: var(--pfx-ch-body); font-size: 18px; line-height: 1.75; color: var(--pfx-body-copy, #d0c5b2); }
+html.pfx-chapters .pfx-ch-news input { background: #0c100fcc; border-color: #ae884a80 !important; font-family: var(--pfx-ch-body); font-size: 17px; color: var(--pfx-ice, #f3e8cf); }
+html.pfx-chapters .pfx-ch-news input:focus { border-color: #cda84e !important; }
+
+/* ── Responsive: prototype @900 / @600 ── */
+@media (max-width: 1000px) {
+  html.pfx-chapters .pfx-ch-ledger { gap: 36px; }
+}
+@media (max-width: 900px) {
+  html.pfx-chapters .pfx-ch-ledger { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+  html.pfx-chapters .pfx-ch-step, html.pfx-chapters .pfx-ch-step:nth-child(n+4) { grid-column: span 1; }
+  html.pfx-chapters .pfx-ch-step .pfx-ch-num + div > div:first-child { font-size: 20px; }
+  html.pfx-chapters .pfx-ch--story > .relative { min-height: 420px; }
+}
+@media (max-width: 600px) {
+  html.pfx-chapters { --pfx-ch-space: 90px; --pfx-ch-group: 60px; }
+  html.pfx-chapters .pfx-ch .pfx-ch-inner { padding: 55px 24px 70px; }
+  html.pfx-chapters .pfx-ch--story { padding: 55px 24px 70px; }
+  html.pfx-chapters .pfx-ch-rule { margin-bottom: 50px; font-size: 8px; }
+  html.pfx-chapters .pfx-ch-rule span:last-child { display: none; }
+  html.pfx-chapters .pfx-ch h2.pfx-ch-title { font-size: 36px; }
+  html.pfx-chapters .pfx-ch p.pfx-ch-sub { font-size: 18px; }
+  html.pfx-chapters .pfx-ch-ledger { grid-template-columns: 1fr; gap: 35px; margin-top: 55px; padding-top: 32px; }
+  html.pfx-chapters .pfx-ch-step { display: grid; grid-template-columns: 30px 1fr; column-gap: 12px; }
+  html.pfx-chapters .pfx-ch-num { padding-top: 5px; }
+  html.pfx-chapters .pfx-ch-step .pfx-ch-num + div > div:first-child { margin: 0; font-size: 22px; }
+  html.pfx-chapters .pfx-ch-step p { font-size: 18px; margin-top: 15px; }
+  html.pfx-chapters .pfx-ch--story > .relative { min-height: 360px; padding: 60px 22px 90px; }
+  html.pfx-chapters .pfx-ch--story > .pfx-ch-caption { margin: 0 20px 20px; font-size: 9px; }
+}
+
+/* ── Reduced motion: no lift / zoom, like the prototype's reduced-motion block ── */
+@media (prefers-reduced-motion: reduce) {
+  html.pfx-chapters .pfx-ch-article, html.pfx-chapters .pfx-ch-article img { transition: none; }
+  html.pfx-chapters .pfx-ch-article:hover, html.pfx-chapters .pfx-ch-article:focus-visible,
+  html.pfx-chapters .pfx-ch-article:active, html.pfx-chapters .pfx-ch-article:hover img { transform: none; }
+}
