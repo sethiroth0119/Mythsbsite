@@ -1,15 +1,13 @@
-/* proto-fx piece: atmosphere — the prototype's "✧ Atmosphere" control (aside.atmosphere) plus a light
-   ambient weather layer driven by its three presets (Frostfall / Moonlit Veil / Emberfall) and five
-   layer switches (Clouds, Smoke, Light rays, Falling snow, Particles).
+/* proto-fx piece: atmosphere — the prototype's ambient weather layer, locked to the Moonlit Veil preset
+   with all five layers on (Clouds, Smoke, Light rays, Falling snow, Particles). The other presets stay
+   defined below so the look can be switched in code later; the on-page picker was removed.
    - Layer: fixed, pointer-events none: ONE half-resolution canvas that draws the preset's tints, clouds,
      smoke, rays and ~110 sprites from pre-rendered bitmaps at <=30fps; paused when the tab is hidden,
      inside the Broadcast app, or when every layer is off. Reduced motion => one static frame.
-   - Choice is remembered per viewer in localStorage ('pfxAtmosphere'), always inside try/catch.
    - Hidden inside the Broadcast (.cbk) app, which is its own product surface. */
 (function () {
   if (!window.ProtoFx) return;
 
-  var KEY = 'pfxAtmosphere';
   var LAYERS = [['clouds', 'Clouds'], ['smoke', 'Smoke'], ['rays', 'Light rays'], ['snow', 'Falling snow'], ['particles', 'Particles']];
   var PRESETS = {
     frostfall: { name: 'Frostfall', icon: '❄', desc: 'Silver clouds · drifting snow · icy rays',
@@ -30,20 +28,9 @@
   };
   var reduced = !!ProtoFx.reduced;
 
-  function load() {
-    var s = { preset: 'frostfall', layers: { clouds: true, smoke: true, rays: true, snow: true, particles: true } };
-    try {
-      var raw = localStorage.getItem(KEY);
-      if (raw) {
-        var v = JSON.parse(raw);
-        if (v && PRESETS[v.preset]) s.preset = v.preset;
-        if (v && v.layers) LAYERS.forEach(function (l) { if (typeof v.layers[l[0]] === 'boolean') s.layers[l[0]] = v.layers[l[0]]; });
-      }
-    } catch (e) {}
-    return s;
-  }
-  function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
-  var state = load();
+  // Fixed look: Moonlit Veil with every layer on. The prototype's "Set the atmosphere" picker was
+  // removed on request, so there is no per-viewer choice to load or save any more.
+  var state = { preset: 'moonlit', layers: { clouds: true, smoke: true, rays: true, snow: true, particles: true } };
 
   /* ---------------- ambient layer ----------------
      Performance (round 4): the whole layer is ONE canvas at half resolution (S = 0.5, upscaled by CSS),
@@ -56,7 +43,7 @@
      we draw (weak GPU, software rendering, busy phone), step down 30 -> 20 -> 12 -> 8 -> 5 so the rest of
      the site's transitions and animations keep their frames. Re-evaluated on resize. */
   var TIERS = [30, 20, 12, 8, 5], tier = 0, winT = 0, winN = 0;
-  var layerEl, ui, cv, ctx, raf = 0, last = 0, lastDraw = 0, W = 0, H = 0;
+  var layerEl, cv, ctx, raf = 0, last = 0, lastDraw = 0, W = 0, H = 0;
   var sprites = { snow: [], particles: [] }, bmp = {};
   var mid = 0, midTarget = 0;        // sprite visibility in the reading column (0.9 over the hero, 0 elsewhere)
   var vis = {};                      // per-layer eased visibility 0..1, so ticking a box fades it
@@ -346,65 +333,6 @@
     loop();
   }
 
-  /* ---------------- control (port of aside.atmosphere) ---------------- */
-  function buildUI() {
-    ui = document.createElement('aside');
-    ui.className = 'pfx-atmo';
-    ui.setAttribute('aria-label', 'World atmosphere');
-    ui.setAttribute('data-pfx-owned', 'atmosphere');
-    var presets = Object.keys(PRESETS).map(function (k) {
-      var p = PRESETS[k];
-      return '<button type="button" class="pfx-atmo-preset" data-weather="' + k + '" aria-pressed="false"><i aria-hidden="true">' + p.icon +
-        '</i><span><strong>' + p.name + '</strong><small>' + p.desc + '</small></span></button>';
-    }).join('');
-    var layers = LAYERS.map(function (l) {
-      return '<label><input type="checkbox" data-weather-layer="' + l[0] + '">' + l[1] + '</label>';
-    }).join('');
-    ui.innerHTML =
-      '<button type="button" class="pfx-atmo-toggle" id="pfx-atmo-toggle" aria-expanded="false" aria-controls="pfx-atmo-panel"><span aria-hidden="true">✧</span> Atmosphere <span class="pfx-atmo-current"></span></button>' +
-      '<div class="pfx-atmo-panel" id="pfx-atmo-panel" role="dialog" aria-label="Set the atmosphere" hidden>' +
-      '<div class="pfx-atmo-heading"><h2>Set the atmosphere</h2><button type="button" class="pfx-atmo-close" aria-label="Close atmosphere">×</button></div>' +
-      '<div class="pfx-atmo-presets" role="group" aria-label="Background choices">' + presets + '</div>' +
-      '<fieldset class="pfx-atmo-layers"><legend>LAYERS</legend>' + layers + '</fieldset>' +
-      '<p class="pfx-atmo-note">Choose a world, then make it your own.</p></div>';
-    document.body.appendChild(ui);
-
-    var toggle = ui.querySelector('.pfx-atmo-toggle'), panel = ui.querySelector('.pfx-atmo-panel');
-    function setOpen(open) {
-      toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-      if (open) panel.removeAttribute('hidden'); else panel.setAttribute('hidden', '');
-    }
-    toggle.addEventListener('click', function () { setOpen(panel.hasAttribute('hidden')); });
-    // Return focus to the pill only for keyboard closes (e.detail === 0), so a mouse close leaves no ring.
-    ui.querySelector('.pfx-atmo-close').addEventListener('click', function (e) { setOpen(false); if (e.detail === 0) toggle.focus(); else toggle.blur(); });
-    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !panel.hasAttribute('hidden')) { setOpen(false); toggle.focus(); } });
-    document.addEventListener('pointerdown', function (e) { if (!panel.hasAttribute('hidden') && !ui.contains(e.target)) setOpen(false); });
-    Array.prototype.forEach.call(ui.querySelectorAll('.pfx-atmo-preset'), function (b) {
-      b.addEventListener('click', function () {
-        var k = b.getAttribute('data-weather');
-        if (k === state.preset) return;
-        state.preset = k; save(); syncUI(); applyLayer(true);
-      });
-    });
-    Array.prototype.forEach.call(ui.querySelectorAll('input[data-weather-layer]'), function (inp) {
-      inp.addEventListener('change', function () {
-        state.layers[inp.getAttribute('data-weather-layer')] = inp.checked; save(); applyLayer(false);
-      });
-    });
-    syncUI();
-  }
-
-  function syncUI() {
-    if (!ui) return;
-    ui.querySelector('.pfx-atmo-current').textContent = PRESETS[state.preset].name;
-    Array.prototype.forEach.call(ui.querySelectorAll('.pfx-atmo-preset'), function (b) {
-      b.setAttribute('aria-pressed', b.getAttribute('data-weather') === state.preset ? 'true' : 'false');
-    });
-    Array.prototype.forEach.call(ui.querySelectorAll('input[data-weather-layer]'), function (inp) {
-      inp.checked = !!state.layers[inp.getAttribute('data-weather-layer')];
-    });
-  }
-
   /* ---------------- mount (idempotent; re-run after every React render) ---------------- */
   ProtoFx.on('atmosphere', function () {
     if (!document.body) return;
@@ -413,7 +341,6 @@
       layerEl.classList.remove('is-hero'); layerEl.style.transform = ''; layerEl.style.height = '';
       document.body.insertBefore(layerEl, document.body.firstChild);
     }
-    if (!ui || !ui.isConnected) buildUI();
     // Not inside the Broadcast app (.cbk): it has its own opaque surface and chrome.
     var br = ProtoFx.bridge();
     var inApp = !!document.querySelector('.cbk') || (br && br.page === 'backing');
