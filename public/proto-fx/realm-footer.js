@@ -131,7 +131,8 @@
   }
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function link(item) {
-    if (item.href) return '<a href="' + esc(item.href) + '"' + (item.ext ? ' data-rf-ext="' + item.ext + '"' : '') + '>' + esc(item.label) + '</a>';
+    if (item.href) return '<a href="' + esc(item.href) + '"' + (item.ext ? ' data-rf-ext="' + item.ext + '"' : '') +
+      (item.ext === 'discord' ? ' target="_blank" rel="noopener noreferrer"' : '') + '>' + esc(item.label) + '</a>';
     return '<a href="' + esc(fallbackHref(item)) + '" data-rf-go="' + (item.go || '') + '" data-rf-sec="' + (item.sec || '') + '">' + esc(item.label) + '</a>';
   }
   // Discord: reuse whatever the site's own footer Discord link points at.
