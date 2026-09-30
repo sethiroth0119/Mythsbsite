@@ -145,7 +145,7 @@ html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:last-child > bu
 }
 
 /* Play — .angle-button.outline from the prototype (engraved gold frame + diamond caps). */
-html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:last-child > a[href] {
+html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:last-child > a[href]:not([data-social]) {
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -168,8 +168,8 @@ html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:last-child > a[
   text-shadow: 0 1px 2px #0b0b0b;
   transition: filter .2s, transform .2s;
 }
-html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:last-child > a[href]::before,
-html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:last-child > a[href]::after {
+html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:last-child > a[href]:not([data-social])::before,
+html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:last-child > a[href]:not([data-social])::after {
   content: "";
   position: absolute;
   top: 50%;
@@ -180,14 +180,14 @@ html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:last-child > a[
   transform: translateY(-50%) rotate(45deg);
   pointer-events: none;
 }
-html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:last-child > a[href]::before { left: -5px; }
-html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:last-child > a[href]::after { right: -5px; }
-html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:last-child > a[href]:hover {
+html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:last-child > a[href]:not([data-social])::before { left: -5px; }
+html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:last-child > a[href]:not([data-social])::after { right: -5px; }
+html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:last-child > a[href]:not([data-social]):hover {
   background: linear-gradient(120deg, #304329, #192716) !important;
   box-shadow: inset 0 0 0 3px #101a10, inset 0 0 0 4px #d4a01790, 0 8px 24px #080b0890;
   transform: translateY(-2px);
 }
-html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:last-child > a[href]:active { transform: scale(.98); }
+html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:last-child > a[href]:not([data-social]):active { transform: scale(.98); }
 
 /* Hamburger — prototype .menu-toggle: bare glyph in #e2c790, no frame. */
 html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:last-child > button[aria-expanded] {
@@ -286,13 +286,13 @@ html.pfx-header-band.pfx-hb-compact nav[data-pfx="nav"] {
   html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:last-child > button:not([aria-expanded]) { display: none !important; }
   html.pfx-header-band nav[data-pfx="nav"] [data-hb-account] { display: block; }
   /* .nav-join @760: min-height 36px, padding 10px 15px, 9px — measured 127x36 in the prototype. */
-  html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:last-child > a[href] {
+  html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:last-child > a[href]:not([data-social]) {
     min-height: 36px; min-width: 127px; padding: 10px 15px; font-size: 9px; margin: 0 16px 0 0;
   }
   html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:last-child > button[aria-expanded] { width: 36px; }
 }
 @media (max-width: 360px) {
-  html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:last-child > a[href] { min-width: 108px; padding: 9px 12px; margin-right: 12px; }
+  html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:last-child > a[href]:not([data-social]) { min-width: 108px; padding: 9px 12px; margin-right: 12px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -300,5 +300,18 @@ html.pfx-header-band.pfx-hb-compact nav[data-pfx="nav"] {
   html.pfx-header-band nav[data-pfx="nav"] *,
   html.pfx-header-band nav[data-pfx="nav"] *::before,
   html.pfx-header-band nav[data-pfx="nav"] *::after { transition: none !important; animation: none !important; }
-  html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:last-child > a[href]:hover { transform: none; }
+  html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:last-child > a[href]:not([data-social]):hover { transform: none; }
 }
+
+/* Social buttons in the right cluster (Discord first): a small engraved gold box, not the Play button's
+   angle frame. Phones hide them here (they live in the menu); tablets show the icon; wide screens add the name. */
+html.pfx-header-band nav[data-pfx="nav"] a[data-social] {
+  height: 38px; min-width: 38px; padding: 0 11px; justify-content: center; border-radius: 0 !important;
+  border: 1px solid #c9a86a73 !important; background: #0b0e0cb3 !important; color: #e8d5a8 !important;
+  box-shadow: inset 0 0 0 2px #0b0e0c, inset 0 0 0 3px #c9a86a26;
+  font-family: var(--pfx-display, Georgia), Georgia, serif; font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+  transition: border-color .2s, color .2s, transform .2s, filter .2s;
+}
+html.pfx-header-band nav[data-pfx="nav"] a[data-social]:hover { border-color: #e3bd6f !important; color: #fff !important; filter: brightness(1.12); transform: translateY(-1px); }
+html.pfx-header-band nav[data-pfx="nav"] a[data-social]:focus-visible { outline: 1px solid #e3bd6f; outline-offset: 2px; }
+@media (max-width: 639px) { html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:last-child > a[data-social] { display: none !important; } }
