@@ -1,4 +1,6 @@
-/* proto-fx piece: boot-loader — the prototype's constellation loader (#boot-loader + #boot-controller), ported.
+/* proto-fx piece: boot-loader — the Foundation access screen: the white logo spins while an access code is
+   typed in and granted, styled in the prototype's loader language (dark ground, gold, hairline track).
+   The lifecycle below is the prototype's #boot-controller, ported.
    Loads in <head>, before #boot-splash is parsed, so it watches the parser for the splash, then injects
    #pfx-boot next to it. index.html's own teardown (fade opacity -> remove) is the "ready" signal; we
    mirror it with the prototype's .is-leaving exit. It never blocks: a 'skip' appears after 12s and a
@@ -8,28 +10,49 @@
   var reduced = false; try { reduced = matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
   var loader, bar, status, skip, splash, finished = false, timers = [], obs, creep;
 
+  // First visit this session plays the whole access sequence; later page loads skip the wait.
+  var seen = false; try { seen = sessionStorage.getItem('pfxBootSeen') === '1'; sessionStorage.setItem('pfxBootSeen', '1'); } catch (e) {}
+  var seqDone = seen || reduced, pending = null;
+  // The "someone is typing a password" sequence. The site compiles its whole app with Babel while this
+  // screen is up, a multi-second main-thread task, so JS timers would freeze and every dot would land at
+  // once. Everything visible is therefore a CSS opacity animation with a precomputed delay (compositor
+  // driven, keeps running through the compile); JS only builds the markup and keeps the exit gate.
+  var CODE = 10, T0 = 450, KEYS = [], t = T0, i;
+  for (i = 1; i <= CODE; i++) { t += 90 + (i * 53 % 70) + (i === 4 || i === 7 ? 140 : 0); KEYS.push(t); }
+  var T_VERIFY = t + 320, T_GRANT = T_VERIFY + 700, SEQ_MS = T_GRANT + 350;
+
   function build() {
     loader = doc.createElement('div');
-    loader.className = 'pfx-boot'; loader.id = 'pfx-boot';
+    loader.className = 'pfx-boot' + (seqDone ? ' is-instant' : ''); loader.id = 'pfx-boot';
     loader.setAttribute('data-pfx-owned', ''); loader.setAttribute('aria-label', 'Loading Mythic Spellbook');
+    var ms = function (v) { return 'animation-delay:' + v + 'ms'; };
+    var dots = KEYS.map(function (k) { return '<i class="boot-dot" style="' + ms(k) + '">\u2022</i>'; }).join('');
+    var lines = [['Awaiting credentials', 0, T0], ['Entering access code', T0, T_VERIFY], ['Verifying\u2026', T_VERIFY, T_GRANT]]
+      .map(function (l) { return '<span class="boot-msg" style="animation-delay:' + l[1] + 'ms,' + l[2] + 'ms">' + l[0] + '</span>'; }).join('');
+    // Logo: the Foundation mark the site already uses in the game (SCP Foundation logo, CC BY-SA 3.0,
+    // scp-wiki.wikidot.com), recoloured white on transparent in assets/proto/scp-logo-white.png.
     loader.innerHTML =
-      '<div class="boot-mark"><div class="boot-constellation" aria-hidden="true"><div class="boot-orbits"></div>' +
-      '<svg class="boot-symbol" viewBox="0 0 22 34" fill="none"><path d="M11 1 21 17 11 33 1 17 11 1Z" stroke="currentColor" stroke-width=".8"></path>' +
-      '<path d="M11 8v18M6 17h10" stroke="currentColor" stroke-width=".6" opacity=".5"></path></svg></div>' +
-      '<p class="boot-name">MYTHIC SPELLBOOK</p><p class="boot-status" role="status">Gathering the deck</p>' +
+      '<div class="boot-mark" style="--grant:' + T_GRANT + 'ms">' +
+      '<div class="boot-logo" aria-hidden="true"><img src="' + (window.ProtoFx ? ProtoFx.asset('scp-logo-white.png') : 'assets/proto/scp-logo-white.png') + '" alt=""></div>' +
+      '<p class="boot-name">MYTHIC SPELLBOOK</p>' +
+      '<div class="boot-term" aria-hidden="true">' +
+      '<p class="boot-row"><span>SURVIVOR ID</span><b>GUEST \u00b7 SEASON 1</b></p>' +
+      '<p class="boot-row"><span>ACCESS CODE</span><b class="boot-code">' + dots + '<i class="boot-caret"></i></b></p>' +
+      '<p class="boot-line">' + lines + '<span class="boot-msg is-grant">ACCESS GRANTED</span></p></div>' +
+      '<p class="boot-status" role="status">Requesting access</p>' +
       '<div class="boot-track" aria-hidden="true"><span></span></div></div>' +
       '<button type="button" class="boot-skip" hidden>Enter preview</button>';
-    var orbits = loader.querySelector('.boot-orbits');
-    for (var i = 0; i < 28; i++) {
-      var p = doc.createElement('span'); p.className = 'boot-particle'; p.appendChild(doc.createElement('i'));
-      p.style.cssText = '--angle:' + (i * 137.508) + 'deg;--radius:' + (40 + (i * 19 % 48)) + 'px;--size:' +
-        (i % 7 === 0 ? 2.5 : 1.2 + (i % 3) * .35) + 'px;--alpha:' + (.22 + (i % 6) * .11) + ';--duration:' + (16 + i % 9 * 2) +
-        's;--delay:' + (-i * 1.7) + 's;--particle-color:' + (i % 5 === 0 ? '#c6b693' : '#9ccfc9');
-      orbits.appendChild(p);
-    }
     bar = loader.querySelector('.boot-track span'); status = loader.querySelector('.boot-status'); skip = loader.querySelector('.boot-skip');
-    skip.onclick = function () { finish('preview'); };
+    skip.onclick = function () { seqDone = true; finish('preview'); };
+    // A click on the screen jumps straight to "granted" and lets the site in as soon as it is ready.
+    loader.addEventListener('click', function (e) { if (e.target !== skip && !seqDone) { seqDone = true; loader.classList.add('is-instant'); if (pending) finish(pending); } });
     return loader;
+  }
+
+  function sequence() {
+    if (seqDone) return;
+    // Counted from when the screen was inserted, the same zero the CSS delays use.
+    timers.push(setTimeout(function () { seqDone = true; if (pending) finish(pending); }, SEQ_MS));
   }
 
   function setLoad(v) { if (bar && !finished) bar.style.setProperty('--load', String(Math.min(.94, v))); }
@@ -44,11 +67,13 @@
   // .is-leaving land in the same tick (the .35s bar fill and the .65s fade/scale(1.22) run together as CSS
   // transitions), then the loader is removed 700ms later (0 with reduced motion).
   function finish(reason) {
-    if (finished || !loader) return; finished = true; clearInterval(creep);
+    if (finished || !loader) return;
     reason = reason || 'ready';
+    if (!seqDone && reason !== 'preview') { pending = reason; return; }   // let the access sequence finish first
+    finished = true; clearInterval(creep);
     loader.dataset.result = reason;
     bar.style.setProperty('--load', '1');
-    status.textContent = reason === 'ready' ? 'Stories Cast a Longer Shadow' : 'Enter the world';
+    status.textContent = reason === 'ready' ? 'Welcome, Survivor' : 'Enter the world';
     loader.classList.add('is-leaving');
     if (reduced) { timers.push(setTimeout(cleanup, 0)); return; }
     // A hidden tab gets no frames: the prototype only pauses the particles there, and the 700ms settle
@@ -69,18 +94,19 @@
     splash = s;
     try { s.parentNode.insertBefore(build(), s.nextSibling); } catch (e) { return; }
     visibility(); doc.addEventListener('visibilitychange', visibility);
+    sequence();
     // Progress: parse -> DOMContentLoaded -> load -> Babel/React; creep toward .94 until the site hands off.
     var load = .08; setLoad(load);
     creep = setInterval(function () { load += (.94 - load) * .045; setLoad(load); }, 250);
     doc.addEventListener('DOMContentLoaded', function () { load = Math.max(load, .38); setLoad(load); });
-    window.addEventListener('load', function () { load = Math.max(load, .62); setLoad(load); if (!finished) status.textContent = 'Preparing the light'; });
+    window.addEventListener('load', function () { load = Math.max(load, .62); setLoad(load); if (!finished) status.textContent = 'Opening the archive'; });
     // Hand-off: index.html fades #boot-splash (opacity 0) then removes it once React mounted.
     obs = new MutationObserver(function () { if (splashGone()) finish('ready'); });
     obs.observe(s, { attributes: true, attributeFilter: ['style'] });
     obs.observe(s.parentNode, { childList: true });
     // The prototype's 12s 'slow' timer starts with the page, so count it from navigation, not from insertion.
     var since = 0; try { since = performance.now(); } catch (e) {}
-    timers.push(setTimeout(function () { if (!finished) { status.textContent = 'Still gathering the deck'; skip.hidden = false; } }, Math.max(0, 12000 - since)));
+    timers.push(setTimeout(function () { if (!finished) { status.textContent = 'Still opening the archive'; skip.hidden = false; } }, Math.max(0, 12000 - since)));
     timers.push(setTimeout(function () { finish('fallback'); }, 45000));
     window.addEventListener('error', fail);
     window.addEventListener('pagehide', function (e) { if (!e.persisted) cleanup(); });
