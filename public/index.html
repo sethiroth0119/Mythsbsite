@@ -7721,6 +7721,7 @@ const AdminPanelModal = ({ open, onClose, client }) => {
               { id: 'creators',      label: `Creator Apps (${creators.length})` },
               { id: 'cards',         label: `Card Manager` },
               { id: 'shop',          label: `🛒 Shop Manager` },
+              { id: 'milestones',    label: `🎯 Milestones` },
               { id: 'reports',       label: `Reports (${reports.filter(r => r.status !== 'resolved').length}) · Bans (${bans.length})` },
               { id: 'users',         label: `Users (${users.length})` },
             ].map((t) => (
@@ -7818,6 +7819,9 @@ const AdminPanelModal = ({ open, onClose, client }) => {
 
           {/* ===== 🛒 Shop Manager tab ===== */}
           {tab === 'shop' && <AdminShopManager client={client} />}
+
+          {/* ===== 🎯 Revenue Milestones tab ===== */}
+          {tab === 'milestones' && <AdminMilestoneManager client={client} />}
 
           {/* ===== Reports & Bans tab ===== */}
           {tab === 'reports' && (
@@ -10471,6 +10475,282 @@ const AdminShopManager = ({ client }) => {
   );
 };
 
+// ═══════════════════════════════════════════════════════════════════════
+// 🎯 REVENUE MILESTONES — Kickstarter-style tracker on the Shop page.
+// The running total comes from the revenue_progress() RPC, which sums the
+// real sales tables server-side (see supabase-revenue-milestones.sql), so
+// every Shop / Vendor Market purchase moves the bar with nothing extra to
+// record at checkout. Milestones are rows in revenue_milestones, edited by
+// admins in Admin → 🎯 Milestones. If Supabase or the tables are missing,
+// the tracker still shows the built-in milestones with the total hidden.
+// ═══════════════════════════════════════════════════════════════════════
+const RM_FALLBACK = [
+  { id: 'f1', amount_cents: 5000000,  icon: '🏦', title: 'Payouts Begin', description: 'The Cashout Vault opens and Mythic Token LP gets its first fuel. Game Testers are paid out first, then the queue runs from Eternal nodes down to Starter nodes, alphabetical within each tier, for players without an Express subscription.', unlocks: ['Cashout Vault opens — payouts start', 'Mythic Token LP fuel', 'Game Testers paid first', 'Queue: Eternal → Starter nodes, alphabetical (non-Express)'] },
+  { id: 'f2', amount_cents: 10000000, icon: '🎁', title: 'Airdrops & Expansion', description: 'Bonus airdrops for VIP members, airdrops for every player, and funding for animations, merch, equipment and ads.', unlocks: ['Bonus Airdrops for VIP members', 'Airdrops for all players', 'Animations', 'Merch', 'Equipment', 'Ads'] },
+  { id: 'f3', amount_cents: 15000000, icon: '🎪', title: 'Games Con 2027', description: 'A Mythic Spellbook booth at Games Con 2027.', unlocks: ['Booth at Games Con 2027'] },
+  { id: 'f4', amount_cents: 20000000, icon: '🎲', title: 'The Board Game', description: 'Development of the Mythic Spellbook board game begins.', unlocks: ['Board game development starts'] },
+];
+const rmUsd = (c, cents) => '$' + (Math.max(0, c || 0) / 100).toLocaleString('en-US', { minimumFractionDigits: cents ? 2 : 0, maximumFractionDigits: cents ? 2 : 0 });
+const rmList = (u) => Array.isArray(u) ? u.filter(Boolean) : (typeof u === 'string' ? u.split('\n').map(s => s.trim()).filter(Boolean) : []);
+
+const useRevenueMilestones = (client) => {
+  const [state, setState] = useState({ milestones: null, progress: null });
+  const load = React.useCallback(async () => {
+    if (!client) { setState({ milestones: RM_FALLBACK, progress: null }); return; }
+    // Never hang the tracker on a slow or unreachable Supabase: after 6s, fall back to the built-ins.
+    const within = (q) => Promise.race([Promise.resolve(q).then(r => r, () => ({ error: true })), new Promise(res => setTimeout(() => res({ error: true }), 6000))]);
+    const [m, p] = await Promise.all([
+      within(client.from('revenue_milestones').select('*').order('amount_cents').order('sort_order')),
+      within(client.rpc('revenue_progress')),
+    ]);
+    setState({
+      milestones: m.error ? RM_FALLBACK : (m.data || []),
+      progress: p.error || !p.data ? null : p.data,
+    });
+  }, [client]);
+  useEffect(() => { load(); const t = setInterval(load, 60000); return () => clearInterval(t); }, [load]);
+  return { ...state, reload: load };
+};
+
+const RevenueMilestones = ({ client, compact }) => {
+  const { milestones, progress } = useRevenueMilestones(client);
+  if (!milestones) return null;
+  const ms = milestones.slice().sort((a, b) => a.amount_cents - b.amount_cents);
+  if (!ms.length) return null;
+  const known = !!progress;
+  const total = known ? Number(progress.total_cents) || 0 : 0;
+  const top = ms[ms.length - 1].amount_cents;
+  const next = ms.find(m => total < m.amount_cents) || null;
+  const reachedN = ms.filter(m => total >= m.amount_cents).length;
+  const pct = (c) => Math.min(100, Math.max(0, (c / top) * 100));
+  const gold = '#e3bd6f';
+
+  // Compact strip for a product page: where this purchase lands.
+  if (compact) return (
+    <div className="max-w-6xl mx-auto px-4 md:px-6 mb-5">
+      <div style={{ border: '1px solid rgba(201,168,106,0.35)', background: 'rgba(11,14,12,0.7)', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+        <div style={{ fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: '#a8a29e' }}>This purchase counts toward</div>
+        <div style={{ color: gold, fontFamily: 'Cinzel, Georgia, serif', fontSize: 14 }}>{next ? `${next.icon || '🎯'} ${next.title} · ${rmUsd(next.amount_cents)}` : 'Every milestone reached — thank you'}</div>
+        <div style={{ flex: '1 1 160px', height: 6, background: '#1c1a14', position: 'relative', minWidth: 120 }}>
+          <div style={{ position: 'absolute', inset: 0, width: known ? pct(total) + '%' : 0, background: 'linear-gradient(90deg,#9a7a3a,#e3bd6f)' }} />
+        </div>
+        {known && next ? <div style={{ fontSize: 12, color: '#d6d3d1', fontVariantNumeric: 'tabular-nums' }}>{rmUsd(next.amount_cents - total)} to go</div> : null}
+      </div>
+    </div>
+  );
+
+  return (
+    <section id="milestones" className="max-w-6xl mx-auto px-4 md:px-6" style={{ marginBottom: 36 }}>
+      <div style={{ border: '1px solid rgba(201,168,106,0.4)', background: 'linear-gradient(180deg, rgba(20,17,12,0.92), rgba(10,9,8,0.96))', boxShadow: 'inset 0 0 0 3px #0a0908, inset 0 0 0 4px rgba(201,168,106,0.16)', padding: 'clamp(18px, 3vw, 32px)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 18, flexWrap: 'wrap' }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 10, letterSpacing: '.42em', textTransform: 'uppercase', color: 'rgba(227,189,111,0.75)' }}>Community Milestones</div>
+            <h2 style={{ fontFamily: 'Cinzel, Georgia, serif', color: '#f5ecd8', fontSize: 'clamp(24px, 3.4vw, 34px)', margin: '8px 0 0', lineHeight: 1.1 }}>Every purchase builds the world</h2>
+            <p style={{ color: '#a8a29e', fontSize: 14, marginTop: 8, maxWidth: 620, lineHeight: 1.6 }}>
+              Every Shop and Vendor Market purchase goes toward these goals. When the total crosses a milestone, what it unlocks opens for everyone.
+            </p>
+          </div>
+          {/* Kickstarter-style stat stack */}
+          <div style={{ display: 'flex', gap: 28, flexWrap: 'wrap' }}>
+            <div>
+              <div style={{ fontFamily: 'Cinzel, Georgia, serif', fontSize: 'clamp(28px, 4vw, 40px)', color: gold, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{known ? rmUsd(total) : '—'}</div>
+              <div style={{ fontSize: 12, color: '#a8a29e', marginTop: 6 }}>{next ? <>raised toward <span style={{ color: '#e7e5e4' }}>{rmUsd(next.amount_cents)}</span></> : 'raised · all milestones reached'}</div>
+            </div>
+            <div>
+              <div style={{ fontFamily: 'Cinzel, Georgia, serif', fontSize: 'clamp(28px, 4vw, 40px)', color: '#f5ecd8', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{reachedN}<span style={{ color: '#78716c', fontSize: '0.6em' }}>/{ms.length}</span></div>
+              <div style={{ fontSize: 12, color: '#a8a29e', marginTop: 6 }}>milestones unlocked</div>
+            </div>
+            {known && progress.backers ? (
+              <div>
+                <div style={{ fontFamily: 'Cinzel, Georgia, serif', fontSize: 'clamp(28px, 4vw, 40px)', color: '#f5ecd8', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{Number(progress.backers).toLocaleString('en-US')}</div>
+                <div style={{ fontSize: 12, color: '#a8a29e', marginTop: 6 }}>backers</div>
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        {/* The bar, with a marker at each milestone */}
+        <div style={{ position: 'relative', marginTop: 30, paddingBottom: 34, marginInline: 12 }}>
+          <div style={{ height: 14, background: '#1c1a14', border: '1px solid rgba(201,168,106,0.25)', position: 'relative', overflow: 'hidden' }}>
+            <div style={{ position: 'absolute', inset: 0, width: (known ? pct(total) : 0) + '%', background: 'linear-gradient(90deg,#7a5d26,#c9a86a 60%,#f0d48a)', boxShadow: '0 0 18px rgba(227,189,111,0.45)', transition: 'width 1.2s cubic-bezier(.2,.7,.2,1)' }} />
+          </div>
+          {ms.map((m) => {
+            const hit = known && total >= m.amount_cents;
+            return (
+              <div key={m.id} style={{ position: 'absolute', top: -5, left: `calc(${pct(m.amount_cents)}% - 12px)`, width: 24, textAlign: 'center' }} title={m.title}>
+                <div style={{ width: 24, height: 24, margin: '0 auto', transform: 'rotate(45deg)', border: `1px solid ${hit ? gold : 'rgba(201,168,106,0.5)'}`, background: hit ? gold : '#0a0908', boxShadow: hit ? '0 0 12px rgba(227,189,111,0.6)' : 'none' }} />
+                <div style={{ position: 'absolute', top: 30, left: pct(m.amount_cents) > 92 ? 'auto' : pct(m.amount_cents) < 8 ? 0 : '50%', right: pct(m.amount_cents) > 92 ? 0 : 'auto', transform: pct(m.amount_cents) > 92 || pct(m.amount_cents) < 8 ? 'none' : 'translateX(-50%)', fontSize: 11, whiteSpace: 'nowrap', color: hit ? gold : '#a8a29e', fontVariantNumeric: 'tabular-nums' }}>{rmUsd(m.amount_cents)}</div>
+              </div>
+            );
+          })}
+        </div>
+        {!known ? <div style={{ fontSize: 12, color: '#78716c', marginTop: -8, marginBottom: 12 }}>The live total is unavailable right now. The milestones below still apply.</div> : null}
+
+        {/* Milestone cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 14, marginTop: 8 }}>
+          {ms.map((m) => {
+            const hit = known && total >= m.amount_cents;
+            const isNext = next && next.id === m.id;
+            const state = hit ? 'Unlocked' : isNext ? 'Next up' : 'Locked';
+            return (
+              <article key={m.id} style={{ minWidth: 0, border: `1px solid ${hit ? 'rgba(227,189,111,0.7)' : isNext ? 'rgba(201,168,106,0.5)' : 'rgba(255,255,255,0.08)'}`, background: hit ? 'rgba(201,168,106,0.09)' : 'rgba(0,0,0,0.35)', padding: 16, opacity: hit || isNext ? 1 : 0.82 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 22 }} aria-hidden="true">{m.icon || '🎯'}</span>
+                  <span style={{ fontSize: 10, letterSpacing: '.16em', textTransform: 'uppercase', padding: '3px 8px', border: `1px solid ${hit ? gold : isNext ? 'rgba(201,168,106,0.6)' : 'rgba(255,255,255,0.15)'}`, color: hit ? '#12100e' : isNext ? gold : '#a8a29e', background: hit ? gold : 'transparent' }}>{hit ? '✓ ' : ''}{state}</span>
+                </div>
+                <div style={{ fontFamily: 'Cinzel, Georgia, serif', color: gold, fontSize: 22, marginTop: 10, fontVariantNumeric: 'tabular-nums' }}>{rmUsd(m.amount_cents)}</div>
+                <h3 style={{ color: '#f5ecd8', fontSize: 16, fontWeight: 700, margin: '4px 0 6px' }}>{m.title}</h3>
+                {m.description ? <p style={{ color: '#a8a29e', fontSize: 13, lineHeight: 1.55, margin: 0 }}>{m.description}</p> : null}
+                {rmList(m.unlocks).length ? (
+                  <ul style={{ listStyle: 'none', padding: 0, margin: '10px 0 0', display: 'grid', gap: 5 }}>
+                    {rmList(m.unlocks).map((u, i) => (
+                      <li key={i} style={{ fontSize: 13, color: '#d6d3d1', display: 'flex', gap: 8 }}><span style={{ color: hit ? gold : '#78716c' }}>{hit ? '◆' : '◇'}</span><span style={{ minWidth: 0 }}>{u}</span></li>
+                    ))}
+                  </ul>
+                ) : null}
+                {isNext && known ? <div style={{ marginTop: 12, fontSize: 12, color: gold, fontVariantNumeric: 'tabular-nums' }}>{rmUsd(m.amount_cents - total)} to go</div> : null}
+              </article>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+};
+
+// Admin → 🎯 Milestones: add / edit / delete milestones, post corrections, set the Vendor Market rate.
+const AdminMilestoneManager = ({ client }) => {
+  const { milestones, progress, reload } = useRevenueMilestones(client);
+  const [form, setForm] = useState(null);
+  const [adj, setAdj] = useState({ dollars: '', note: '' });
+  const [adjRows, setAdjRows] = useState([]);
+  const [rate, setRate] = useState('');
+  const [msg, setMsg] = useState('');
+  const [busy, setBusy] = useState(false);
+  const loadAdmin = React.useCallback(async () => {
+    if (!client) return;
+    const [a, s] = await Promise.all([
+      client.from('revenue_adjustments').select('*').order('created_at', { ascending: false }).limit(50),
+      client.from('revenue_settings').select('*').maybeSingle(),
+    ]);
+    setAdjRows(a.error ? [] : (a.data || []));
+    if (!s.error && s.data) setRate(String(s.data.cinder_usd_cents || 0));
+  }, [client]);
+  useEffect(() => { loadAdmin(); }, [loadAdmin]);
+  const say = (t) => { setMsg(t); setTimeout(() => setMsg(''), 5000); };
+  const blank = { amount_dollars: '', title: '', description: '', unlocks_text: '', icon: '🎯', sort_order: 100 };
+  const edit = (m) => setForm({ ...m, amount_dollars: String((m.amount_cents || 0) / 100), unlocks_text: rmList(m.unlocks).join('\n') });
+  const save = async () => {
+    const cents = Math.round(parseFloat(String(form.amount_dollars).replace(/[$,]/g, '')) * 100);
+    if (!(cents > 0) || !form.title.trim()) return say('A milestone needs a dollar amount above 0 and a title.');
+    setBusy(true);
+    const row = { amount_cents: cents, title: form.title.trim(), description: (form.description || '').trim() || null, unlocks: rmList(form.unlocks_text), icon: (form.icon || '').trim() || null, sort_order: parseInt(form.sort_order, 10) || 100, updated_at: new Date().toISOString() };
+    const q = form.id && !String(form.id).startsWith('f') ? client.from('revenue_milestones').update(row).eq('id', form.id) : client.from('revenue_milestones').insert(row);
+    const { error } = await q;
+    setBusy(false);
+    if (error) return say('Could not save: ' + error.message + (/relation|does not exist/i.test(error.message) ? ' (run supabase-revenue-milestones.sql first)' : ''));
+    setForm(null); say('Milestone saved.'); reload();
+  };
+  const remove = async (m) => {
+    if (!window.confirm(`Delete the ${rmUsd(m.amount_cents)} milestone "${m.title}"?`)) return;
+    const { error } = await client.from('revenue_milestones').delete().eq('id', m.id);
+    if (error) return say('Could not delete: ' + error.message);
+    say('Milestone deleted.'); reload();
+  };
+  const addAdj = async () => {
+    const cents = Math.round(parseFloat(String(adj.dollars).replace(/[$,]/g, '')) * 100);
+    if (!cents || !adj.note.trim()) return say('An adjustment needs a non-zero amount (negative to subtract) and a note saying why.');
+    const { error } = await client.from('revenue_adjustments').insert({ amount_cents: cents, note: adj.note.trim() });
+    if (error) return say('Could not add adjustment: ' + error.message);
+    setAdj({ dollars: '', note: '' }); say('Adjustment added.'); loadAdmin(); reload();
+  };
+  const delAdj = async (r) => {
+    if (!window.confirm('Remove this adjustment?')) return;
+    const { error } = await client.from('revenue_adjustments').delete().eq('id', r.id);
+    if (error) return say('Could not remove: ' + error.message);
+    loadAdmin(); reload();
+  };
+  const saveRate = async () => {
+    const v = parseFloat(rate);
+    if (!(v >= 0)) return say('The rate must be 0 or more (US cents per 1 Cinder).');
+    const { error } = await client.from('revenue_settings').update({ cinder_usd_cents: v, updated_at: new Date().toISOString() }).eq('id', true);
+    if (error) return say('Could not save rate: ' + error.message);
+    say(v > 0 ? 'Vendor Market sales now count toward the milestones.' : 'Vendor Market sales no longer count.'); reload();
+  };
+  const src = progress && progress.sources ? progress.sources : null;
+  const box = { border: '1px solid rgba(120,113,108,0.4)', background: 'rgba(0,0,0,0.3)', padding: 16, marginBottom: 16 };
+  const btn = { padding: '7px 14px', fontSize: 11, letterSpacing: '.12em', textTransform: 'uppercase', fontWeight: 700, border: '1px solid rgba(201,168,106,0.5)', background: 'rgba(201,168,106,0.12)', color: '#e8d5a8', cursor: 'pointer', borderRadius: 2 };
+  return (
+    <div>
+      {msg ? <div style={{ ...box, borderColor: 'rgba(201,168,106,0.5)', color: '#e8d5a8' }}>{msg}</div> : null}
+      <div style={box}>
+        <div className="text-yellow-100 font-bold mb-2">Live total: {progress ? rmUsd(progress.total_cents, true) : 'unavailable (run supabase-revenue-milestones.sql)'}</div>
+        {src ? <div className="text-stone-400 text-xs" style={{ lineHeight: 1.8 }}>
+          Shop, pledges, dev points and licences {rmUsd(src.shop, true)} · Node ads {rmUsd(src.ads, true)} · Vendor Market {progress.vendor_market_counted ? rmUsd(src.vendor_market, true) : 'not counted (rate is 0)'} · Adjustments {src.adjustments < 0 ? '−' : ''}{rmUsd(Math.abs(src.adjustments), true)} · {progress.backers} backers
+        </div> : null}
+      </div>
+
+      <div style={box}>
+        <div className="flex items-center justify-between mb-3">
+          <div className="text-yellow-100 font-bold">Milestones</div>
+          <button style={btn} onClick={() => setForm(blank)}>+ Add milestone</button>
+        </div>
+        {(milestones || []).slice().sort((a, b) => a.amount_cents - b.amount_cents).map((m) => (
+          <div key={m.id} style={{ display: 'flex', gap: 12, alignItems: 'center', padding: '10px 0', borderTop: '1px solid rgba(120,113,108,0.25)', flexWrap: 'wrap' }}>
+            <div style={{ width: 96, color: '#e3bd6f', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{rmUsd(m.amount_cents)}</div>
+            <div style={{ flex: '1 1 200px', minWidth: 0 }}><div className="text-stone-200">{m.icon} {m.title}</div><div className="text-stone-500 text-xs">{rmList(m.unlocks).join(' · ')}</div></div>
+            {String(m.id).startsWith('f') ? <div className="text-stone-500 text-xs">built-in (table not set up)</div> : <>
+              <button style={btn} onClick={() => edit(m)}>Edit</button>
+              <button style={{ ...btn, borderColor: 'rgba(240,101,90,0.5)', color: '#f0a59a', background: 'transparent' }} onClick={() => remove(m)}>Delete</button>
+            </>}
+          </div>
+        ))}
+        {form ? (
+          <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid rgba(201,168,106,0.3)' }}>
+            <ShopAdminField label="Revenue goal (USD)" value={form.amount_dollars} onChange={(v) => setForm({ ...form, amount_dollars: v })} placeholder="50000" />
+            <ShopAdminField label="Title" value={form.title} onChange={(v) => setForm({ ...form, title: v })} placeholder="Payouts Begin" />
+            <ShopAdminField label="Icon (emoji)" value={form.icon} onChange={(v) => setForm({ ...form, icon: v })} />
+            <ShopAdminField label="Description" area value={form.description} onChange={(v) => setForm({ ...form, description: v })} />
+            <ShopAdminField label="What it unlocks (one per line)" area value={form.unlocks_text} onChange={(v) => setForm({ ...form, unlocks_text: v })} hint="Each line shows as a bullet on the milestone card." />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button style={btn} disabled={busy} onClick={save}>{busy ? 'Saving…' : 'Save milestone'}</button>
+              <button style={{ ...btn, background: 'transparent' }} onClick={() => setForm(null)}>Cancel</button>
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+      <div style={box}>
+        <div className="text-yellow-100 font-bold mb-1">Adjustments</div>
+        <div className="text-stone-500 text-xs mb-3">Add revenue the site can't see (e.g. sales made elsewhere), or subtract something that shouldn't count (e.g. a test order). Use a negative amount to subtract.</div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <input value={adj.dollars} onChange={(e) => setAdj({ ...adj, dollars: e.target.value })} placeholder="Amount, e.g. -10000" style={{ ...shopAdminInput, width: 160 }} />
+          <input value={adj.note} onChange={(e) => setAdj({ ...adj, note: e.target.value })} placeholder="Why (required)" style={{ ...shopAdminInput, flex: '1 1 220px' }} />
+          <button style={btn} onClick={addAdj}>Add</button>
+        </div>
+        {adjRows.map((r) => (
+          <div key={r.id} style={{ display: 'flex', gap: 12, padding: '8px 0', borderTop: '1px solid rgba(120,113,108,0.25)', fontSize: 13, alignItems: 'center' }}>
+            <span style={{ width: 110, color: r.amount_cents < 0 ? '#f0a59a' : '#3ECF8E', fontVariantNumeric: 'tabular-nums' }}>{r.amount_cents < 0 ? '−' : '+'}{rmUsd(Math.abs(r.amount_cents), true)}</span>
+            <span className="text-stone-300" style={{ flex: 1, minWidth: 0 }}>{r.note}</span>
+            <span className="text-stone-500 text-xs">{new Date(r.created_at).toLocaleDateString()}</span>
+            <button style={{ ...btn, padding: '4px 10px', background: 'transparent' }} onClick={() => delAdj(r)}>Remove</button>
+          </div>
+        ))}
+      </div>
+
+      <div style={box}>
+        <div className="text-yellow-100 font-bold mb-1">Vendor Market</div>
+        <div className="text-stone-500 text-xs mb-3">Vendor Market sales are paid in Cinder, not dollars. Set how many US cents one Cinder is worth to count them (0 = not counted). Example: 1 Cinder = $0.01 → enter 1.</div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input value={rate} onChange={(e) => setRate(e.target.value)} placeholder="0" style={{ ...shopAdminInput, width: 120 }} />
+          <span className="text-stone-400 text-sm" style={{ alignSelf: 'center' }}>US cents per Cinder</span>
+          <button style={btn} onClick={saveRate}>Save rate</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const ShopPage = ({ client, session, onSignIn }) => {
   const [products, setProducts] = useState(null);
   const [cat, setCat] = useState('All');
@@ -10632,6 +10912,9 @@ const ShopPage = ({ client, session, onSignIn }) => {
           <div className="px-4 py-3 text-sm border" style={{ borderRadius: 2, borderColor: note.ok ? 'rgba(62,207,142,0.4)' : 'rgba(240,101,90,0.4)', color: note.ok ? '#3ECF8E' : '#F0655A', background: 'rgba(0,0,0,0.3)' }}>{note.text}</div>
         </div>
       ) : null}
+
+      {/* 🎯 Revenue milestones — full tracker on the store, a slim strip on a product page. */}
+      <RevenueMilestones client={client} compact={!!open} />
 
       {open ? (
         <ShopProductDetail p={open} busy={busy} inCart={inCart(open.slug)}
