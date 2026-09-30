@@ -171,6 +171,19 @@ const GAME_URL  = "https://playmythicspellbook.com/";
 const PLAY_URL  = `${GAME_URL}?mode=signup`;
 const LOGIN_URL = `${GAME_URL}?mode=signin`;
 const DISCORD_URL = 'https://discord.gg/yEfyzDCej8';   // community invite
+// Social buttons in the header (and the mobile menu). Add a network by adding a row:
+// { id: 'youtube', label: 'YouTube', href: 'https://…' }. Rows with no href are skipped.
+const SOCIAL_LINKS = [
+  { id: 'discord', label: 'Discord', href: DISCORD_URL },
+];
+// Small line icons, drawn in the header's gold. Unknown ids fall back to a generic link glyph.
+const SocialIcon = ({ id }) => {
+  const p = { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.7, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true };
+  if (id === 'discord') return (
+    <svg {...p}><path d="M5 5.5h14a1.5 1.5 0 0 1 1.5 1.5v8.5A1.5 1.5 0 0 1 19 17h-8l-4.5 3.5V17H5a1.5 1.5 0 0 1-1.5-1.5V7A1.5 1.5 0 0 1 5 5.5Z"/><circle cx="9" cy="11.2" r="1.1" fill="currentColor" stroke="none"/><circle cx="15" cy="11.2" r="1.1" fill="currentColor" stroke="none"/></svg>
+  );
+  return <svg {...p}><path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1"/><path d="M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1"/></svg>;
+};
 
 // ===== CARD DATA =====
 // Live game cards drawn from the production catalog. cost = energy required.
@@ -812,6 +825,16 @@ const Navbar = ({ onNavigate, deckCount, survivors, loyalFaction, isSignedIn, di
 
         {/* ===== Right cluster (auth + play + hamburger on mobile) ===== */}
         <div className="flex items-center gap-2 shrink-0 ml-auto">
+          {/* Social buttons — hidden on phones (they sit in the menu there), icon-only on tablets, icon + name on wide screens. */}
+          {SOCIAL_LINKS.filter((l) => l.href).map((l) => (
+            <a key={l.id} href={l.href} target="_blank" rel="noopener noreferrer" data-social={l.id}
+              className="hidden sm:inline-flex items-center gap-1.5 h-9 px-2.5 xl:px-3 text-[12px] tracking-wide transition border whitespace-nowrap hover:text-white"
+              style={{ borderRadius: '2px', borderColor: 'rgba(201,168,106,0.45)', color: '#e8d5a8', background: 'rgba(201,168,106,0.06)' }}
+              title={l.id === 'discord' ? 'Add us on Discord' : l.label} aria-label={l.id === 'discord' ? 'Add us on Discord' : l.label}>
+              <SocialIcon id={l.id} />
+              <span className="hidden xl:inline">{l.label}</span>
+            </a>
+          ))}
           {/* 🛒 Shop (ex-Pledge) — lives beside the account button, signed-in only. */}
           {isSignedIn && (
             <button
@@ -879,6 +902,15 @@ const Navbar = ({ onNavigate, deckCount, survivors, loyalFaction, isSignedIn, di
             )}
             <button onClick={mAction(onShowCommunity)} className={`text-left py-2.5 px-3 rounded hover:bg-white/5 tracking-wide font-medium ${currentPage === 'community' ? 'text-white' : 'text-neutral-200'}`}>Community</button>
             <button onClick={mAction(onShowDeckBuilder)} className={`text-left py-2.5 px-3 rounded hover:bg-white/5 tracking-wide font-medium ${currentPage === 'deckbuilder' ? 'text-white' : 'text-neutral-200'}`}>Deck Builder</button>
+            {/* Socials — one row across the bottom of the menu. */}
+            <div className="col-span-2 flex flex-wrap gap-2 pt-2 mt-1 border-t border-white/10">
+              {SOCIAL_LINKS.filter((l) => l.href).map((l) => (
+                <a key={l.id} href={l.href} target="_blank" rel="noopener noreferrer" data-social={l.id}
+                  className="inline-flex items-center gap-2 py-2.5 px-3 rounded hover:bg-white/5 tracking-wide font-medium" style={{ color: '#e8d5a8' }}>
+                  <SocialIcon id={l.id} />{l.id === 'discord' ? 'Add us on Discord' : l.label}
+                </a>
+              ))}
+            </div>
           </div>
         </div>
       )}
