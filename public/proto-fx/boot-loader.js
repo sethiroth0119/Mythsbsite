@@ -76,6 +76,7 @@
     status.textContent = reason === 'ready' ? 'Welcome, Survivor' : 'Enter the world';
     loader.classList.add('is-leaving');
     if (reduced) { timers.push(setTimeout(cleanup, 0)); return; }
+    powerOn();
     // A hidden tab gets no frames: the prototype only pauses the particles there, and the 700ms settle
     // timer (below, via the failsafe when rAF is throttled) still removes it.
     // The prototype removes the loader 700ms after .is-leaving. Here the hand-off lands inside React's
@@ -84,6 +85,21 @@
     // (when the CSS transitions actually start); a hard failsafe still clears it.
     requestAnimationFrame(function () { timers.push(setTimeout(cleanup, 700)); });
     timers.push(setTimeout(cleanup, 4000));
+  }
+  // CRT power-on. The login panel collapses to a line (.is-leaving, CSS), then this screen takes over:
+  // a glowing dot at the centre stretches into a line, the line opens to the full screen, and the site
+  // appears through it with a white flash, scanlines and a short flicker. The black around the opening is
+  // one huge box-shadow on the .crt-tube box, so the site underneath is never transformed or re-laid out.
+  // All CSS animation (keeps running if the main thread is busy); a timer removes it, with a failsafe.
+  function powerOn() {
+    var crt = doc.createElement('div');
+    crt.className = 'pfx-crt'; crt.setAttribute('data-pfx-owned', ''); crt.setAttribute('aria-hidden', 'true');
+    crt.innerHTML = '<div class="crt-tube"></div><div class="crt-flash"></div><div class="crt-lines"></div>';
+    (doc.body || root).appendChild(crt);
+    var gone = false;
+    var drop = function () { if (!gone) { gone = true; if (crt.parentNode) crt.parentNode.removeChild(crt); } };
+    setTimeout(drop, 1500);
+    setTimeout(drop, 5000);
   }
   function fail() { finish('fallback'); }
   window.PfxBoot = { finish: finish };
