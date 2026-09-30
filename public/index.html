@@ -170,6 +170,7 @@ const applyCardOverride = (card, ovMap) => {
 const GAME_URL  = "https://playmythicspellbook.com/";
 const PLAY_URL  = `${GAME_URL}?mode=signup`;
 const LOGIN_URL = `${GAME_URL}?mode=signin`;
+const DISCORD_URL = 'https://discord.gg/yEfyzDCej8';   // community invite
 
 // ===== CARD DATA =====
 // Live game cards drawn from the production catalog. cost = energy required.
@@ -952,10 +953,11 @@ const Hero = ({ featuredCard, onCardClick, onScrollTo }) => (
         Season 1 — The Flood And New Realms Season is live. Free to play in your browser.
       </p>
 
-      {/* Two quiet CTAs — thin borders, no gradients. */}
+      {/* Quiet CTAs — thin borders, no gradients. */}
       <div className="flex gap-4 justify-center flex-wrap">
         <a href={PLAY_URL} className="ga-btn">Play Now — Free</a>
         <a href={LOGIN_URL} className="ga-btn ga-btn--ghost">Log In</a>
+        <a href={DISCORD_URL} target="_blank" rel="noopener noreferrer" className="ga-btn ga-btn--ghost">Add Us on Discord</a>
       </div>
 
       {/* Slim stat strip — kept from the old hero, restyled quiet. */}
@@ -5545,7 +5547,7 @@ const Footer = () => (
       <div className="flex gap-6 text-neutral-400 tracking-widest text-xs uppercase">
         <a href={PLAY_URL} className="hover:text-white transition">Play Now</a>
         <a href={LOGIN_URL} className="hover:text-white transition">Login</a>
-        <a href="#" className="hover:text-white transition">Discord</a>
+        <a href={DISCORD_URL} target="_blank" rel="noopener noreferrer" className="hover:text-white transition">Discord</a>
         <a href="#" className="hover:text-white transition">Privacy</a>
         <a href="#" className="hover:text-white transition">Terms</a>
       </div>
@@ -12117,6 +12119,7 @@ const GaSignup = () => {
       <div className="flex gap-4 justify-center flex-wrap mb-16">
         <a href={PLAY_URL} className="ga-btn">Play Now — Free</a>
         <a href={LOGIN_URL} className="ga-btn ga-btn--ghost">Log In</a>
+        <a href={DISCORD_URL} target="_blank" rel="noopener noreferrer" className="ga-btn ga-btn--ghost">Add Us on Discord</a>
       </div>
 
       <div className="max-w-md mx-auto border-t border-white/10 pt-12">
