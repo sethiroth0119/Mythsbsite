@@ -1,0 +1,181 @@
+/* proto-fx piece: hero-title — the prototype's hero treatment on our home hero.
+   Ported from prototype.html (#mythic-brand overrides): .rune-divider, h1 engraved gold
+   (#ecd49c, Cinzel 600, text-shadow 0 3px 25px #0b0b0ba0), parchment copy (#d0c5b2,
+   text-shadow 0 2px 10px #000, line-height 1.5), .hero:after cinematic gradient, and the
+   .motion-word / [data-motion] entrance (words 65ms apart, 28px rise, .85s cubic-bezier(.16,1,.3,1)).
+   Elements are tagged by hero-title.js with data-pfx-ht="<role>". Everything is scoped under
+   html.pfx-hero-title so ?pfxOff=hero-title restores the original hero. */
+
+html.pfx-hero-title section[data-pfx="hero"] {
+  /* Taller, column flow: copy on top, the hero-covers slot underneath (never over the CTAs). */
+  height: auto !important;
+  min-height: max(100svh, 860px) !important;
+  flex-direction: column;
+  justify-content: flex-start !important;
+  align-items: center;
+  padding-top: clamp(128px, 16vh, 160px);
+  padding-bottom: clamp(40px, 6vh, 72px);
+  isolation: isolate;
+  overflow: clip;
+}
+
+/* Replace the flat 55% black with the prototype's cinematic .hero:after gradient
+   (dark top → clear middle → soft bottom), plus the brand's arcane violet tint. */
+html.pfx-hero-title section[data-pfx="hero"] > [data-pfx-ht="overlay"] {
+  background:
+    radial-gradient(120% 70% at 50% 0%, rgba(26, 15, 61, .55) 0%, rgba(26, 15, 61, .18) 45%, transparent 70%),
+    linear-gradient(180deg, rgba(26, 15, 61, 0) 40%, rgba(26, 15, 61, .28) 78%, rgba(26, 15, 61, .10) 100%),
+    linear-gradient(180deg, #080b0be8 0%, #080b0bce 19%, #080b0b99 32%, #080b0b18 55%, transparent 76%, #0b100d88 100%) !important;
+}
+html.pfx-hero-title section[data-pfx="hero"] > [data-pfx-ht="fade"] {
+  background: linear-gradient(180deg, transparent 0%, rgba(11, 13, 11, .75) 55%, #0a0a0b 100%) !important;
+}
+
+/* Copy column (.hero-copy) */
+html.pfx-hero-title [data-pfx-ht="copy"] {
+  max-width: 62rem !important;
+  width: 100%;
+  animation: none !important;          /* the old 'rise' is replaced by the word reveal */
+  flex: 0 0 auto;
+  will-change: transform, opacity;
+}
+
+/* .rune-divider — hairlines + gold rune, drawn as one pseudo-element above the logo.
+   Prototype: flex gap 15px, 110px hairlines (transparent → #d4a017), the rune mark
+   linear-gradient(45deg, … #cda84e 43–50% …) centred at 12px, height 30px. */
+html.pfx-hero-title [data-pfx-ht="copy"]::before {
+  content: "";
+  display: block;
+  width: 235px;
+  height: 30px;
+  margin: 0 auto 14px;
+  background:
+    linear-gradient(45deg, transparent 42%, #cda84e 43%, #cda84e 50%, transparent 51%) center / 12px 12px no-repeat,
+    linear-gradient(90deg, transparent, #d4a017) left center / 110px 1px no-repeat,
+    linear-gradient(270deg, transparent, #d4a017) right center / 110px 1px no-repeat;
+  filter: drop-shadow(0 0 6px rgba(212, 160, 23, .35));
+}
+
+html.pfx-hero-title [data-pfx-ht="logo"] {
+  width: clamp(190px, 21vw, 300px) !important;
+  margin-bottom: 10px !important;
+  filter: drop-shadow(0 4px 14px rgba(0, 0, 0, .9)) drop-shadow(0 0 28px rgba(212, 160, 23, .12)) !important;
+}
+
+/* Engraved gold headline (h1#hero-title in the prototype) */
+html.pfx-hero-title [data-pfx-ht="headline"] {
+  font-family: var(--pfx-display, 'Cinzel', Georgia, serif) !important;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--pfx-gold-title, #ecd49c) !important;
+  -webkit-text-fill-color: var(--pfx-gold-title, #ecd49c);
+  font-size: clamp(24px, 2.7vw, 40px) !important;
+  line-height: 1.1 !important;
+  letter-spacing: -.02em;
+  text-shadow: 0 3px 25px #0b0b0ba0, 0 1px 0 rgba(0, 0, 0, .55);
+  margin: 0 auto 18px !important;
+  max-width: 60rem;
+  text-wrap: balance;
+}
+html.pfx-hero-title [data-pfx-ht="headline"] .pfx-ht-word {
+  display: inline-block;
+  color: inherit;
+  -webkit-text-fill-color: var(--pfx-gold-title, #ecd49c);
+  background: none;
+}
+
+/* Parchment tagline (.hero-copy p) */
+html.pfx-hero-title [data-pfx-ht="tagline"] {
+  font-family: var(--pfx-body, 'Crimson Text', 'EB Garamond', Georgia, serif) !important;
+  color: var(--pfx-body-copy, #d0c5b2) !important;
+  font-size: clamp(17px, 1.45vw, 21px) !important;
+  line-height: 1.5 !important;
+  letter-spacing: .01em !important;
+  text-shadow: 0 2px 10px #000;
+  max-width: 720px;
+  margin: 0 auto 26px !important;
+}
+
+/* Stat strip — Cinzel gold */
+html.pfx-hero-title [data-pfx-ht="stats"] {
+  margin-top: 34px !important;
+  gap: 0 !important;
+  justify-content: center;
+}
+html.pfx-hero-title [data-pfx-ht="stats"] > div {
+  position: relative;
+  padding: 2px clamp(16px, 2.4vw, 34px);
+}
+html.pfx-hero-title [data-pfx-ht="stats"] > div + div::before {
+  content: "";
+  position: absolute; left: 0; top: 18%; bottom: 18%;
+  width: 1px;
+  background: linear-gradient(180deg, transparent, rgba(212, 160, 23, .55), transparent);
+}
+html.pfx-hero-title [data-pfx-ht="stats"] > div > div:first-child {
+  font-family: var(--pfx-display, 'Cinzel', Georgia, serif) !important;
+  font-weight: 600;
+  color: var(--pfx-gold-title, #ecd49c) !important;
+  font-size: clamp(20px, 1.9vw, 28px) !important;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, .8), 0 0 18px rgba(212, 160, 23, .18);
+}
+html.pfx-hero-title [data-pfx-ht="stats"] > div > div:last-child {
+  font-family: var(--pfx-display, 'Cinzel', Georgia, serif) !important;
+  color: var(--pfx-muted, #c1b6a2) !important;
+  font-size: 10px !important;
+  letter-spacing: .22em !important;
+}
+
+/* The hero-covers slot sits in flow underneath the copy, above the overlays. */
+html.pfx-hero-title section[data-pfx="hero"] > [data-pfx-slot="hero-covers"] {
+  position: relative;
+  z-index: 5;
+  width: 100%;
+  flex: 0 0 auto;
+}
+
+/* ---- Entrance (prototype .motion-word and [data-motion]) ----
+   Hidden states only apply once JS armed the hero (data-pfx-ht-armed), so the copy is
+   never invisible if the script fails. */
+html.pfx-hero-title [data-pfx-ht-armed] .pfx-ht-word {
+  opacity: 0;
+  transform: translate3d(0, 28px, 0);
+  transition: opacity .85s cubic-bezier(.16, 1, .3, 1), transform .85s cubic-bezier(.16, 1, .3, 1);
+  transition-delay: calc(var(--word-index) * 65ms + var(--enter-delay, 0ms));
+}
+html.pfx-hero-title [data-pfx-ht-armed] [data-pfx-ht-motion] {
+  opacity: 0;
+  transform: translate3d(0, 22px, 0);
+  transition: opacity .8s cubic-bezier(.16, 1, .3, 1), transform .8s cubic-bezier(.16, 1, .3, 1);
+  transition-delay: var(--enter-delay, 0ms);
+}
+html.pfx-hero-title [data-pfx-ht-armed].is-visible .pfx-ht-word,
+html.pfx-hero-title [data-pfx-ht-armed].is-visible [data-pfx-ht-motion] {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+}
+/* The divider draws in with the copy */
+html.pfx-hero-title [data-pfx-ht-armed] [data-pfx-ht="copy"]::before {
+  opacity: 0; transform: scaleX(.4);
+  transition: opacity .8s cubic-bezier(.16, 1, .3, 1), transform 1.1s cubic-bezier(.16, 1, .3, 1);
+}
+html.pfx-hero-title [data-pfx-ht-armed].is-visible [data-pfx-ht="copy"]::before { opacity: 1; transform: none; }
+
+@media (max-width: 760px) {
+  html.pfx-hero-title section[data-pfx="hero"] { padding-top: 104px; min-height: max(100svh, 760px) !important; }
+  html.pfx-hero-title [data-pfx-ht="copy"]::before { width: 150px; height: 22px; background-size: 12px 12px, 60px 1px, 60px 1px; }
+  html.pfx-hero-title [data-pfx-ht="headline"] { font-size: clamp(22px, 6.4vw, 30px) !important; line-height: 1.12 !important; }
+  html.pfx-hero-title [data-pfx-ht="tagline"] { font-size: 16px !important; line-height: 1.4 !important; }
+  html.pfx-hero-title [data-pfx-ht="stats"] { margin-top: 24px !important; display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 16px !important; max-width: 340px; margin-left: auto !important; margin-right: auto !important; }
+  html.pfx-hero-title [data-pfx-ht="stats"] > div { padding: 2px 10px; }
+  html.pfx-hero-title [data-pfx-ht="stats"] > div:nth-child(odd)::before { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.pfx-hero-title [data-pfx-ht-armed] .pfx-ht-word,
+  html.pfx-hero-title [data-pfx-ht-armed] [data-pfx-ht-motion],
+  html.pfx-hero-title [data-pfx-ht-armed] [data-pfx-ht="copy"]::before {
+    opacity: 1; transform: none; transition: none;
+  }
+  html.pfx-hero-title [data-pfx-ht="copy"] { will-change: auto; }
+}

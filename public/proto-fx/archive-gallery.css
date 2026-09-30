@@ -1,0 +1,434 @@
+/* proto-fx piece: archive-gallery — the Card List page and the Deck Builder "Card Database" laid out as the
+   prototype's custom gallery (section#all-cards). Ported from the prototype:
+     .custom-gallery{padding:var(--chapter-space) 7%;background:linear-gradient(#0c1010f5,#10150efb,#120e1afa)}
+     .section-head{text-align:center;max-width:680px;margin:auto}
+     .eyebrow{font:11px var(--display);letter-spacing:.24em;color:#dfbb70;display:flex;justify-content:center;gap:16px;text-transform:uppercase}
+     .eyebrow:before{content:"";width:30px;height:1px;background:#d4a017}
+     h2{font:500 clamp(36px,4.3vw,66px)/1.1 var(--display);letter-spacing:-.045em;margin:28px 0 32px}
+     .section-subtitle{font-size:20px;line-height:1.75;color:#d0c5b2;max-width:48ch;margin:auto}
+     .custom-grid{grid-template-columns:repeat(3,minmax(0,1fr));max-width:1140px;gap:72px 50px;margin:var(--group-space) auto 0}
+     .custom-card img{width:100%;aspect-ratio:2/3;object-fit:contain;filter:drop-shadow(0 8px 15px #060b0980)}
+     .custom-card span{display:block;font:14px var(--display);padding-top:24px;color:#e9d4a6;line-height:1.5;min-height:56px}
+     @media(max-width:1000px){.custom-grid{gap:54px 30px}}
+     @media(max-width:760px){.custom-card span{font-size:11px}}
+     @media(max-width:600px){--chapter-space:90px;--group-space:60px;.custom-grid{grid-template-columns:repeat(2,..);gap:48px 22px}.custom-card span{padding-top:18px}}
+   The hover motion itself (translateY(-8px) rotate(-1deg), .3s) belongs to the card-hover piece. JS marks the
+   React nodes with data-pfx-archive* attributes (never classes, so React re-renders cannot drop them). */
+
+html.pfx-archive-gallery [data-pfx-archive] {
+  --pfx-ag-chapter: clamp(100px, 10vw, 170px);
+  --pfx-ag-group: clamp(72px, 7vw, 112px);
+  position: relative;
+  padding-top: var(--pfx-ag-chapter) !important;
+  padding-bottom: var(--pfx-ag-chapter) !important;
+  padding-left: 7% !important;
+  padding-right: 7% !important;
+  background: linear-gradient(#0c1010, #10150e, #120e1a) !important;
+  /* The prototype's #all-cards is flat near-black: sit above the fixed ambient weather layer (z 1) so
+     neither it nor the lighter page band above shows through. Nav (z 50) and modals stay on top. */
+  z-index: 2;
+  isolation: isolate;
+  color: var(--pfx-ice, #f3e8cf);
+  font-family: var(--pfx-body, 'Crimson Text', Georgia, serif);
+}
+/* The page header loses its hazard stripe and its orange/violet glow. */
+html.pfx-archive-gallery [data-pfx-archive] > .h-px.absolute,
+html.pfx-archive-gallery [data-pfx-archive] > .absolute.inset-0.pointer-events-none { display: none !important; }
+html.pfx-archive-gallery [data-pfx-archive] > .max-w-7xl { max-width: none; }
+
+/* ---------- section head ---------- */
+html.pfx-archive-gallery [data-pfx-archive-headwrap] { margin-bottom: 0 !important; }
+html.pfx-archive-gallery [data-pfx-archive-headwrap] > :not([data-pfx-archive-head]) { display: none !important; }
+html.pfx-archive-gallery [data-pfx-archive-head] {
+  text-align: center;
+  max-width: 680px;
+  margin: 0 auto;
+}
+html.pfx-archive-gallery [data-pfx-archive-head] .pfx-ag-eyebrow {
+  font: 11px var(--pfx-display);
+  letter-spacing: .24em;
+  color: var(--pfx-gold-soft, #dfbb70);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  text-transform: uppercase;
+  margin: 0;
+}
+html.pfx-archive-gallery [data-pfx-archive-head] .pfx-ag-eyebrow::before {
+  content: "";
+  width: 30px;
+  height: 1px;
+  background: var(--pfx-gold, #d4a017);
+}
+html.pfx-archive-gallery [data-pfx-archive-head] h2 {
+  font: 500 clamp(36px, 4.3vw, 66px)/1.1 var(--pfx-display);
+  letter-spacing: -.045em;
+  color: var(--pfx-ice, #f3e8cf);
+  margin: 28px 0 32px;
+  text-wrap: balance;
+}
+html.pfx-archive-gallery [data-pfx-archive-head] .pfx-ag-subtitle {
+  font-size: 20px;
+  line-height: 1.75;
+  color: var(--pfx-body-copy, #d0c5b2);
+  max-width: 48ch;
+  margin: 0 auto;
+}
+
+/* ---------- search + filters (Card List) ---------- */
+html.pfx-archive-gallery [data-pfx-archive-filters] {
+  max-width: 1140px;
+  margin: var(--pfx-ag-group) auto 0 !important;
+}
+html.pfx-archive-gallery [data-pfx-archive-filters] > :not(:first-child) { margin-top: 14px !important; }
+html.pfx-archive-gallery [data-pfx-archive-filters] input {
+  background: transparent !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--pfx-line, rgba(212, 160, 23, .28)) !important;
+  border-radius: 0 !important;
+  padding: 14px 2px !important;
+  font: 19px var(--pfx-body) !important;
+  color: var(--pfx-ice, #f3e8cf) !important;
+  transition: border-color .2s;
+}
+html.pfx-archive-gallery [data-pfx-archive-filters] input::placeholder { color: #8f8672 !important; font-style: italic; }
+html.pfx-archive-gallery [data-pfx-archive-filters] input:focus { border-bottom-color: var(--pfx-gold, #d4a017) !important; }
+html.pfx-archive-gallery [data-pfx-archive-filters] .flex-wrap { gap: 4px 26px !important; justify-content: center; }
+/* Filter chips read as the prototype's survivor filters: text tabs with a gold underline when chosen. */
+html.pfx-archive-gallery [data-pfx-archive-filters] button,
+html.pfx-archive-gallery [data-pfx-archive-factions] button {
+  background: none !important;
+  border: 0 !important;
+  border-bottom: 2px solid transparent !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 12px 0 !important;
+  font: 12px var(--pfx-display) !important;
+  letter-spacing: .1em !important;
+  color: #aaa38e !important;
+  transition: color .2s, border-bottom-color .2s, opacity .2s;
+}
+html.pfx-archive-gallery [data-pfx-archive-filters] button:hover,
+html.pfx-archive-gallery [data-pfx-archive-factions] button:hover { color: #fff !important; }
+html.pfx-archive-gallery [data-pfx-archive-filters] button.bg-orange-600,
+html.pfx-archive-gallery [data-pfx-archive-filters] button.bg-stone-700,
+html.pfx-archive-gallery [data-pfx-archive-factions] button.bg-gradient-to-r {
+  color: var(--pfx-gold-title, #ecd49c) !important;
+  border-bottom-color: var(--pfx-gold, #d4a017) !important;
+}
+/* Rarity chips keep their rarity colour; the chosen one is underlined in it. */
+html.pfx-archive-gallery [data-pfx-archive-filters] button[data-pfx-rarity] { color: var(--pfx-rc) !important; opacity: .72; }
+html.pfx-archive-gallery [data-pfx-archive-filters] button[data-pfx-rarity]:hover { opacity: 1; }
+html.pfx-archive-gallery [data-pfx-archive-filters] button[data-pfx-rarity][data-pfx-on] {
+  opacity: 1;
+  border-bottom-color: var(--pfx-rc) !important;
+}
+html.pfx-archive-gallery [data-pfx-archive-count] {
+  max-width: 1140px;
+  margin: 26px auto 0 !important;
+  justify-content: center !important;
+}
+html.pfx-archive-gallery [data-pfx-archive-count] > div {
+  font: 10px var(--pfx-display) !important;
+  letter-spacing: .24em;
+  text-transform: uppercase;
+  color: #a79a7a !important;
+}
+
+/* ---------- the gallery grid ---------- */
+html.pfx-archive-gallery [data-pfx-archive-grid] {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 72px 50px !important;
+  align-items: start !important;
+  max-width: 1140px;
+  margin: var(--pfx-ag-group) auto 0 !important;
+}
+html.pfx-archive-gallery [data-pfx-archive-count] + [data-pfx-archive-grid] { margin-top: 56px !important; }
+html.pfx-archive-gallery [data-pfx-archive-grid="coming"] {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 56px 36px !important;
+  margin-top: 40px !important;
+}
+
+/* A Card List thumb becomes a prototype .custom-card: frameless cover + Cinzel name below. */
+html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"] {
+  display: block;
+  width: 100%;
+  background: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  overflow: visible !important;
+  padding: 0;
+  color: var(--pfx-ice, #f3e8cf);
+  text-align: left;
+}
+html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"]:hover,
+html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"]:focus-visible { box-shadow: none !important; }
+html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"]:focus-visible { outline: 1px solid var(--pfx-gold-border, #cda84e); outline-offset: 8px; }
+/* the art box */
+html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"] > div:first-child {
+  aspect-ratio: 2 / 3 !important;
+  background: none !important;
+  overflow: visible !important;
+}
+/* Full-card art (a finished card image) is contained like the prototype's covers; raw art keeps React's
+   object-cover so it still fills the 2/3 cover instead of floating letterboxed. */
+html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"] > div:first-child > img {
+  filter: drop-shadow(0 8px 15px #060b0980);
+  transform: none !important;
+}
+/* Placeholder name only when there is no art (or it failed to load). */
+html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"] > div:first-child > img:not([style*="none"]) + div { display: none !important; }
+html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"] > div:first-child:not(:has(> img:not([style*="none"]))) {
+  background: radial-gradient(ellipse at 50% 30%, #d4a0171c, #0d130f 72%) !important;
+  border: 1px solid #b6924944;
+}
+html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"] > div:first-child > div.inset-0 > span {
+  font: 15px/1.4 var(--pfx-display) !important;
+  color: var(--pfx-gold-soft, #dfbb70) !important;
+  opacity: .55 !important;
+}
+/* Rarity + number chips: the prototype's .survivor-rarity tag, shown on hover/focus. */
+html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"] > div:first-child > div.top-1\.5 {
+  top: 13px !important;
+  padding: 6px 9px !important;
+  border-radius: 0 !important;
+  background: #10140fe8 !important;
+  border: 1px solid #b6924966 !important;
+  font: 9px var(--pfx-display) !important;
+  letter-spacing: .1em !important;
+  opacity: 0;
+  transition: opacity .3s ease;
+}
+html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"] > div:first-child > div.left-1\.5 { left: 13px !important; }
+html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"] > div:first-child > div.right-1\.5 { right: 13px !important; color: #ecd49c !important; }
+html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"]:hover > div:first-child > div.top-1\.5,
+html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"]:focus-visible > div:first-child > div.top-1\.5 { opacity: 1; }
+@media (hover: none) {
+  html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"] > div:first-child > div.top-1\.5 { opacity: 1; }
+}
+/* Coming Soon ribbon stays, in the brand's gold. */
+html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"] > div:first-child > div.bottom-0 { background: none !important; }
+html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"] > div:first-child > div.bottom-0 > span {
+  border-radius: 0 !important;
+  background: #10140fe8 !important;
+  border-color: #b69249aa !important;
+  color: var(--pfx-gold-title, #ecd49c) !important;
+  font-family: var(--pfx-display) !important;
+  letter-spacing: .14em !important;
+}
+/* the caption: .custom-card span */
+html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"] > div:last-child {
+  background: none !important;
+  padding: 24px 0 0 !important;
+  min-height: 56px;
+}
+html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"] > div:last-child > div:first-child {
+  font: 14px/1.5 var(--pfx-display) !important;
+  color: #e9d4a6 !important;
+  white-space: normal !important;
+  overflow: visible !important;
+}
+/* The prototype caption is the Cinzel name only. */
+html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"] > div:last-child > div:last-child:not(:first-child) { display: none !important; }
+/* card-hover's light band: keep it on the cover, not the caption. */
+html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"]::after {
+  bottom: auto !important;
+  aspect-ratio: 2 / 3;
+  border-radius: 0 !important;
+}
+
+/* ---------- one matched set: every cover is a gold-framed card in the same 2/3 box ----------
+   Prototype covers: ~4px engraved-gold rim, ~8px corners, dark card face, a ~22px gold foot band.
+   kind=raw  (art without its own frame): we draw that frame; the art fills the face full-bleed, and
+             cutout sprites sit on a dark vignette backdrop instead of floating on the page.
+   kind=full (a complete card image): no extra frame; JS zooms it so its own frame fills the box.
+   Only the art box lifts/tilts on hover (card-hover); the name below stays put. */
+html.pfx-archive-gallery [data-pfx-archive] {
+  --pfx-ag-band: linear-gradient(180deg, #f3d465 0%, #e0b433 38%, #c8981f 72%, #a97c15 100%);
+  --pfx-ag-face: radial-gradient(ellipse 85% 70% at 50% 42%, #2c2a22 0%, #16170f 58%, #0a0c09 100%);
+}
+html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"][data-pfx-ag-kind] > div:first-child {
+  width: 100%;
+  box-sizing: border-box;
+  filter: drop-shadow(0 8px 15px #060b0980) !important;
+}
+html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"][data-pfx-ag-kind]:hover > div:first-child,
+html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"][data-pfx-ag-kind]:focus-visible > div:first-child {
+  filter: drop-shadow(0 8px 15px #060b0980) drop-shadow(0 0 10px rgba(212, 160, 23, .25)) !important;
+}
+html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"][data-pfx-ag-kind="raw"] > div:first-child,
+html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"][data-pfx-ag-kind="raw"] > div:first-child:not(:has(> img:not([style*="none"]))) {
+  border: 6px solid #c99a2e !important;
+  border-color: #e2bb4c #c2922a #a87d1a #cfa236 !important;
+  border-radius: 12px !important;
+  background: var(--pfx-ag-face) !important;
+  overflow: hidden !important;
+  box-shadow: inset 0 0 0 1px #fff0b44d !important;
+}
+/* the gold foot band */
+html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"][data-pfx-ag-kind="raw"] > div:first-child::before {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 6%;
+  z-index: 3;
+  background: var(--pfx-ag-band);
+  border-top: 2px solid #7e5c12;
+  box-shadow: inset 0 1px 0 #fff3c080, inset 0 -1px 0 #6a4b0c;
+  pointer-events: none;
+}
+html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"][data-pfx-ag-kind="raw"] > div:first-child > img {
+  position: relative;
+  z-index: 1;
+  width: 100% !important;
+  height: 94% !important;
+  object-fit: cover !important;
+  object-position: 50% 40%;
+  filter: none !important;
+}
+/* Placeholder name on the face, above the band; chips and the Coming Soon ribbon above the art. */
+html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"][data-pfx-ag-kind="raw"] > div:first-child > div.inset-0 { z-index: 2; bottom: 6%; }
+html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"][data-pfx-ag-kind] > div:first-child > div.top-1\.5 { z-index: 4; }
+html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"][data-pfx-ag-kind="raw"] > div:first-child > div.bottom-0 { z-index: 4; bottom: 6% !important; }
+html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"][data-pfx-ag-kind="full"] > div:first-child > div.bottom-0 { bottom: 5% !important; }
+/* complete card image: frameless box, the card's own frame zoomed to fill it */
+html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"][data-pfx-ag-kind="full"] > div:first-child {
+  border: 0 !important;
+  border-radius: 12px !important;
+  background: none !important;
+}
+html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"][data-pfx-ag-kind="full"] > div:first-child > img,
+html.pfx-archive-gallery [data-pfx-archive-cell] [data-pfx="card"][data-pfx-ag-kind="full"] > img {
+  object-fit: contain !important;
+  transform-origin: var(--pfx-ag-ox, 50%) var(--pfx-ag-oy, 50%);
+  transform: translate(var(--pfx-ag-tx, 0%), var(--pfx-ag-ty, 0%)) scale(var(--pfx-ag-s, 1)) !important;
+}
+
+/* Deck Builder: the real <Card>'s clean site frame becomes the same gold card — rarity border -> gold rim,
+   in-card name bar -> the gold foot band (the name shows once, under the card), chips hidden. */
+html.pfx-archive-gallery [data-pfx-archive-cell] [data-pfx="card"][data-pfx-ag-kind="raw"] {
+  border: 6px solid #c99a2e !important;
+  border-color: #e2bb4c #c2922a #a87d1a #cfa236 !important;
+  border-radius: 12px !important;
+  background: var(--pfx-ag-face) !important;
+  box-shadow: inset 0 0 0 1px #fff0b44d, 0 8px 15px #060b0980 !important;
+}
+html.pfx-archive-gallery [data-pfx-archive-cell] [data-pfx="card"][data-pfx-ag-kind="raw"] > div:first-child { background: none !important; }
+html.pfx-archive-gallery [data-pfx-archive-cell] [data-pfx="card"][data-pfx-ag-kind="raw"] > div:first-child > img { object-position: 50% 40%; }
+html.pfx-archive-gallery [data-pfx-archive-cell] [data-pfx="card"][data-pfx-ag-kind="raw"] > div:first-child > div.absolute { display: none !important; }
+html.pfx-archive-gallery [data-pfx-archive-cell] [data-pfx="card"][data-pfx-ag-kind="raw"] > div:last-child {
+  height: 6%;
+  padding: 0 !important;
+  background: var(--pfx-ag-band) !important;
+  border-top: 2px solid #7e5c12;
+  box-shadow: inset 0 1px 0 #fff3c080, inset 0 -1px 0 #6a4b0c;
+}
+html.pfx-archive-gallery [data-pfx-archive-cell] [data-pfx="card"][data-pfx-ag-kind="raw"] > div:last-child > * { display: none !important; }
+
+/* Coming Drops heading in the prototype's chapter voice. */
+html.pfx-archive-gallery [data-pfx-archive-coming] {
+  max-width: 1140px;
+  margin: var(--pfx-ag-group) auto 0 !important;
+}
+html.pfx-archive-gallery [data-pfx-archive-coming] > div:first-child h2 {
+  font: 500 clamp(24px, 2.4vw, 34px)/1.12 var(--pfx-display) !important;
+  letter-spacing: -.035em !important;
+  color: var(--pfx-ice, #f3e8cf) !important;
+}
+html.pfx-archive-gallery [data-pfx-archive-coming] > div:first-child > span:first-child { background: var(--pfx-gold, #d4a017) !important; }
+html.pfx-archive-gallery [data-pfx-archive-coming] > div:first-child > span:not(:first-child) {
+  font: 10px var(--pfx-display) !important;
+  letter-spacing: .2em !important;
+  color: var(--pfx-gold-soft, #dfbb70) !important;
+}
+html.pfx-archive-gallery [data-pfx-archive-coming] > div:first-child > div.h-px { background: linear-gradient(90deg, var(--pfx-line), transparent) !important; }
+html.pfx-archive-gallery [data-pfx-archive-grid="coming"] > div > div:last-child > span {
+  font: 10px var(--pfx-display) !important;
+  letter-spacing: .16em !important;
+  color: var(--pfx-gold-soft, #dfbb70) !important;
+}
+html.pfx-archive-gallery [data-pfx-archive] .py-16.text-center {
+  font: italic 20px var(--pfx-body);
+  color: #a79a7a !important;
+}
+
+/* ---------- Deck Builder: Card Database ---------- */
+html.pfx-archive-gallery [data-pfx-archive-factions] {
+  gap: 4px 34px !important;
+  margin: var(--pfx-ag-group) auto 0 !important;
+}
+/* Each cell: the real <Card> fills the column at 2/3, name under it, "+ Load card" on the art's foot. */
+html.pfx-archive-gallery [data-pfx-archive-cell] { display: block; min-width: 0; }
+html.pfx-archive-gallery [data-pfx-archive-cell] > div:first-child {
+  width: 100% !important;
+  height: auto !important;
+  aspect-ratio: 2 / 3;
+  animation: none !important;
+}
+html.pfx-archive-gallery [data-pfx-archive-cell]::after {
+  content: attr(data-pfx-name);
+  display: block;
+  font: 14px/1.5 var(--pfx-display);
+  color: #e9d4a6;
+  padding-top: 24px;
+  min-height: 56px;
+}
+html.pfx-archive-gallery [data-pfx-archive-cell] > button {
+  bottom: 64px !important;
+  border-radius: 0 !important;
+  border: 1px solid var(--pfx-gold-border, #cda84e) !important;
+  background: #10140fe8 !important;
+  color: var(--pfx-gold-text, #f3dc9e) !important;
+  font: 11px var(--pfx-display) !important;
+  letter-spacing: .14em !important;
+  padding: 10px 18px !important;
+  box-shadow: 0 8px 18px #060b09a6 !important;
+}
+html.pfx-archive-gallery [data-pfx-archive-cell] > button:hover { background: #1c1a10f0 !important; }
+html.pfx-archive-gallery [data-pfx-archive-cell] > button:focus-visible { opacity: 1 !important; }
+@media (hover: none) {
+  html.pfx-archive-gallery [data-pfx-archive-cell] > button { opacity: 1 !important; }
+}
+
+/* ---------- responsive (prototype breakpoints) ---------- */
+@media (max-width: 1000px) {
+  html.pfx-archive-gallery [data-pfx-archive-grid] { gap: 54px 30px !important; }
+  html.pfx-archive-gallery [data-pfx-archive-grid="coming"] { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+}
+@media (max-width: 760px) {
+  html.pfx-archive-gallery [data-pfx-archive] { padding-left: 22px !important; padding-right: 22px !important; }
+  html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"] > div:last-child > div:first-child,
+  html.pfx-archive-gallery [data-pfx-archive-cell]::after { font-size: 11px !important; }
+  html.pfx-archive-gallery [data-pfx-archive-head] .pfx-ag-eyebrow { font-size: 9px; }
+  html.pfx-archive-gallery [data-pfx-archive-head] h2 { font-size: 35px; }
+  html.pfx-archive-gallery [data-pfx-archive-head] .pfx-ag-subtitle { font-size: 18px; }
+  html.pfx-archive-gallery [data-pfx-archive-filters] .flex-wrap { gap: 0 18px !important; }
+  html.pfx-archive-gallery [data-pfx-archive-filters] button,
+  html.pfx-archive-gallery [data-pfx-archive-factions] button { font-size: 10px !important; }
+}
+@media (max-width: 600px) {
+  html.pfx-archive-gallery [data-pfx-archive] { --pfx-ag-chapter: 90px; --pfx-ag-group: 60px; }
+  html.pfx-archive-gallery [data-pfx-archive-grid],
+  html.pfx-archive-gallery [data-pfx-archive-grid="coming"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 48px 22px !important;
+  }
+  html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"] > div:last-child,
+  html.pfx-archive-gallery [data-pfx-archive-cell]::after { padding-top: 18px !important; }
+  html.pfx-archive-gallery [data-pfx-archive-cell] > button { bottom: 58px !important; padding: 8px 12px !important; font-size: 9px !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"] > div:first-child > div.top-1\.5,
+  html.pfx-archive-gallery [data-pfx-archive-filters] input,
+  html.pfx-archive-gallery [data-pfx-archive-filters] button,
+  html.pfx-archive-gallery [data-pfx-archive-factions] button { transition: none !important; }
+}
+@media (max-width: 600px) {
+  html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"][data-pfx-ag-kind="raw"] > div:first-child,
+  html.pfx-archive-gallery [data-pfx-archive-cell] [data-pfx="card"][data-pfx-ag-kind="raw"] { border-width: 4px !important; border-radius: 9px !important; }
+}

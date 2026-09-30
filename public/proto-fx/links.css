@@ -1,0 +1,52 @@
+/* proto-fx piece: links — every button goes to the right place, and feels like the prototype's.
+   Ported from the prototype's global link/button rules:
+     button,a{-webkit-tap-highlight-color:transparent}  :focus,:focus-visible{outline:none}
+     :is(a,button,input,summary,[tabindex]):focus-visible{outline:2px solid #bce9e4;outline-offset:5px}
+     (#mythic-brand) ...:focus-visible{outline-color:#f3cc72}
+     .card-hit:focus-visible{background:rgba(123,221,207,.12);outline-offset:-8px}
+     html{scroll-padding-top:100px}  .skip{position:fixed;top:-80px;...}.skip:focus{top:20px}
+   Everything is scoped under html.pfx-links so ?pfxOff=links removes it. */
+
+/* Anchor jumps / scrollIntoView (Navbar "About", MSBridge.scrollTo, piece CTAs) land below the
+   fixed navbar instead of under it, as the prototype does with scroll-padding-top.
+   links.js sets --pfx-links-pad from the navbar's real height. */
+html.pfx-links { scroll-padding-top: var(--pfx-links-pad, 84px); }
+
+html.pfx-links a,
+html.pfx-links button,
+html.pfx-links [role="button"] { -webkit-tap-highlight-color: transparent; }
+
+/* Mouse focus: no ring. Keyboard focus: the prototype's engraved-gold ring, 5px out. */
+html.pfx-links :is(a, button, input, summary, [tabindex]):focus:not(:focus-visible) { outline: none; }
+html.pfx-links :is(a, button, input, summary, [tabindex]):focus-visible {
+  outline: 2px solid #f3cc72;
+  outline-offset: 5px;
+}
+/* Card tiles focus inside their frame with a faint ice wash (prototype .card-hit). */
+html.pfx-links [data-pfx="card-thumb"]:focus-visible {
+  outline-offset: -8px;
+  background-color: rgba(123, 221, 207, .12);
+}
+
+/* Decorative layers that links.js found sitting on top of a real button (it marks them). */
+html.pfx-links [data-pfx-passthru] { pointer-events: none !important; }
+
+/* "Skip to the cards": the prototype's first focusable element (.skip). Hidden until keyboard focus.
+   Prototype: sentence case in the body serif, no tracking, ice on ink, 12px 20px, top -80px -> 20px. */
+html.pfx-links .pfx-skip {
+  position: fixed; top: -80px; left: 20px; z-index: 10000;
+  background: var(--pfx-ice, #f3e8cf); color: var(--pfx-ink, #0b0d0b);
+  padding: 12px 20px;
+  font-family: var(--pfx-body, 'Crimson Text', Georgia, serif); font-size: 16px; font-weight: 400; line-height: 1.5;
+  text-transform: none; letter-spacing: 0; font-variant: normal;
+  text-decoration: none;
+}
+html.pfx-links .pfx-skip:focus,
+html.pfx-links .pfx-skip:focus-visible { top: 20px; }
+
+/* Nav keyboard ring: the prototype's solid #f3cc72, 2px, 5px out (its #mythic-brand override).
+   Higher specificity than the header band's dimmer 50% gold ring. */
+html.pfx-links.pfx-links nav[data-pfx="nav"] :is(a, button, [tabindex]):focus-visible {
+  outline: 2px solid #f3cc72;
+  outline-offset: 5px;
+}

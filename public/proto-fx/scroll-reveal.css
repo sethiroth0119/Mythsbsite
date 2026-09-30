@@ -1,0 +1,40 @@
+/* proto-fx piece: scroll-reveal — the prototype's reveal-on-scroll + gold scroll-progress line.
+   Prototype source: .motion-active [data-motion]{opacity:0;transform:translate3d(0,Npx,0);
+   transition:opacity .8s cubic-bezier(.16,1,.3,1),transform .8s cubic-bezier(.16,1,.3,1);
+   transition-delay:var(--enter-delay)} + .progress{position:fixed;top:0;left:0;height:2px;background:#d4a017}.
+   Nothing here hides anything unless scroll-reveal.js has tagged the element (.pfx-rv-h), so a JS
+   failure leaves the page fully visible. */
+
+/* Hidden (pending) state — only ever set by JS, on elements that were below the fold. */
+html.pfx-scroll-reveal .pfx-rv-h {
+  opacity: 0 !important;
+  transform: translate3d(0, 28px, 0) !important;
+}
+/* Transition applied while an element travels from hidden to its natural state; removed when done. */
+html.pfx-scroll-reveal .pfx-rv-t {
+  transition: opacity .8s cubic-bezier(.16, 1, .3, 1), transform .8s cubic-bezier(.16, 1, .3, 1) !important;
+  transition-delay: var(--pfx-rv-delay, 0ms) !important;
+  will-change: opacity, transform;
+}
+
+/* Scroll progress line — fixed 2px gold rule at the very top, above the nav (z-50) and below modals (z-100). */
+html.pfx-scroll-reveal .pfx-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 90;
+  width: 0;
+  height: 2px;
+  background: var(--pfx-gold, #d4a017);
+  box-shadow: none;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.pfx-scroll-reveal .pfx-rv-h { opacity: 1 !important; transform: none !important; }
+  html.pfx-scroll-reveal .pfx-rv-t { transition: none !important; will-change: auto; }
+}
+@media print {
+  html.pfx-scroll-reveal .pfx-rv-h { opacity: 1 !important; transform: none !important; }
+  html.pfx-scroll-reveal .pfx-progress { display: none; }
+}

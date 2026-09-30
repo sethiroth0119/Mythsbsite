@@ -1,0 +1,304 @@
+/* proto-fx piece: header-band — the prototype's <header> band ported onto the site's fixed Navbar.
+   Source: prototype #mythic-brand  header{height:100px;top:20px;padding:0 30px;border-color:#bc984e70;
+   background:linear-gradient(90deg,#0b0d0bd9,#1a0f3d70,#0b0d0bd9);box-shadow:inset 0 0 0 5px #0b0d0b33}
+   header:before/after = 9px hollow gold diamonds; .brand cell with right divider in var(--line);
+   nav a {600 18px Crimson; #e3d4b3 -> #ffdf8b, transition color .2s}; Play = .angle-button.outline.
+   Everything is scoped under html.pfx-header-band so ?pfxOff=header-band restores the old bar.
+   Structure hooks (all from the real Navbar JSX, no classes injected into React nodes):
+     nav > div:first-child                bar
+       > :first-child                     logo / home button
+       > div:nth-child(2)                 desktop links
+       > div:last-child                   right cluster (Shop, Login/Profile, Play <a>, hamburger)
+     nav > div:nth-child(2)               mobile menu (only rendered while open)                */
+
+html.pfx-header-band nav[data-pfx="nav"] {
+  --hb-top: 20px;
+  --hb-h: 100px;
+  --hb-inset: 4%;
+  --hb-pad: 30px;
+  --hb-crest-w: 110px;
+  --hb-crest-h: 91px;
+  position: fixed;
+  top: var(--hb-top) !important;
+  left: var(--hb-inset) !important;
+  right: var(--hb-inset) !important;
+  width: auto;
+  height: var(--hb-h);
+  display: flex;
+  align-items: stretch;
+  isolation: isolate;
+  border: 0;
+  border-top: 1px solid #bc984e70;
+  border-bottom: 1px solid #bc984e70 !important;
+  background: linear-gradient(90deg, #0b0d0bd9, #1a0f3d70, #0b0d0bd9) !important;
+  box-shadow: inset 0 0 0 5px #0b0d0b33;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  font-family: var(--pfx-body);
+  transition: top .35s var(--pfx-ease), height .35s var(--pfx-ease);
+}
+/* Rotated-square caps at both ends (prototype header:before / header:after). */
+html.pfx-header-band nav[data-pfx="nav"]::before,
+html.pfx-header-band nav[data-pfx="nav"]::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 9px;
+  height: 9px;
+  border: 1px solid #d4a017;
+  background: none;
+  pointer-events: none;
+  z-index: -1;
+}
+html.pfx-header-band nav[data-pfx="nav"]::before { left: -5px; transform: translateY(-50%) rotate(45deg); }
+html.pfx-header-band nav[data-pfx="nav"]::after { right: -5px; transform: translateY(-50%) rotate(45deg); }
+
+/* Bar: full band height, prototype padding, no max-width container. */
+html.pfx-header-band nav[data-pfx="nav"] > div:first-child {
+  max-width: none;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0 var(--hb-pad);
+  gap: 0;
+  align-items: center;
+}
+
+/* .brand cell — crest on the left with a gold divider on its right. */
+html.pfx-header-band nav[data-pfx="nav"] > div:first-child > :first-child {
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  height: 100%;
+  padding-right: 30px;
+  border-right: 1px solid var(--pfx-line);
+  opacity: 1;
+}
+html.pfx-header-band nav[data-pfx="nav"] .ms-logo {
+  width: var(--hb-crest-w) !important;
+  height: var(--hb-crest-h) !important;
+  object-fit: contain;
+  /* The site's gold logo PNG carries ~15% transparent margin on each side (art bbox 1425/2000);
+     the prototype crest is edge-to-edge, so scale the art up to the same visible size. */
+  transform: scale(1.4) !important;
+  transform-origin: center center !important;
+  margin-right: 0 !important;
+  filter: none !important;
+  transition: width .35s var(--pfx-ease), height .35s var(--pfx-ease);
+}
+
+/* Desktop links — prototype nav: 600 18px Crimson, gap 30px, margin-left 30px. */
+html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:nth-child(2) {
+  margin: 0 auto 0 30px;
+  gap: clamp(18px, calc(5vw - 44px), 30px);
+  font: 600 clamp(15px, 1.25vw, 18px)/1.2 var(--pfx-body);
+  letter-spacing: normal;
+}
+html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:nth-child(2) > :is(a, button),
+html.pfx-header-band nav[data-pfx="nav"] > div:nth-child(2) :is(a, button) {
+  color: #e3d4b3 !important;
+  font: inherit;
+  letter-spacing: normal;
+  transition: color .2s;
+  background: none;
+}
+html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:nth-child(2) > :is(a, button):hover,
+html.pfx-header-band nav[data-pfx="nav"] > div:nth-child(2) :is(a, button):hover,
+html.pfx-header-band nav[data-pfx="nav"] :is(a, button)[data-hb-active] {
+  color: #ffdf8b !important;
+}
+html.pfx-header-band nav[data-pfx="nav"] :is(a, button):focus-visible {
+  outline: 2px solid #ffdf8b80;
+  outline-offset: 5px;
+}
+
+/* Right cluster: Shop, Login / Profile, Play, hamburger. */
+html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:last-child {
+  gap: 14px;
+  margin-left: auto;
+}
+/* Login — a quiet text link like the nav links. */
+html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:last-child > button:not([aria-expanded]):not([title]) {
+  font: 600 clamp(15px, 1.25vw, 18px)/1.2 var(--pfx-body);
+  color: #e3d4b3;
+  letter-spacing: normal;
+  padding: 6px 4px;
+  transition: color .2s;
+}
+html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:last-child > button:not([aria-expanded]):not([title]):hover { color: #ffdf8b; }
+/* Profile + Shop — slim gold-outlined chips in the header palette. */
+html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:last-child > button[title] {
+  font: 600 12px/1 var(--pfx-display);
+  letter-spacing: .08em;
+  color: #f3dc9e !important;
+  background: #121019a8 !important;
+  border: 1px solid #ae884a80 !important;
+  border-radius: 2px;
+  min-height: 38px;
+  padding: 0 16px;
+  transition: color .2s, border-color .2s;
+}
+html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:last-child > button[title]:hover,
+html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:last-child > button[title][data-hb-active] {
+  color: #ffdf8b !important;
+  border-color: #d4a017 !important;
+}
+
+/* Play — .angle-button.outline from the prototype (engraved gold frame + diamond caps). */
+html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:last-child > a[href] {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  isolation: isolate;
+  /* Prototype .nav-join at rest: 198x50 (padding 16px 35px, normal line box). */
+  min-height: 50px;
+  min-width: 198px;
+  padding: 16px 35px;
+  margin: 0 12px 0 10px;
+  white-space: nowrap;
+  background: #121019a8 !important;
+  border: 1px solid #ae884a !important;
+  border-radius: 2px !important;
+  box-shadow: inset 0 0 0 3px #121019, inset 0 0 0 4px #ae884a40;
+  color: #f3dc9e !important;
+  font: 600 12px/normal var(--pfx-display);
+  letter-spacing: .08em;
+  text-transform: none;
+  text-shadow: 0 1px 2px #0b0b0b;
+  transition: filter .2s, transform .2s;
+}
+html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:last-child > a[href]::before,
+html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:last-child > a[href]::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  background: #172215;
+  border: 1px solid #d4a017;
+  transform: translateY(-50%) rotate(45deg);
+  pointer-events: none;
+}
+html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:last-child > a[href]::before { left: -5px; }
+html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:last-child > a[href]::after { right: -5px; }
+html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:last-child > a[href]:hover {
+  background: linear-gradient(120deg, #304329, #192716) !important;
+  box-shadow: inset 0 0 0 3px #101a10, inset 0 0 0 4px #d4a01790, 0 8px 24px #080b0890;
+  transform: translateY(-2px);
+}
+html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:last-child > a[href]:active { transform: scale(.98); }
+
+/* Hamburger — prototype .menu-toggle: bare glyph in #e2c790, no frame. */
+html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:last-child > button[aria-expanded] {
+  border: 0 !important;
+  background: none !important;
+  width: 42px;
+  height: 46px;
+  margin-left: 0;
+}
+html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:last-child > button[aria-expanded] > span {
+  background: #e2c790 !important;
+  width: 22px;
+}
+html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:last-child > button[aria-expanded]:hover > span { background: #ffdf8b !important; }
+
+/* Mobile menu — prototype "header nav" drop panel: under the band, right-aligned,
+   #10170ff7 with a #b7944d frame, links stacked on the prototype's rhythm. */
+html.pfx-header-band nav[data-pfx="nav"] > div:nth-child(2) {
+  position: absolute;
+  top: calc(100% + 11px);
+  right: 0;
+  min-width: 210px;
+  max-height: calc(100vh - var(--hb-top) - var(--hb-h) - 24px);
+  overflow-y: auto;
+  background: #10170ff7 !important;
+  border: 1px solid #b7944d !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  animation: hb-drop .22s var(--pfx-ease);
+}
+html.pfx-header-band nav[data-pfx="nav"] > div:nth-child(2) > div {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 22px;
+  padding: 25px 30px;
+  max-width: none;
+  margin: 0;
+  font: 600 18px/1.2 var(--pfx-body);
+}
+html.pfx-header-band nav[data-pfx="nav"] > div:nth-child(2) > div > :is(a, button) {
+  padding: 0;
+  border-radius: 0;
+  font: inherit;
+}
+html.pfx-header-band nav[data-pfx="nav"] > div:nth-child(2) > div > :is(a, button):hover { background: none; }
+@keyframes hb-drop { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+
+/* Decluttered band: like the prototype (crest, a handful of links, CTA, menu glyph) the band
+   carries only the primary links; the full list — every item, same React handlers — lives in
+   the drop panel behind the menu glyph, which now shows at every width.
+   Link order in the JSX: 1 Home, 2 About, 3 News, 4 Survivor, 5 Card List, 6 Lore,
+   7 Broadcast, 8 RMT, 9 Community, 10 Deck Builder. Home = the crest; the rest are in the panel. */
+@media (min-width: 1024px) {
+  html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:nth-child(2) > :is(:nth-child(1), :nth-child(2), :nth-child(7), :nth-child(8), :nth-child(9)) { display: none !important; }
+  html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:last-child > button[aria-expanded] { display: flex !important; }
+  html.pfx-header-band nav[data-pfx="nav"] > div:nth-child(2) { display: block !important; }
+}
+/* Between the lg breakpoint and 1280px even five links crowd the band, so the menu takes them all. */
+@media (min-width: 1024px) and (max-width: 1279px) {
+  html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:nth-child(2) { display: none !important; }
+}
+/* Mirror of Login / Profile injected into the drop panel by header-band.js (phones only). */
+html.pfx-header-band nav[data-pfx="nav"] [data-hb-account] { display: none; }
+
+/* Compact state: once the page scrolls (or on inner pages whose content starts ~90px down)
+   the band tightens so it never covers content; same frame, same caps. */
+html.pfx-header-band.pfx-hb-compact nav[data-pfx="nav"] {
+  --hb-top: 8px;
+  --hb-h: 68px;
+  --hb-crest-w: 72px;
+  --hb-crest-h: 60px;
+  background: linear-gradient(90deg, #0b0d0bf0, #1a0f3dd0, #0b0d0bf0) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+}
+
+/* Prototype @media(max-width:1050px): header{left:5%;width:90%;padding:0 16px} .brand{padding-right:20px} */
+@media (max-width: 1050px) {
+  html.pfx-header-band nav[data-pfx="nav"] { --hb-inset: 5%; --hb-pad: 16px; }
+  html.pfx-header-band nav[data-pfx="nav"] > div:first-child > :first-child { padding-right: 20px; }
+}
+/* Prototype @media(max-width:760px): header{height:76px;top:16px;left:7%;width:86%;padding:0 10px}
+   .brand{border:0;padding-right:10px} .brand img{74x69} .nav-join{min-height:36px;padding:10px 15px;font-size:9px} */
+@media (max-width: 760px) {
+  html.pfx-header-band nav[data-pfx="nav"] {
+    --hb-top: 16px; --hb-h: 76px; --hb-inset: 7%; --hb-pad: 10px;
+    --hb-crest-w: 74px; --hb-crest-h: 69px;
+  }
+  html.pfx-header-band.pfx-hb-compact nav[data-pfx="nav"] {
+    --hb-top: 8px; --hb-h: 62px; --hb-crest-w: 60px; --hb-crest-h: 54px;
+  }
+  html.pfx-header-band nav[data-pfx="nav"] > div:first-child > :first-child { border-right: 0; padding-right: 10px; }
+  /* Prototype phone header = crest + CTA + menu glyph only: Login / Profile move into the drop panel. */
+  html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:last-child { gap: 0; }
+  html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:last-child > button:not([aria-expanded]) { display: none !important; }
+  html.pfx-header-band nav[data-pfx="nav"] [data-hb-account] { display: block; }
+  /* .nav-join @760: min-height 36px, padding 10px 15px, 9px — measured 127x36 in the prototype. */
+  html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:last-child > a[href] {
+    min-height: 36px; min-width: 127px; padding: 10px 15px; font-size: 9px; margin: 0 16px 0 0;
+  }
+  html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:last-child > button[aria-expanded] { width: 36px; }
+}
+@media (max-width: 360px) {
+  html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:last-child > a[href] { min-width: 108px; padding: 9px 12px; margin-right: 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.pfx-header-band nav[data-pfx="nav"],
+  html.pfx-header-band nav[data-pfx="nav"] *,
+  html.pfx-header-band nav[data-pfx="nav"] *::before,
+  html.pfx-header-band nav[data-pfx="nav"] *::after { transition: none !important; animation: none !important; }
+  html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:last-child > a[href]:hover { transform: none; }
+}

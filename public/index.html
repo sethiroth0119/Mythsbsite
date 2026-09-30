@@ -113,6 +113,8 @@
     50%     { opacity: 0.5; transform: scale(0.7); }
   }
 </style>
+<!-- proto-fx: prototype look & effects, one CSS/JS pair per piece (see proto-fx/loader.js). -->
+<script src="./proto-fx/loader.js"></script>
 </head>
 <body>
 
@@ -553,6 +555,7 @@ const Card = ({ card: _cardIn, onClick, size = 'md', floating = true, intensity 
       <div className={`relative ${sizes[size]} cursor-pointer flex-shrink-0`} style={{ perspective: '1500px', animation: floating && !isHovered ? 'float-card 6s ease-in-out infinite' : 'none' }}>
         <div
           ref={cardRef}
+          data-pfx="card" data-card-name={card.name}
           onMouseMove={handleMouseMove}
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={handleLeave}
@@ -594,6 +597,7 @@ const Card = ({ card: _cardIn, onClick, size = 'md', floating = true, intensity 
     <div className={`relative ${sizes[size]} cursor-pointer flex-shrink-0`} style={{ perspective: '1500px', animation: floating && !isHovered ? 'float-card 6s ease-in-out infinite' : 'none' }}>
       <div
         ref={cardRef}
+        data-pfx="card" data-card-name={card.name}
         onMouseMove={handleMouseMove}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={handleLeave}
@@ -639,6 +643,7 @@ const Card = ({ card: _cardIn, onClick, size = 'md', floating = true, intensity 
 
       <div
         ref={cardRef}
+        data-pfx="card" data-card-name={card.name}
         onMouseMove={handleMouseMove}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={handleLeave}
@@ -744,7 +749,7 @@ const Navbar = ({ onNavigate, deckCount, survivors, loyalFaction, isSignedIn, di
   const mAction  = (fn)   => () => { fn && fn(); closeMobile(); };
   return (
   <>
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-black/80 border-b border-white/5 transition-all" style={{ backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' }}>
+    <nav data-pfx="nav" className="fixed top-0 left-0 right-0 z-50 bg-black/80 border-b border-white/5 transition-all" style={{ backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' }}>
       <div className="max-w-7xl mx-auto px-5 py-2 flex items-center gap-4 relative">
 
         {/* ===== Logo (left) — wordmark image, no glow ===== */}
@@ -889,7 +894,7 @@ const Navbar = ({ onNavigate, deckCount, survivors, loyalFaction, isSignedIn, di
 // the story now lives in its own section below, so props stay accepted but
 // featuredCard/onCardClick are intentionally unused here.
 const Hero = ({ featuredCard, onCardClick, onScrollTo }) => (
-  <section className="relative flex items-center justify-center overflow-hidden" style={{ height: '86vh', minHeight: '560px' }}>
+  <section data-pfx="hero" className="relative flex items-center justify-center overflow-hidden" style={{ height: '86vh', minHeight: '560px' }}>
     {/* Our hero video — compressed cosmic goddess loop (~4.8MB, silent,
         seamless). object-cover center-crops so it always fills edge-to-edge
         with no letterboxing, exactly like gatcg's hero reel. */}
@@ -961,6 +966,8 @@ const Hero = ({ featuredCard, onCardClick, onScrollTo }) => (
         <div><div className="ga-serif text-2xl text-neutral-100">∞</div><div className="text-neutral-500 text-[11px] tracking-[0.25em] uppercase mt-1">Deck Combos</div></div>
       </div>
     </div>
+    {/* proto-fx slot: floating featured covers (filled by proto-fx/hero-covers.js) */}
+    <div data-pfx-slot="hero-covers"></div>
   </section>
 );
 
@@ -1316,6 +1323,7 @@ const CardThumb = ({ card, onClick, coming }) => {
   return (
     <button
       onClick={() => onClick(card)}
+      data-pfx="card-thumb" data-card-name={card.name}
       className="group relative rounded-lg overflow-hidden border-2 transition hover:-translate-y-1 text-left"
       style={{ borderColor: rarity.color + '66', boxShadow: `0 6px 20px rgba(0,0,0,0.5)`, background: '#0a0a0a' }}
     >
@@ -5518,7 +5526,10 @@ const CardModal = ({ card: _cardIn, onClose, onAddToDeck }) => {
 // ===== FOOTER =====
 // GATCG-style footer: one slim bar, copyright left, quiet links right.
 const Footer = () => (
-  <footer className="relative border-t border-white/10 py-10 px-6 mt-12 bg-black/80">
+  <>
+  {/* proto-fx slot: closing finale above every page footer (proto-fx/realm-footer.js) */}
+  <div data-pfx-slot="finale"></div>
+  <footer data-pfx="footer" className="relative border-t border-white/10 py-10 px-6 mt-12 bg-black/80">
     <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-5">
       <div className="flex items-center gap-3">
         <img
@@ -5543,6 +5554,7 @@ const Footer = () => (
       Season 1 · The Ashen Season · Built for the Board
     </div>
   </footer>
+  </>
 );
 
 // ===== FLOATING DECK PREVIEW =====
@@ -11931,7 +11943,7 @@ const GymDefenders = () => (
 // Shared section shell — texture bg + gatcg's from-black-alpha-40 top fade
 // and to-black bottom fade, centered heading + optional sub line.
 const GaSection = ({ title, sub, children, className = "" }) => (
-  <section className={`relative ga-texture overflow-hidden ${className}`}>
+  <section data-pfx="ga-section" className={`relative ga-texture overflow-hidden ${className}`}>
     <div className="absolute top-0 left-0 right-0 h-24 pointer-events-none" style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0.4), transparent)' }} />
     <div className="absolute bottom-0 left-0 right-0 h-24 pointer-events-none" style={{ background: 'linear-gradient(0deg, rgba(0,0,0,0.4), transparent)' }} />
     <div className="relative max-w-6xl mx-auto px-6 py-20 text-center">
@@ -16696,6 +16708,23 @@ function App() {
   const showBacking = () => { setCurrentPage('backing'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
 
   const isSignedIn = !!session;
+  // proto-fx bridge — lets the prototype-effect pieces (public/proto-fx/) reach the
+  // site's REAL cards, heroes, card/hero modals and page navigation instead of
+  // duplicating them. Refreshed every render; 'ms:render' tells pieces to re-scan.
+  useEffect(() => {
+    window.MSBridge = {
+      page: currentPage, signedIn: !!session,
+      cards, communityCards: COMMUNITY_CARDS, heroes: HEROES, factions: FACTIONS,
+      overrides: cardOverrides, applyOverride: (c) => applyCardOverride(c, cardOverrides),
+      playUrl: PLAY_URL, loginUrl: LOGIN_URL, gameUrl: GAME_URL,
+      openCard: (c) => setSelectedCard(c), openHero: (h) => setSelectedHero(h),
+      scrollTo: handleNavigate,
+      go: { home: showHome, hub: showHub, news: showNews, survivor: showSurvivor, cardlist: showCardList,
+            backing: showBacking, rmt: showRMT, community: showCommunity, deckbuilder: showDeckBuilder,
+            shop: showPledge, signIn: showHub, lore: () => { window.location.href = './lore/'; } },
+    };
+    try { window.dispatchEvent(new CustomEvent('ms:render', { detail: { page: currentPage } })); } catch (e) {}
+  });
   const displayName = profile && profile.display_name
     ? profile.display_name
     : (session && session.user && session.user.email ? session.user.email.split('@')[0] : null);
@@ -16794,9 +16823,13 @@ function App() {
            Spotlight/WhyEconomy/JoinResistance) still exist above if needed. */
         <>
           <div id="home"><Hero featuredCard={cards[0]} onCardClick={setSelectedCard} onScrollTo={handleNavigate} /></div>
+          {/* proto-fx slot: "Collect a card" cover showcase (proto-fx/collection-showcase.js) */}
+          <div data-pfx-slot="home-collection"></div>
           <div id="about"><GaMoves onCardClick={setSelectedCard} onShowCardList={showCardList} /></div>
           <div id="play"><GaSteps /></div>
           <div id="story"><GaStory /></div>
+          {/* proto-fx slot: "Every place holds a story" lore chapter (proto-fx/world-lore.js) */}
+          <div data-pfx-slot="home-world"></div>
           <GaEconomy card={COMMUNITY_CARDS[1]} onCardClick={setSelectedCard} onShowRMT={showRMT} />
           <GaArticles onShowNews={showNews} />
           <GaSignup />

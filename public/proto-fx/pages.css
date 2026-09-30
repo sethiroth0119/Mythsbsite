@@ -1,0 +1,137 @@
+/* proto-fx piece: pages — the prototype's look (engraved gold on forest-black, Cinzel display,
+   Crimson Text body, squared frames with gold hairlines) carried onto the screens the home-page
+   pieces don't reach. Keyed off html[data-pfx-page] (set by pages.js). Colours / fonts only:
+   no layout that the pages' own controls depend on is changed. */
+
+/* ═════════════════════════ shared bits ═════════════════════════ */
+html.pfx-pages { --pg-line: rgba(205, 168, 78, .30); --pg-line-hi: rgba(236, 207, 111, .75);
+  --pg-panel: linear-gradient(180deg, rgba(16, 22, 15, .92), rgba(9, 12, 10, .94));
+  --pg-gold-btn: linear-gradient(125deg, #f5e9ad, #deac46 50%, #a56d26); }
+
+/* ═══════════════ Backing — Emergency Broadcast dashboard (.cbk) ═══════════════
+   The dashboard is styled with React inline styles, so the prototype palette is applied by
+   matching the serialized style attribute (it keeps working when hover handlers rewrite it). */
+html.pfx-pages .cbk { font-family: var(--pfx-body) !important; font-size: 1.04em; color: var(--pfx-ice) !important;
+  background: radial-gradient(90% 60% at 70% 0%, rgba(26, 15, 61, .55), transparent 60%),
+              linear-gradient(180deg, #0d130f, #0b0d0b 40%, #0b0d0b) !important; }
+html.pfx-pages .cbk ::selection { background: rgba(212, 160, 23, .35); }
+html.pfx-pages .cbk [style*="IBM Plex Sans"], html.pfx-pages .cbk input, html.pfx-pages .cbk textarea { font-family: var(--pfx-body) !important; }
+html.pfx-pages .cbk [style*="Space Grotesk"] { font-family: var(--pfx-display) !important; letter-spacing: .04em; }
+html.pfx-pages .cbk h1, html.pfx-pages .cbk h2, html.pfx-pages .cbk h3 { font-family: var(--pfx-display) !important; color: var(--pfx-gold-title) !important; font-weight: 600 !important; }
+
+/* sidebar */
+html.pfx-pages .cbk > aside { background: linear-gradient(180deg, #10160f, #0b0d0b) !important;
+  border-right: 1px solid var(--pg-line) !important; box-shadow: inset -1px 0 0 rgba(0,0,0,.6); }
+html.pfx-pages .cbk > aside nav button { border-radius: 0 !important; border-left: 2px solid transparent !important; font-size: 16px !important; }
+html.pfx-pages .cbk > aside nav button:hover { background: rgba(212, 160, 23, .06) !important; color: var(--pfx-gold-title) !important; }
+
+/* surfaces + hairlines */
+html.pfx-pages .cbk [style*="background: rgb(12, 13, 16)"]:not(.cbk),
+html.pfx-pages .cbk [style*="background: rgb(15, 16, 20)"]:not(aside) { background: #0b0d0b !important; }
+html.pfx-pages .cbk [style*="background: rgb(20, 22, 27)"],
+html.pfx-pages .cbk [style*="background: rgb(16, 18, 22)"],
+html.pfx-pages .cbk [style*="background: rgba(12, 13, 16, 0.92)"] { background: var(--pg-panel) !important; }
+html.pfx-pages .cbk [style*="rgb(38, 42, 50)"],
+html.pfx-pages .cbk [style*="rgb(30, 34, 42)"],
+html.pfx-pages .cbk [style*="rgb(58, 64, 75)"] { border-color: var(--pg-line) !important; }
+html.pfx-pages .cbk [style*="border-bottom: 1px solid rgb(30, 34, 42)"] { border-bottom-color: var(--pg-line) !important; }
+
+/* squared prototype frames instead of rounded app cards (tiny dots / avatars stay round) */
+html.pfx-pages .cbk [style*="border-radius: 10px"], html.pfx-pages .cbk [style*="border-radius: 12px"],
+html.pfx-pages .cbk [style*="border-radius: 14px"], html.pfx-pages .cbk [style*="border-radius: 16px"],
+html.pfx-pages .cbk [style*="border-radius: 9px"], html.pfx-pages .cbk [style*="border-radius: 8px"] { border-radius: 2px !important; }
+html.pfx-pages .cbk button[style*="border-radius: 99px"] { border-radius: 2px !important; }
+html.pfx-pages .cbk [style*="border-radius: 14px"][style*="rgb(20, 22, 27)"],
+html.pfx-pages .cbk [style*="border-radius: 16px"] { position: relative; box-shadow: inset 0 1px 0 rgba(236, 212, 156, .06), 0 20px 50px -30px #000 !important; }
+
+/* the orange accent -> engraved gold */
+html.pfx-pages .cbk [style*="background: rgb(255, 106, 43)"] { background: var(--pg-gold-btn) !important; color: #1e1713 !important;
+  font-family: var(--pfx-display) !important; letter-spacing: .08em; text-transform: uppercase; font-size: 12px !important; border-radius: 0 !important;
+  box-shadow: 0 0 0 1px #6b4a1a, 0 8px 22px -10px rgba(212, 160, 23, .6); transition: filter .2s; }
+html.pfx-pages .cbk button[style*="background: rgb(255, 106, 43)"]:hover { filter: brightness(1.1); }
+html.pfx-pages .cbk span[style*="background: rgb(255, 106, 43)"], html.pfx-pages .cbk div[style*="width: 8px"][style*="background: rgb(255, 106, 43)"] { box-shadow: 0 0 8px rgba(236, 207, 111, .7); }
+html.pfx-pages .cbk [style*="background: linear-gradient(90deg, rgb(255, 106, 43)"] { background: linear-gradient(90deg, #a56d26, #deac46 60%, #f5e9ad) !important; }
+html.pfx-pages .cbk [style*="background: linear-gradient(140deg, rgb(255, 106, 43)"] { background: linear-gradient(140deg, #deac46, #6b4a1a) !important; color: #1e1713 !important; }
+html.pfx-pages .cbk [style*="background: rgba(255, 106, 43, 0.12)"],
+html.pfx-pages .cbk [style*="background: rgba(255, 106, 43, 0.14)"],
+html.pfx-pages .cbk [style*="background: rgba(255, 106, 43, 0.08)"] { background: rgba(212, 160, 23, .10) !important; }
+html.pfx-pages .cbk > aside nav button[style*="rgba(255, 106, 43, 0.12)"] { border-left-color: #deac46 !important; }
+html.pfx-pages .cbk [style*="color: rgb(255, 138, 85)"], html.pfx-pages .cbk [style*="color: rgb(255, 106, 43)"] { color: var(--pfx-gold-soft) !important; }
+html.pfx-pages .cbk [style*="border: 1px solid rgb(255, 106, 43)"], html.pfx-pages .cbk [style*="border-color: rgb(255, 106, 43)"],
+html.pfx-pages .cbk [style*="rgba(255, 106, 43, 0.4)"], html.pfx-pages .cbk [style*="rgba(255, 106, 43, 0.45)"] { border-color: var(--pg-line-hi) !important; }
+html.pfx-pages .cbk [style*="color: rgb(198, 202, 209)"] { color: var(--pfx-body-copy) !important; }
+html.pfx-pages .cbk [style*="color: rgb(155, 161, 171)"], html.pfx-pages .cbk [style*="color: rgb(92, 98, 108)"] { color: var(--pfx-muted) !important; }
+html.pfx-pages .cbk [style*="color: rgb(232, 179, 75)"] { color: var(--pfx-gold-title) !important; }
+
+/* ═══════════════ Community (Survivor Creator Program + communities) ═══════════════ */
+html.pfx-pages[data-pfx-page="community"] #root main,
+html.pfx-pages[data-pfx-page="community"] #root section { font-family: var(--pfx-body); }
+html.pfx-pages[data-pfx-page="community"] #root section p,
+html.pfx-pages[data-pfx-page="community"] #root section li { font-family: var(--pfx-body); font-size: 1.12em; }
+html.pfx-pages[data-pfx-page="community"] #root section :is(h1, h2, h3, .font-serif):not([data-pfx="card"] *) { font-family: var(--pfx-display) !important; font-weight: 600 !important; letter-spacing: .02em; }
+html.pfx-pages[data-pfx-page="community"] #root section :is(h1, h2) { color: var(--pfx-gold-title) !important; text-shadow: 0 2px 0 #3d2a0e, 0 10px 30px rgba(0,0,0,.7); }
+html.pfx-pages[data-pfx-page="community"] #root section h3 { color: var(--pfx-gold-title) !important; font-size: clamp(1.6rem, 3vw, 2.1rem) !important; }
+html.pfx-pages[data-pfx-page="community"] #root section h3::after { content: ""; display: block; width: 72px; height: 1px; margin-top: 14px;
+  background: linear-gradient(90deg, #deac46, transparent); }
+html.pfx-pages[data-pfx-page="community"] #root section .text-center h3::after { margin-inline: auto; background: linear-gradient(90deg, transparent, #deac46, transparent); }
+html.pfx-pages[data-pfx-page="community"] #root section :is(.text-yellow-100, .text-yellow-200) { color: var(--pfx-gold-title) !important; }
+html.pfx-pages[data-pfx-page="community"] #root section :is(.text-amber-200, .text-amber-300, .text-amber-300\/80, .text-amber-400, .text-amber-400\/80) { color: var(--pfx-gold-soft) !important; }
+html.pfx-pages[data-pfx-page="community"] #root section :is(.text-stone-300, .text-neutral-300) { color: var(--pfx-body-copy) !important; }
+html.pfx-pages[data-pfx-page="community"] #root section :is(.text-stone-400, .text-neutral-400) { color: var(--pfx-muted) !important; }
+html.pfx-pages[data-pfx-page="community"] #root section :is(.text-orange-400, .text-red-400) { color: var(--pfx-gold) !important; }
+html.pfx-pages[data-pfx-page="community"] #root section [class*="tracking-[0.4em]"],
+html.pfx-pages[data-pfx-page="community"] #root section [class*="tracking-[0.45em]"] { font-family: var(--pfx-display); color: var(--pfx-gold-soft) !important; }
+html.pfx-pages[data-pfx-page="community"] #root section [class*="border-amber-500"],
+html.pfx-pages[data-pfx-page="community"] #root section [class*="border-yellow-"],
+html.pfx-pages[data-pfx-page="community"] #root section [class*="border-orange-"] { border-color: var(--pg-line) !important; }
+html.pfx-pages[data-pfx-page="community"] #root section [class*="rounded"]:not(img):not(button) { border-radius: 2px; }
+html.pfx-pages[data-pfx-page="community"] #root section [class*="bg-black/"][class*="border"] { background: var(--pg-panel) !important; }
+
+/* ═══════════════ Shop + RMT intros ═══════════════ */
+html.pfx-pages:is([data-pfx-page="shop"], [data-pfx-page="pledge"], [data-pfx-page="rmt"]) #root section :is(h1, h2) { font-family: var(--pfx-display) !important; font-weight: 600 !important;
+  color: var(--pfx-gold-title) !important; letter-spacing: .02em; text-shadow: 0 2px 0 #3d2a0e, 0 12px 34px rgba(0,0,0,.75); }
+html.pfx-pages:is([data-pfx-page="shop"], [data-pfx-page="pledge"], [data-pfx-page="rmt"]) #root section h3 { font-family: var(--pfx-display) !important; color: var(--pfx-gold-title) !important; letter-spacing: .02em; }
+html.pfx-pages:is([data-pfx-page="shop"], [data-pfx-page="pledge"], [data-pfx-page="rmt"]) #root section p,
+html.pfx-pages:is([data-pfx-page="shop"], [data-pfx-page="pledge"], [data-pfx-page="rmt"]) #root section li { font-family: var(--pfx-body); font-size: 1.1em; }
+html.pfx-pages:is([data-pfx-page="shop"], [data-pfx-page="pledge"], [data-pfx-page="rmt"]) #root section [class*="uppercase"][class*="tracking-"]:not(button):not(a) { font-family: var(--pfx-display); color: var(--pfx-gold-soft); }
+html.pfx-pages[data-pfx-page="rmt"] #root section :is(.text-amber-200, .text-amber-300, .text-yellow-200, .text-yellow-100) { color: var(--pfx-gold-title) !important; }
+html.pfx-pages[data-pfx-page="rmt"] #root section :is(.text-orange-400, .text-red-400, .text-amber-400) { color: var(--pfx-gold) !important; }
+html.pfx-pages[data-pfx-page="rmt"] #root section :is(.text-stone-300, .text-neutral-300) { color: var(--pfx-body-copy) !important; }
+/* the gold hairline under each intro, as on the prototype's chapter openers */
+html.pfx-pages:is([data-pfx-page="shop"], [data-pfx-page="pledge"], [data-pfx-page="rmt"], [data-pfx-page="community"]) #root section h1::after {
+  content: "◇"; display: block; margin: 16px auto 0; width: 220px; font: 12px/1 serif; color: #eccf6f; text-shadow: none;
+  background: linear-gradient(90deg, transparent, #cda84e 30%, transparent 46%, transparent 54%, #cda84e 70%, transparent) center / 100% 1px no-repeat; }
+
+/* ═══════════════ Standalone: lore map (lore/index.html) ═══════════════ */
+html.pfx-pages[data-pfx-page="lore"] {
+  --display: 'Cinzel', Georgia, serif; --body: 'Crimson Text', 'EB Garamond', Georgia, serif; --mono: 'Cinzel', Georgia, serif;
+  --ember: #ecd49c; --ember-deep: #a56d26; --brass: #cda84e; --brass-dim: #6b4a1a;
+  --soot: #0d130f; --iron: #10160f; --iron-hi: #1a2218; --bone: #f3e8cf; --bone-dim: #c1b6a2;
+}
+html.pfx-pages[data-pfx-page="lore"] :is(#loreBack, #whatBtn, #loreEditBtn, #whatModal .wm-eyebrow, #whatModal .wm-cta) { font-family: var(--pfx-display) !important; letter-spacing: .12em !important; }
+html.pfx-pages[data-pfx-page="lore"] :is(#loreBack, #loreEditBtn) { border-radius: 0 !important; border-color: var(--pg-line) !important;
+  background: linear-gradient(180deg, rgba(16, 22, 15, .92), rgba(9, 12, 10, .92)) !important; color: var(--pfx-gold-title) !important; }
+html.pfx-pages[data-pfx-page="lore"] :is(#whatBtn, #whatModal .wm-cta) { border-radius: 0 !important; background: var(--pg-gold-btn) !important; color: #1e1713 !important;
+  box-shadow: 0 0 0 1px #6b4a1a, 0 10px 24px -10px rgba(212, 160, 23, .6) !important; }
+html.pfx-pages[data-pfx-page="lore"] #whatModal .wm-plate { border-radius: 0 !important; border-color: rgba(205, 168, 78, .55) !important;
+  background: radial-gradient(90% 60% at 50% 0%, rgba(26, 15, 61, .55), transparent 70%), linear-gradient(180deg, #10160f, #0b0d0b) !important; }
+html.pfx-pages[data-pfx-page="lore"] #whatModal h2 { font-family: var(--pfx-display) !important; font-weight: 600 !important; color: var(--pfx-gold-title) !important; letter-spacing: .02em; }
+html.pfx-pages[data-pfx-page="lore"] #whatModal p { font-family: var(--pfx-body) !important; font-size: 1.12rem !important; }
+html.pfx-pages[data-pfx-page="lore"] #whatModal .wm-close { border-radius: 0 !important; }
+/* Cinzel is far wider than the map's old blackletter: keep titles on one line, at a real weight */
+html.pfx-pages[data-pfx-page="lore"] :is(.plate-title, .brief-title, .reward-title, .reader-name, .dock-head h2, .iss-card > .hd .t, .ex-plate h3, .meta-v) { font-weight: 600 !important; }
+html.pfx-pages[data-pfx-page="lore"] #plate .plate-title { color: var(--pfx-gold-title); letter-spacing: .03em; font-size: clamp(24px, 3.4vw, 34px); line-height: 1.05; }
+html.pfx-pages[data-pfx-page="lore"] #plate .plate-title span { font-size: .46em; letter-spacing: .18em; }
+html.pfx-pages[data-pfx-page="lore"] #plate .plate-note { font-size: 15px; color: var(--pfx-muted); }
+
+/* ═══════════════ Standalone: Mythic Token checkout (ethos-buy.html, shown in the Backing iframe) ═══════════════ */
+html.pfx-pages[data-pfx-page="ethos"] {
+  --ink: #0b0d0b; --slate: #0d130f; --slate-2: #141b12; --brass: #deac46; --bone: #f3e8cf; --ash: #a79f8f;
+  --arcane: #dfbb70; --arcane-dim: #6b4a1a; --rule: rgba(205, 168, 78, .22);
+  --f-display: 'Cinzel', Georgia, serif; --f-body: 'Crimson Text', 'EB Garamond', Georgia, serif;
+}
+html.pfx-pages[data-pfx-page="ethos"] .ledger { border-color: rgba(205, 168, 78, .45);
+  background: radial-gradient(80% 50% at 80% 0%, rgba(26, 15, 61, .5), transparent 70%), linear-gradient(168deg, #141b12 0%, #0d130f 58%, #0b0d0b 100%); }
+html.pfx-pages[data-pfx-page="ethos"] h1 { font-weight: 600; letter-spacing: .01em; color: var(--pfx-gold-title); }
+html.pfx-pages[data-pfx-page="ethos"] .btn-primary { background: var(--pg-gold-btn); border-color: #6b4a1a; color: #1e1713; font-family: var(--pfx-display); letter-spacing: .1em; }
+html.pfx-pages[data-pfx-page="ethos"] .btn-primary:hover { background: var(--pg-gold-btn); filter: brightness(1.1); }

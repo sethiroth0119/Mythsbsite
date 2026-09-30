@@ -1,0 +1,287 @@
+/* proto-fx piece: faction-tabs — the prototype's faction chapter (section#factions: .section-head,
+   .faction-tabs/.faction-tab[aria-selected], .faction-panel, .faction-art card stage, .faction-story,
+   .faction-ability) ported rule-for-rule onto the Survivor page's "Choose Your Faction" block.
+   faction-tabs.js builds the chapter from MSBridge.factions (the site's real FACTIONS data) and only then
+   marks #factions.pfx-ft-ready, which hides the old five-tile grid. Without the bridge the old grid stays.
+   Everything is scoped under html.pfx-faction-tabs so ?pfxOff=faction-tabs restores the old look. */
+
+html.pfx-faction-tabs #factions.pfx-ft-ready > section:not(.pfx-ft) { display: none; }
+
+/* .factions{min-height:1050px;position:relative;padding:100px 8vw 110px}
+   #mythic-brand .factions{background:linear-gradient(180deg,transparent,#10170eef 22%,#0d140fee 88%,transparent)}
+   .factions{padding-top/bottom:var(--chapter-space)} */
+html.pfx-faction-tabs .pfx-ft {
+  --ft-line: rgba(212, 160, 23, .28);
+  position: relative;
+  min-height: 1050px;
+  padding: 130px 8vw 140px;
+  background: linear-gradient(180deg, transparent, #10170eef 22%, #0d140fee 88%, transparent);
+  color: var(--pfx-ice, #f3e8cf);
+  font-family: var(--pfx-body, 'Crimson Text', Georgia, serif);
+  text-align: left;
+}
+html.pfx-faction-tabs .pfx-ft *, html.pfx-faction-tabs .pfx-ft *::before, html.pfx-faction-tabs .pfx-ft *::after { box-sizing: border-box; }
+
+/* ---- section head ---- */
+html.pfx-faction-tabs .pfx-ft .section-head { text-align: center; max-width: 680px; margin: auto; }
+/* .eyebrow{font:11px var(--display);letter-spacing:.24em;display:flex;align-items:center;gap:16px;text-transform:uppercase} brand #dfbb70 */
+html.pfx-faction-tabs .pfx-ft .eyebrow {
+  font: 11px var(--pfx-display, 'Cinzel', Georgia, serif);
+  letter-spacing: .24em;
+  color: var(--pfx-gold-soft, #dfbb70);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  text-transform: uppercase;
+  margin: 0;
+}
+html.pfx-faction-tabs .pfx-ft .eyebrow::before { content: ""; width: 30px; height: 1px; background: var(--pfx-gold, #d4a017); flex-shrink: 0; }
+html.pfx-faction-tabs .pfx-ft .section-head .eyebrow { justify-content: center; }
+html.pfx-faction-tabs .pfx-ft h2 {
+  font-family: var(--pfx-display, 'Cinzel', Georgia, serif);
+  font-weight: 500;
+  font-size: clamp(36px, 4.3vw, 66px);
+  line-height: 1.1;
+  letter-spacing: -.045em;
+  margin: 28px 0 32px;
+  color: var(--pfx-ice, #f3e8cf);
+  text-shadow: none;
+}
+html.pfx-faction-tabs .pfx-ft h2 em { font-style: normal; color: var(--pfx-gold-soft, #dfbb70); }
+html.pfx-faction-tabs .pfx-ft .section-subtitle {
+  font-size: 20px;
+  line-height: 1.75;
+  color: #d0c5b2;
+  max-width: 48ch;
+  margin: 0 auto;
+}
+
+/* ---- tabs: .faction-tabs{display:flex;justify-content:center;gap:45px;margin:60px 0 90px} ---- */
+html.pfx-faction-tabs .pfx-ft .faction-tabs {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 45px;
+  margin: 60px 0 90px;
+}
+/* .faction-tab{background:none;border:0;border-bottom:1px solid transparent;padding:12px 8px 16px;font:12px var(--display);
+   letter-spacing:.07em;transition:color .2s,border-color .2s;display:flex;align-items:center;gap:10px} brand color #b8af98 */
+html.pfx-faction-tabs .pfx-ft .faction-tab {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  border-radius: 0;
+  color: #b8af98;
+  padding: 12px 8px 16px;
+  font: 12px var(--pfx-display, 'Cinzel', Georgia, serif);
+  letter-spacing: .07em;
+  cursor: pointer;
+  transition: color .2s, border-color .2s;
+}
+html.pfx-faction-tabs .pfx-ft .faction-tab:hover { color: #fff; }
+html.pfx-faction-tabs .pfx-ft .faction-tab[aria-selected="true"] { color: #f3dba1; border-bottom-color: var(--pfx-gold, #d4a017); }
+html.pfx-faction-tabs .pfx-ft .faction-tab:focus-visible { outline: 1px solid var(--pfx-gold, #d4a017); outline-offset: 4px; }
+html.pfx-faction-tabs .pfx-ft .faction-icon {
+  display: block;
+  width: 32px;
+  height: 36px;
+  object-fit: contain;
+  filter: drop-shadow(0 3px 5px #0006);
+}
+
+/* ---- panel: .faction-panel{display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:11%;max-width:1100px;margin:0 auto;min-height:400px} ---- */
+html.pfx-faction-tabs .pfx-ft .faction-panel {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  column-gap: 11%;
+  max-width: 1100px;
+  margin: 0 auto;
+  min-height: 400px;
+  outline: none;
+}
+
+/* ---- stage: .faction-art{height:450px;position:relative;display:flex;justify-content:center;align-items:center} ---- */
+html.pfx-faction-tabs .pfx-ft .faction-art {
+  height: 450px;
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: none;
+  border: 0;
+  padding: 0;
+  width: 100%;
+  color: inherit;
+  font: inherit;
+  padding-bottom: 26px;
+  cursor: default;
+}
+html.pfx-faction-tabs .pfx-ft .faction-art.is-link { cursor: pointer; }
+/* gold ring: .faction-art:before{inset:9%;border:1px solid;border-radius:50%;box-shadow:0 0 80px #86afbf0a}, brand border #ad8c443f */
+html.pfx-faction-tabs .pfx-ft .faction-art::before {
+  content: "";
+  position: absolute;
+  inset: 9%;
+  border: 1px solid #ad8c443f;
+  border-radius: 50%;
+  box-shadow: 0 0 80px #86afbf0a;
+}
+/* ✧ glyph: .faction-art:after{content:"✧";font:430px Georgia;transform:rotate(10deg)}, brand color #b08a3a20 */
+html.pfx-faction-tabs .pfx-ft .faction-art::after {
+  content: "\2727";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font: 430px Georgia, serif;
+  line-height: 1;
+  color: #b08a3a20;
+  transform: rotate(10deg);
+  pointer-events: none;
+}
+html.pfx-faction-tabs .pfx-ft .faction-lift {
+  position: relative;
+  z-index: 2;
+  width: 58%;
+  max-width: 250px;
+}
+/* the card: .faction-art img{z-index:2;filter:drop-shadow(0 25px 24px #000);transform:rotate(-7deg);transition:transform .6s}
+             .faction-art:hover img{transform:rotate(0) translateY(-9px)} */
+html.pfx-faction-tabs .pfx-ft .faction-card {
+  aspect-ratio: 2 / 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px 16px;
+  border: 1px solid #cda84e;
+  border-radius: 6px;
+  background:
+    radial-gradient(circle at 50% 40%, var(--ft-glow, rgba(212,160,23,.35)) 0%, transparent 60%),
+    linear-gradient(160deg, #1a2417 0%, #0d130f 55%, #121b12 100%);
+  box-shadow: inset 0 0 0 4px #0c130d, inset 0 0 0 5px #ab873757;
+  filter: drop-shadow(0 25px 24px #000);
+  transform: rotate(-7deg);
+  transition: transform .6s;
+}
+html.pfx-faction-tabs .pfx-ft .faction-art:hover .faction-card,
+html.pfx-faction-tabs .pfx-ft .faction-art:focus-visible .faction-card { transform: rotate(0) translateY(-9px); }
+html.pfx-faction-tabs .pfx-ft .faction-card img {
+  /* the emblem PNGs carry wide transparent margins: overscan so the crest fills the card */
+  width: 128%;
+  max-width: none;
+  margin: -16% 0 -12%;
+  aspect-ratio: 1;
+  object-fit: contain;
+  filter: drop-shadow(0 10px 14px #000c);
+}
+html.pfx-faction-tabs .pfx-ft .faction-card b {
+  font: 600 18px var(--pfx-display, 'Cinzel', Georgia, serif);
+  letter-spacing: .06em;
+  color: var(--pfx-gold-title, #ecd49c);
+}
+html.pfx-faction-tabs .pfx-ft .faction-card small {
+  font: 10px var(--pfx-display, 'Cinzel', Georgia, serif);
+  letter-spacing: .24em;
+  color: var(--pfx-gold-soft, #dfbb70);
+}
+html.pfx-faction-tabs .pfx-ft .faction-art:focus-visible { outline: none; }
+html.pfx-faction-tabs .pfx-ft .faction-art:focus-visible::before { border-color: var(--pfx-gold, #d4a017); }
+/* .stage-hint{position:absolute;bottom:0;left:0;right:0;text-align:center;font:9px var(--display);letter-spacing:.16em;color:#98b8c2} */
+html.pfx-faction-tabs .pfx-ft .stage-hint {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 3;
+  text-align: center;
+  font: 9px var(--pfx-display, 'Cinzel', Georgia, serif);
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: #98b8c2;
+}
+
+/* ---- story ---- */
+/* .faction-story h3{font:34px var(--display);margin:20px 0}  .faction-story p{font-size:20px;line-height:1.75;color:#d0c5b2} */
+html.pfx-faction-tabs .pfx-ft .faction-story h3 {
+  font: 34px var(--pfx-display, 'Cinzel', Georgia, serif);
+  margin: 20px 0;
+  color: var(--pfx-ice, #f3e8cf);
+}
+html.pfx-faction-tabs .pfx-ft .faction-story p { font-size: 20px; line-height: 1.75; color: #d0c5b2; margin: 0; }
+/* .faction-ledger (prototype survivor chapter): rows border-top var(--line) */
+html.pfx-faction-tabs .pfx-ft .faction-ledger { margin: 28px 0 0; display: grid; grid-template-columns: 1fr 1fr; column-gap: 30px; }
+html.pfx-faction-tabs .pfx-ft .faction-ledger > div { border-top: 1px solid var(--ft-line); padding: 16px 0; }
+html.pfx-faction-tabs .pfx-ft .faction-ledger dt { font: 11px var(--pfx-display, 'Cinzel', Georgia, serif); letter-spacing: .13em; text-transform: uppercase; color: #c5a664; }
+html.pfx-faction-tabs .pfx-ft .faction-ledger dd { margin: 8px 0 0; font: 17px/1.5 var(--pfx-display, 'Cinzel', Georgia, serif); color: #e3c991; }
+/* .faction-ability{margin-top:36px;padding-top:30px;border-top:1px solid var(--line)} strong 11px display .13em #dfbb70; p 18px, margin 10px 0 36px */
+html.pfx-faction-tabs .pfx-ft .faction-ability { margin-top: 12px; padding-top: 30px; border-top: 1px solid var(--ft-line); }
+html.pfx-faction-tabs .pfx-ft .faction-ability strong {
+  font: 11px var(--pfx-display, 'Cinzel', Georgia, serif);
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  color: var(--pfx-gold-soft, #dfbb70);
+}
+html.pfx-faction-tabs .pfx-ft .faction-story .faction-ability p { font-size: 18px; margin: 10px 0 36px; }
+/* own copy of .angle-button.outline so the CTA keeps its look even with ?pfxOff=angle-buttons */
+html.pfx-faction-tabs .pfx-ft .ft-cta {
+  display: inline-flex; align-items: center; justify-content: center; gap: 20px; position: relative;
+  min-width: 210px; min-height: 48px; padding: 13px 34px;
+  background: linear-gradient(120deg, #20351e, #111b13 55%, #26391c);
+  border: 1px solid #cda84e; border-radius: 2px; color: #f3dc9e; cursor: pointer;
+  box-shadow: inset 0 0 0 3px #0c130d, inset 0 0 0 4px #ab873757, 0 5px 20px #090b0990;
+  font: 600 13px var(--pfx-display, 'Cinzel', Georgia, serif); letter-spacing: .08em;
+  text-shadow: 0 1px 2px #0b0b0b;
+  transition: filter .2s, transform .2s;
+}
+html.pfx-faction-tabs .pfx-ft .ft-cta:hover { filter: brightness(1.17); transform: translateY(-2px); }
+html.pfx-faction-tabs .pfx-ft .ft-cta:active { transform: scale(.98); }
+
+/* tab switch: the chosen faction settles in on the prototype's chapter easing */
+@keyframes pfx-ft-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+html.pfx-faction-tabs .pfx-ft .faction-panel.is-switching .faction-story,
+html.pfx-faction-tabs .pfx-ft .faction-panel.is-switching .faction-lift { animation: pfx-ft-in .55s var(--pfx-ease, cubic-bezier(.2,.7,.2,1)) both; }
+html.pfx-faction-tabs .pfx-ft .faction-panel.is-switching .faction-story { animation-delay: .06s; }
+
+/* ---- responsive (prototype @media 1050 / 760) ---- */
+@media (max-width: 1050px) {
+  html.pfx-faction-tabs .pfx-ft { padding-left: 6vw; padding-right: 6vw; }
+  html.pfx-faction-tabs .pfx-ft .faction-tabs { gap: 25px; }
+  html.pfx-faction-tabs .pfx-ft .faction-art { height: 330px; }
+  html.pfx-faction-tabs .pfx-ft .faction-art::after { font-size: 340px; }
+}
+@media (max-width: 760px) {
+  html.pfx-faction-tabs .pfx-ft { min-height: 0; padding: 90px 16px; }
+  html.pfx-faction-tabs .pfx-ft .eyebrow { font-size: 9px; }
+  html.pfx-faction-tabs .pfx-ft h2 { font-size: 35px; }
+  html.pfx-faction-tabs .pfx-ft .section-subtitle { font-size: 18px; }
+  html.pfx-faction-tabs .pfx-ft .faction-tabs { gap: 4px; justify-content: space-between; flex-wrap: nowrap; margin: 40px 0 60px; }
+  html.pfx-faction-tabs .pfx-ft .faction-tab { flex: 1; min-width: 0; flex-direction: column; gap: 7px; font-size: 9px; letter-spacing: 0; padding: 12px 3px; }
+  html.pfx-faction-tabs .pfx-ft .faction-tab .faction-icon { width: 34px; height: 38px; }
+  html.pfx-faction-tabs .pfx-ft .faction-panel { grid-template-columns: 1fr; row-gap: 45px; max-width: 430px; }
+  html.pfx-faction-tabs .pfx-ft .faction-art { height: 360px; }
+  html.pfx-faction-tabs .pfx-ft .stage-hint { font-size: 8px; letter-spacing: .1em; }
+  html.pfx-faction-tabs .pfx-ft .faction-story { text-align: center; }
+  html.pfx-faction-tabs .pfx-ft .faction-story .eyebrow { justify-content: center; }
+  html.pfx-faction-tabs .pfx-ft .faction-story h3 { font-size: 29px; margin: 16px 0; }
+  html.pfx-faction-tabs .pfx-ft .faction-story p { font-size: 18px; }
+  html.pfx-faction-tabs .pfx-ft .faction-story .faction-ability p { font-size: 17px; }
+  html.pfx-faction-tabs .pfx-ft .faction-lift { width: 52%; }
+  html.pfx-faction-tabs .pfx-ft .faction-ledger dd { font-size: 15px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.pfx-faction-tabs .pfx-ft .faction-card,
+  html.pfx-faction-tabs .pfx-ft .faction-tab,
+  html.pfx-faction-tabs .pfx-ft .ft-cta { transition: none; }
+  html.pfx-faction-tabs .pfx-ft .faction-panel.is-switching .faction-story,
+  html.pfx-faction-tabs .pfx-ft .faction-panel.is-switching .faction-lift { animation: none; }
+}
