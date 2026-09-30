@@ -35,10 +35,51 @@
     return false;
   }
 
+  // Phones: the prototype header carries only crest + CTA + menu glyph, so the bar's
+  // Login / Profile button is hidden by CSS at <=760px and mirrored as the last entry of the
+  // drop panel. The mirror just clicks the real React button (same onSignIn / onShowHub
+  // handler) and then closes the panel through the real hamburger.
+  function syncAccount(nav) {
+    var bar = nav.querySelector(':scope > div:first-child > div:last-child');
+    var list = nav.querySelector(':scope > div:nth-child(2) > div');
+    if (!bar || !list) return;
+    var real = null, kids = bar.children;
+    for (var i = 0; i < kids.length; i++) {
+      var k = kids[i];
+      if (k.tagName !== 'BUTTON' || k.hasAttribute('aria-expanded')) continue;
+      if (k.getAttribute('title') && /City Nodes/.test(k.getAttribute('title'))) continue; // Shop (already in panel)
+      real = k;
+    }
+    var mirror = list.querySelector('[data-hb-account]');
+    if (!real) { if (mirror) mirror.remove(); return; }
+    var label = real.getAttribute('title') ? 'Profile' : 'Login';
+    var full = real.querySelector('span');
+    if (full && full.textContent && full.textContent !== 'Me') label = full.textContent;
+    if (!mirror) {
+      mirror = document.createElement('button');
+      mirror.type = 'button';
+      mirror.setAttribute('data-hb-account', '');
+      mirror.setAttribute('data-pfx-owned', '');
+      mirror.className = 'text-left';
+      mirror.addEventListener('click', function () {
+        var target = mirror._hbReal;
+        var burger = nav.querySelector('button[aria-expanded="true"]');
+        if (target) target.click();
+        if (burger) burger.click();
+      });
+      list.appendChild(mirror);
+    }
+    mirror._hbReal = real;
+    if (mirror.textContent !== label) mirror.textContent = label;
+    if (real.hasAttribute('data-hb-active')) mirror.setAttribute('data-hb-active', '');
+    else mirror.removeAttribute('data-hb-active');
+  }
+
   ProtoFx.on('header-band', function () {
     updateCompact();
     var nav = document.querySelector('nav[data-pfx="nav"]');
     if (!nav) return;
+    syncAccount(nav);
     var items = nav.querySelectorAll('a, button');
     for (var i = 0; i < items.length; i++) {
       var el = items[i];

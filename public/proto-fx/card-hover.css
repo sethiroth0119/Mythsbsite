@@ -1,39 +1,43 @@
 /* proto-fx piece: card-hover — every card hovers like a prototype cover.
    Port of the prototype's custom-gallery rules:
+     .custom-card{background:none;border:0;padding:0}
      .custom-card img{transition:transform .3s; filter:drop-shadow(0 8px 15px #060b0980)}
      .custom-card:hover img{transform:translateY(-8px) rotate(-1deg)}
      .custom-card:active img{transform:scale(.98)}
+     .custom-card span{display:block;padding-top:...}   <- caption never moves
      @media(prefers-reduced-motion:reduce){.custom-card img{transition:none}}
-   The site's React Card sets transform / box-shadow inline (22deg tilt, rarity glow);
-   the rules below win with !important and read a restrained tilt (<= 8deg) that
-   card-hover.js writes into --pfx-rx / --pfx-ry. Clicks are untouched. */
+   Only the ART lifts; captions stay still. The site's React Card writes a 22deg tilt
+   inline; the rules below win with !important and keep the prototype's flat cover
+   (--pfx-rx / --pfx-ry stay 0: the prototype has no pointer tilt). Clicks are untouched. */
 
-html.pfx-card-hover [data-pfx="card"],
-html.pfx-card-hover [data-pfx="card-thumb"] {
+/* ---------- Shared light band (one diagonal sweep per hover) ---------- */
+@keyframes pfx-card-sweep {
+  0%   { background-position: 130% 0; opacity: 0; }
+  10%  { opacity: 1; }
+  90%  { opacity: 1; }
+  100% { background-position: -30% 0; opacity: 0; }
+}
+
+/* ---------- Home / showcase React Card ([data-pfx=card]) ---------- */
+/* Prototype covers sit still in the grid: stop the site's 6s float bob. */
+html.pfx-card-hover div:has(> [data-pfx="card"]) { animation: none !important; }
+
+html.pfx-card-hover [data-pfx="card"] {
   --pfx-rx: 0deg;
   --pfx-ry: 0deg;
-  --pfx-card-shadow: 0 8px 15px #060b0980;
-  --pfx-card-glow: 0 16px 28px #060b09a6, 0 0 22px rgba(212, 160, 23, .32), 0 0 2px rgba(236, 212, 156, .55);
-  transform: translateY(0) rotate(0deg) rotateX(var(--pfx-rx)) rotateY(var(--pfx-ry)) scale(1) !important;
+  transform: translateY(0) rotate(0deg) rotateX(var(--pfx-rx)) rotateY(var(--pfx-ry)) !important;
   transition: transform .3s ease, box-shadow .3s ease, filter .3s ease !important;
-  box-shadow: var(--pfx-card-shadow) !important;
+  box-shadow: 0 8px 15px #060b0980 !important;
   will-change: transform;
   -webkit-tap-highlight-color: transparent;
 }
-html.pfx-card-hover [data-pfx="card"]:hover,
-html.pfx-card-hover [data-pfx="card-thumb"]:hover,
-html.pfx-card-hover [data-pfx="card-thumb"]:focus-visible {
-  transform: translateY(-8px) rotate(-1deg) rotateX(var(--pfx-rx)) rotateY(var(--pfx-ry)) scale(1) !important;
-  box-shadow: var(--pfx-card-glow) !important;
+html.pfx-card-hover [data-pfx="card"]:hover {
+  transform: translateY(-8px) rotate(-1deg) rotateX(var(--pfx-rx)) rotateY(var(--pfx-ry)) !important;
+  box-shadow: 0 8px 15px #060b0980, 0 0 14px rgba(212, 160, 23, .14) !important;
 }
-html.pfx-card-hover [data-pfx="card"]:active,
-html.pfx-card-hover [data-pfx="card-thumb"]:active {
-  transform: scale(.98) !important;
-  transition-duration: .12s !important;
-}
+html.pfx-card-hover [data-pfx="card"]:active { transform: scale(.98) !important; }
 
-/* Full-card mode (image is the whole card, no site frame): shadow lives on the art,
-   exactly like the prototype's img drop-shadow. */
+/* Full-card mode (image is the whole card): shadow lives on the art, like the prototype img. */
 html.pfx-card-hover [data-pfx="card"]:has(> img),
 html.pfx-card-hover [data-pfx="card"]:has(> img):hover { box-shadow: none !important; }
 html.pfx-card-hover [data-pfx="card"] > img {
@@ -41,16 +45,48 @@ html.pfx-card-hover [data-pfx="card"] > img {
   transition: filter .3s ease !important;
 }
 html.pfx-card-hover [data-pfx="card"]:hover > img {
-  filter: drop-shadow(0 16px 22px #060b09b0) drop-shadow(0 0 18px rgba(212, 160, 23, .38)) !important;
+  filter: drop-shadow(0 8px 15px #060b0980) drop-shadow(0 0 10px rgba(212, 160, 23, .14)) !important;
 }
 
-/* Card List / Deck Builder thumbs: the prototype cover does not zoom its art. */
+/* ---------- Card List / Deck Builder thumbs ([data-pfx=card-thumb]) ----------
+   The button is the prototype's .custom-card: chromeless and never transformed.
+   Its first child (the art box) is the prototype's <img>: it carries the rarity
+   frame, the drop-shadow, the lift/tilt and the light band. The caption stays put. */
+html.pfx-card-hover [data-pfx="card-thumb"] {
+  transform: none !important;
+  translate: none !important;
+  border-color: transparent !important;
+  background: none !important;
+  box-shadow: none !important;
+  overflow: visible !important;
+  -webkit-tap-highlight-color: transparent;
+}
+html.pfx-card-hover [data-pfx="card-thumb"] > div:first-child {
+  position: relative;
+  border: 2px solid var(--pfx-rarity, rgba(205, 168, 78, .45));
+  border-radius: .5rem;
+  filter: drop-shadow(0 8px 15px #060b0980);
+  transform: translateY(0) rotate(0deg);
+  transition: transform .3s ease, filter .3s ease, border-color .3s ease;
+  will-change: transform;
+}
+html.pfx-card-hover [data-pfx="card-thumb"]:hover > div:first-child,
+html.pfx-card-hover [data-pfx="card-thumb"]:focus-visible > div:first-child {
+  transform: translateY(-8px) rotate(-1deg);
+  filter: drop-shadow(0 8px 15px #060b0980) drop-shadow(0 0 10px rgba(212, 160, 23, .14));
+}
+html.pfx-card-hover [data-pfx="card-thumb"]:active > div:first-child { transform: scale(.98); }
+/* The prototype cover does not zoom its art inside the frame. */
 html.pfx-card-hover [data-pfx="card-thumb"] img { transform: none !important; }
-html.pfx-card-hover [data-pfx="card-thumb"]:hover { border-color: rgba(205, 168, 78, .75) !important; }
+/* Caption: plain text under the art, like .custom-card span. */
+html.pfx-card-hover [data-pfx="card-thumb"] > div:last-child {
+  background: transparent !important;
+  padding: 10px 2px 2px !important;
+}
 
-/* Light band: one diagonal sweep across the art per hover. */
+/* ---------- Light band element ---------- */
 html.pfx-card-hover [data-pfx="card"]::after,
-html.pfx-card-hover [data-pfx="card-thumb"]::after {
+html.pfx-card-hover [data-pfx="card-thumb"] > div:first-child::after {
   content: '';
   position: absolute;
   inset: 0;
@@ -58,9 +94,9 @@ html.pfx-card-hover [data-pfx="card-thumb"]::after {
   pointer-events: none;
   border-radius: inherit;
   background: linear-gradient(115deg,
-    transparent 0%, transparent 38%,
-    rgba(255, 244, 214, .08) 44%, rgba(255, 238, 190, .38) 50%, rgba(255, 244, 214, .08) 56%,
-    transparent 62%, transparent 100%);
+    transparent 0%, transparent 43%,
+    rgba(255, 244, 214, .08) 47%, rgba(255, 238, 190, .35) 50%, rgba(255, 244, 214, .08) 53%,
+    transparent 57%, transparent 100%);
   background-size: 250% 100%;
   background-position: 130% 0;
   background-repeat: no-repeat;
@@ -68,19 +104,24 @@ html.pfx-card-hover [data-pfx="card-thumb"]::after {
   opacity: 0;
 }
 html.pfx-card-hover [data-pfx="card"]:hover::after,
-html.pfx-card-hover [data-pfx="card-thumb"]:hover::after {
-  animation: pfx-card-sweep .9s cubic-bezier(.2, .7, .2, 1) 1 both;
+html.pfx-card-hover [data-pfx="card-thumb"]:hover > div:first-child::after {
+  /* ease-in-out sine over .8s: the band spends ~450ms crossing the visible card. */
+  animation: pfx-card-sweep .8s cubic-bezier(.45, .05, .55, .95) 1 both;
 }
-/* Full-card art may be transparent at the edges: keep the band inside the card. */
-html.pfx-card-hover [data-pfx="card"]:has(> img)::after {
+/* Full-card art may be transparent at the edges (and archive-gallery zooms it to fill its box):
+   mask the band with the art's own silhouette, moved by the same zoom the <img> gets
+   (--pfx-ag-* are set on the card/thumb by archive-gallery; identity when absent). */
+html.pfx-card-hover [data-pfx="card"]:has(> img)::after,
+html.pfx-card-hover [data-pfx="card-thumb"][data-pfx-mask] > div:first-child::after {
   -webkit-mask: var(--pfx-card-mask, none) center / contain no-repeat;
           mask: var(--pfx-card-mask, none) center / contain no-repeat;
+  transform-origin: var(--pfx-ag-ox, 50%) var(--pfx-ag-oy, 50%);
+  transform: translate(var(--pfx-ag-tx, 0%), var(--pfx-ag-ty, 0%)) scale(var(--pfx-ag-s, 1));
+  clip-path: var(--pfx-band-clip, none);
 }
-@keyframes pfx-card-sweep {
-  0%   { background-position: 130% 0; opacity: 0; }
-  12%  { opacity: 1; }
-  88%  { opacity: 1; }
-  100% { background-position: -30% 0; opacity: 0; }
+/* Framed / cover art: the band never leaves the rim's rounded outline. */
+html.pfx-card-hover [data-pfx="card-thumb"]:not([data-pfx-mask]) > div:first-child::after {
+  clip-path: inset(0 round var(--pfx-thumb-r, 8px));
 }
 
 /* Legacy orange spark particles (old ornamental frame): not part of the prototype's restraint. */
@@ -88,8 +129,8 @@ html.pfx-card-hover div:has(> [data-pfx="card"]) > .pointer-events-none.rounded-
 
 @media (prefers-reduced-motion: reduce) {
   html.pfx-card-hover [data-pfx="card"],
-  html.pfx-card-hover [data-pfx="card-thumb"],
-  html.pfx-card-hover [data-pfx="card"] > img { transition: none !important; }
+  html.pfx-card-hover [data-pfx="card"] > img,
+  html.pfx-card-hover [data-pfx="card-thumb"] > div:first-child { transition: none !important; }
   html.pfx-card-hover [data-pfx="card"]:hover::after,
-  html.pfx-card-hover [data-pfx="card-thumb"]:hover::after { animation: none; }
+  html.pfx-card-hover [data-pfx="card-thumb"]:hover > div:first-child::after { animation: none; }
 }

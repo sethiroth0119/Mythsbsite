@@ -19,14 +19,14 @@
     { key: 'about', sel: '#about > section', eyebrow: 'The Spellbook · Tactical card battles',
       em: 'Actually Moves' },
     { key: 'play', sel: '#play > section', eyebrow: 'Learn the battlefield',
-      rule: ['01 / How a run plays out', 'Build · Survive · Expand · Conquer'], em: 'Expand. Conquer.' },
+      rule: ['01 / How a run plays out', 'Build · Survive · Expand · Conquer'], em: 'Expand. Conquer.', still: true },
     { key: 'story', sel: '#story > section', eyebrow: 'The lore of Mythic Spellbook',
-      rule: ['02 / Beyond the battlefield', 'The world of Mythic Spellbook'], em: 'Has Awakened',
+      rule: ['02 / The awakening', 'Abraxas returns'], em: 'Has Awakened', still: true,
       caption: 'The Flood · Abraxas returns to unmake creation' },
     { key: 'economy', title: 'Cards Worth Owning', eyebrow: 'A living player economy',
       rule: ['03 / Life after the battle', 'Trade · Craft · Withdraw'], em: 'Owning' },
     { key: 'articles', title: 'Recent Articles', eyebrow: 'Dispatches from the Spellbook',
-      rule: ['04 / The chronicle', 'News · Updates · Devlogs'] },
+      rule: ['04 / The chronicle', 'News · Updates · Devlogs'], still: true },
     { key: 'signup', title: 'Open the Spellbook', eyebrow: 'Free to play · In your browser',
       em: 'Spellbook' }
   ];
@@ -83,11 +83,27 @@
     container.insertBefore(d, container.firstChild);
   }
 
+  /* Chapters the prototype shows at rest (#expeditions heading + ledger, #world-lore spread, the
+     article cards whose own .3s hover lift must not be overridden by a reveal transition): opt them
+     out of scroll-reveal and clear any reveal state it already put on them, so the heading, copy and
+     ledger are always in their final visible state without waiting on a scroll/animation trigger. */
+  function settle(sec) {
+    if (!sec.hasAttribute('data-pfx-noreveal')) sec.setAttribute('data-pfx-noreveal', 'chapters');
+    var tagged = sec.querySelectorAll('.pfx-rv-h,.pfx-rv-t,[data-pfx-rv]');
+    for (var i = 0; i < tagged.length; i++) {
+      var el = tagged[i];
+      el.classList.remove('pfx-rv-h', 'pfx-rv-t');
+      el.style.removeProperty('--pfx-rv-delay');
+      if (el.getAttribute('data-pfx-rv') !== 'done') el.setAttribute('data-pfx-rv', 'done');
+    }
+  }
+
   ProtoFx.on('chapters', function () {
     CHAPTERS.forEach(function (c) {
       var sec = findSection(c);
       if (!sec) return;
       sec.classList.add('pfx-ch', 'pfx-ch--' + c.key);
+      if (c.still) settle(sec);
       var h = sec.querySelector('h2');
       if (!h) return;
       h.classList.add('pfx-ch-title');

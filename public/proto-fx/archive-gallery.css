@@ -23,7 +23,11 @@ html.pfx-archive-gallery [data-pfx-archive] {
   padding-bottom: var(--pfx-ag-chapter) !important;
   padding-left: 7% !important;
   padding-right: 7% !important;
-  background: linear-gradient(#0c1010f5, #10150efb, #120e1afa) !important;
+  background: linear-gradient(#0c1010, #10150e, #120e1a) !important;
+  /* The prototype's #all-cards is flat near-black: sit above the fixed ambient weather layer (z 1) so
+     neither it nor the lighter page band above shows through. Nav (z 50) and modals stay on top. */
+  z-index: 2;
+  isolation: isolate;
   color: var(--pfx-ice, #f3e8cf);
   font-family: var(--pfx-body, 'Crimson Text', Georgia, serif);
 }
@@ -137,6 +141,7 @@ html.pfx-archive-gallery [data-pfx-archive-grid] {
   display: grid !important;
   grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
   gap: 72px 50px !important;
+  align-items: start !important;
   max-width: 1140px;
   margin: var(--pfx-ag-group) auto 0 !important;
 }
@@ -227,17 +232,102 @@ html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"] > div:last-c
   white-space: normal !important;
   overflow: visible !important;
 }
-html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"] > div:last-child > div:last-child {
-  margin-top: 4px;
-  font: italic 15px/1.4 var(--pfx-body) !important;
-  color: #a79a7a !important;
-}
+/* The prototype caption is the Cinzel name only. */
+html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"] > div:last-child > div:last-child:not(:first-child) { display: none !important; }
 /* card-hover's light band: keep it on the cover, not the caption. */
 html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"]::after {
   bottom: auto !important;
   aspect-ratio: 2 / 3;
   border-radius: 0 !important;
 }
+
+/* ---------- one matched set: every cover is a gold-framed card in the same 2/3 box ----------
+   Prototype covers: ~4px engraved-gold rim, ~8px corners, dark card face, a ~22px gold foot band.
+   kind=raw  (art without its own frame): we draw that frame; the art fills the face full-bleed, and
+             cutout sprites sit on a dark vignette backdrop instead of floating on the page.
+   kind=full (a complete card image): no extra frame; JS zooms it so its own frame fills the box.
+   Only the art box lifts/tilts on hover (card-hover); the name below stays put. */
+html.pfx-archive-gallery [data-pfx-archive] {
+  --pfx-ag-band: linear-gradient(180deg, #f3d465 0%, #e0b433 38%, #c8981f 72%, #a97c15 100%);
+  --pfx-ag-face: radial-gradient(ellipse 85% 70% at 50% 42%, #2c2a22 0%, #16170f 58%, #0a0c09 100%);
+}
+html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"][data-pfx-ag-kind] > div:first-child {
+  width: 100%;
+  box-sizing: border-box;
+  filter: drop-shadow(0 8px 15px #060b0980) !important;
+}
+html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"][data-pfx-ag-kind]:hover > div:first-child,
+html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"][data-pfx-ag-kind]:focus-visible > div:first-child {
+  filter: drop-shadow(0 8px 15px #060b0980) drop-shadow(0 0 10px rgba(212, 160, 23, .25)) !important;
+}
+html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"][data-pfx-ag-kind="raw"] > div:first-child,
+html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"][data-pfx-ag-kind="raw"] > div:first-child:not(:has(> img:not([style*="none"]))) {
+  border: 6px solid #c99a2e !important;
+  border-color: #e2bb4c #c2922a #a87d1a #cfa236 !important;
+  border-radius: 12px !important;
+  background: var(--pfx-ag-face) !important;
+  overflow: hidden !important;
+  box-shadow: inset 0 0 0 1px #fff0b44d !important;
+}
+/* the gold foot band */
+html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"][data-pfx-ag-kind="raw"] > div:first-child::before {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 6%;
+  z-index: 3;
+  background: var(--pfx-ag-band);
+  border-top: 2px solid #7e5c12;
+  box-shadow: inset 0 1px 0 #fff3c080, inset 0 -1px 0 #6a4b0c;
+  pointer-events: none;
+}
+html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"][data-pfx-ag-kind="raw"] > div:first-child > img {
+  position: relative;
+  z-index: 1;
+  width: 100% !important;
+  height: 94% !important;
+  object-fit: cover !important;
+  object-position: 50% 40%;
+  filter: none !important;
+}
+/* Placeholder name on the face, above the band; chips and the Coming Soon ribbon above the art. */
+html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"][data-pfx-ag-kind="raw"] > div:first-child > div.inset-0 { z-index: 2; bottom: 6%; }
+html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"][data-pfx-ag-kind] > div:first-child > div.top-1\.5 { z-index: 4; }
+html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"][data-pfx-ag-kind="raw"] > div:first-child > div.bottom-0 { z-index: 4; bottom: 6% !important; }
+html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"][data-pfx-ag-kind="full"] > div:first-child > div.bottom-0 { bottom: 5% !important; }
+/* complete card image: frameless box, the card's own frame zoomed to fill it */
+html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"][data-pfx-ag-kind="full"] > div:first-child {
+  border: 0 !important;
+  border-radius: 12px !important;
+  background: none !important;
+}
+html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"][data-pfx-ag-kind="full"] > div:first-child > img,
+html.pfx-archive-gallery [data-pfx-archive-cell] [data-pfx="card"][data-pfx-ag-kind="full"] > img {
+  object-fit: contain !important;
+  transform-origin: var(--pfx-ag-ox, 50%) var(--pfx-ag-oy, 50%);
+  transform: translate(var(--pfx-ag-tx, 0%), var(--pfx-ag-ty, 0%)) scale(var(--pfx-ag-s, 1)) !important;
+}
+
+/* Deck Builder: the real <Card>'s clean site frame becomes the same gold card — rarity border -> gold rim,
+   in-card name bar -> the gold foot band (the name shows once, under the card), chips hidden. */
+html.pfx-archive-gallery [data-pfx-archive-cell] [data-pfx="card"][data-pfx-ag-kind="raw"] {
+  border: 6px solid #c99a2e !important;
+  border-color: #e2bb4c #c2922a #a87d1a #cfa236 !important;
+  border-radius: 12px !important;
+  background: var(--pfx-ag-face) !important;
+  box-shadow: inset 0 0 0 1px #fff0b44d, 0 8px 15px #060b0980 !important;
+}
+html.pfx-archive-gallery [data-pfx-archive-cell] [data-pfx="card"][data-pfx-ag-kind="raw"] > div:first-child { background: none !important; }
+html.pfx-archive-gallery [data-pfx-archive-cell] [data-pfx="card"][data-pfx-ag-kind="raw"] > div:first-child > img { object-position: 50% 40%; }
+html.pfx-archive-gallery [data-pfx-archive-cell] [data-pfx="card"][data-pfx-ag-kind="raw"] > div:first-child > div.absolute { display: none !important; }
+html.pfx-archive-gallery [data-pfx-archive-cell] [data-pfx="card"][data-pfx-ag-kind="raw"] > div:last-child {
+  height: 6%;
+  padding: 0 !important;
+  background: var(--pfx-ag-band) !important;
+  border-top: 2px solid #7e5c12;
+  box-shadow: inset 0 1px 0 #fff3c080, inset 0 -1px 0 #6a4b0c;
+}
+html.pfx-archive-gallery [data-pfx-archive-cell] [data-pfx="card"][data-pfx-ag-kind="raw"] > div:last-child > * { display: none !important; }
 
 /* Coming Drops heading in the prototype's chapter voice. */
 html.pfx-archive-gallery [data-pfx-archive-coming] {
@@ -329,7 +419,6 @@ html.pfx-archive-gallery [data-pfx-archive-cell] > button:focus-visible { opacit
   }
   html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"] > div:last-child,
   html.pfx-archive-gallery [data-pfx-archive-cell]::after { padding-top: 18px !important; }
-  html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"] > div:last-child > div:last-child { font-size: 13px !important; }
   html.pfx-archive-gallery [data-pfx-archive-cell] > button { bottom: 58px !important; padding: 8px 12px !important; font-size: 9px !important; }
 }
 
@@ -338,4 +427,8 @@ html.pfx-archive-gallery [data-pfx-archive-cell] > button:focus-visible { opacit
   html.pfx-archive-gallery [data-pfx-archive-filters] input,
   html.pfx-archive-gallery [data-pfx-archive-filters] button,
   html.pfx-archive-gallery [data-pfx-archive-factions] button { transition: none !important; }
+}
+@media (max-width: 600px) {
+  html.pfx-archive-gallery [data-pfx-archive] [data-pfx="card-thumb"][data-pfx-ag-kind="raw"] > div:first-child,
+  html.pfx-archive-gallery [data-pfx-archive-cell] [data-pfx="card"][data-pfx-ag-kind="raw"] { border-width: 4px !important; border-radius: 9px !important; }
 }

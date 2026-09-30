@@ -91,32 +91,59 @@ html.pfx-chapters .pfx-ch-step p {
   font-family: var(--pfx-ch-body); font-size: 19px; line-height: 1.8; color: #bfb7a8; margin: 0;
 }
 
-/* ── #story — the Goddess banner framed like .world-illustration ── */
+/* ── #story — the Goddess chapter as the prototype's #world-lore spread:
+   chapter-rule on top, then .world-spread (1.1fr art | 1fr prose, gap 10%, centred rows).
+   The framed art (.world-illustration: 1px #b38c4540 border, brightness .65 / saturate .7,
+   bottom fade to #0a110ed9, caption bottom-left) sits left; left-aligned prose right. ── */
 html.pfx-chapters .pfx-ch--story {
-  display: grid; grid-template-columns: minmax(0, 1260px); justify-content: center;
-  grid-template-rows: auto auto; padding: var(--pfx-ch-space) var(--pfx-ch-gutter);
+  display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); column-gap: 10%;
+  grid-template-rows: auto minmax(610px, auto); align-items: center;
+  max-width: none; padding: var(--pfx-ch-space) max(var(--pfx-ch-gutter), calc((100% - 1260px) / 2));
 }
-html.pfx-chapters .pfx-ch--story > * { grid-column: 1 / 2; grid-row: 2 / 3; }  /* explicit ends: abs-pos auto lines = padding edge */
-html.pfx-chapters .pfx-ch--story > .pfx-ch-rule { grid-row: 1 / 2; }
+html.pfx-chapters .pfx-ch--story > * { grid-column: 1 / 2; grid-row: 2 / 3; }  /* explicit lines: abs-pos children use this grid area */
+html.pfx-chapters .pfx-ch--story > .pfx-ch-rule { grid-column: 1 / 3; grid-row: 1 / 2; align-self: start; }
 html.pfx-chapters .pfx-ch--story > .pfx-ch-art {
   border: 1px solid #b38c4540; filter: brightness(.65) saturate(.7);
 }
-html.pfx-chapters .pfx-ch--story > .pfx-ch-art + div {          /* tint -> world-illustration bottom fade */
-  background: linear-gradient(transparent 45%, #0a110ed9), rgba(8, 12, 10, .34) !important;
+html.pfx-chapters .pfx-ch--story > .pfx-ch-art + div {          /* tint -> world-illustration::after bottom fade */
+  background: linear-gradient(transparent 45%, #0a110ed9) !important;
   z-index: 1; margin: 1px;
 }
 html.pfx-chapters .pfx-ch--story > .absolute.h-28 { display: none; }
 html.pfx-chapters .pfx-ch--story > .relative {
-  z-index: 2; width: 100%; min-height: 610px; display: flex; flex-direction: column; justify-content: center;
-  padding: 90px clamp(24px, 6vw, 90px) 110px;
+  grid-column: 2 / 3; z-index: 2; width: 100%; max-width: none; margin: 0; padding: 0;
+  text-align: left;
 }
-html.pfx-chapters .pfx-ch--story .pfx-ch-inner > p { font-family: var(--pfx-ch-body); color: var(--pfx-body-copy, #d0c5b2); line-height: 1.8; }
-html.pfx-chapters .pfx-ch--story .pfx-ch-inner > p.pfx-ch-sub { max-width: 52ch; font-size: 20px; }
-html.pfx-chapters .pfx-ch--story .pfx-ch-inner > p.italic { color: #c7bfac; font-size: 18px; }
+html.pfx-chapters .pfx-ch--story .pfx-ch-eyebrow { justify-content: flex-start; margin: 11px 0; }
+html.pfx-chapters .pfx-ch--story h2.pfx-ch-title {
+  font-size: clamp(34px, 4vw, 60px); margin: 25px 0 32px; max-width: none;
+}
+html.pfx-chapters .pfx-ch--story .pfx-ch-inner > p:not(.pfx-ch-eyebrow) {
+  font-family: var(--pfx-ch-body); color: #c7bfac; font-size: 20px; line-height: 1.8;
+  max-width: 52ch; margin: 20px 0;
+}
+html.pfx-chapters .pfx-ch--story .pfx-ch-inner > p:not(.pfx-ch-eyebrow) + p { margin-top: 25px; }
+html.pfx-chapters .pfx-ch--story .pfx-ch-inner > p.italic {
+  font-style: normal; border-top: 1px solid var(--pfx-ch-line); margin-top: 48px; padding-top: 32px;
+  font-size: 17px; line-height: 1.6; color: #aaa58f;
+}
 html.pfx-chapters .pfx-ch--story > .pfx-ch-caption {
   position: relative; z-index: 3; align-self: end; justify-self: start;
   margin: 0 30px 28px; font: 11px/1.7 var(--pfx-ch-display); letter-spacing: .14em;
   text-transform: uppercase; color: #e4cea1; pointer-events: none;
+}
+
+/* ── Chapters shown at rest: never left mid-reveal (see chapters.js settle()) ── */
+html.pfx-chapters .pfx-ch[data-pfx-noreveal] .pfx-rv-h,
+html.pfx-chapters .pfx-ch[data-pfx-noreveal].pfx-rv-h { opacity: 1 !important; transform: none !important; }
+html.pfx-chapters .pfx-ch[data-pfx-noreveal] .pfx-rv-t { transition: none !important; }
+html.pfx-chapters .pfx-ch[data-pfx-noreveal] .pfx-ch-article.pfx-rv-t {
+  transition: transform .3s var(--pfx-ease, ease), border-color .3s, box-shadow .3s !important;
+}
+
+/* ── Anchored scrolls land below the fixed nav so the chapter-rule clears it ── */
+html.pfx-chapters .pfx-ch, html.pfx-chapters #about, html.pfx-chapters #play, html.pfx-chapters #story {
+  scroll-margin-top: var(--pfx-nav-h, 80px);
 }
 
 /* ── Economy — faction-ledger styled notes ── */
@@ -157,7 +184,9 @@ html.pfx-chapters .pfx-ch-news input:focus { border-color: #cda84e !important; }
   html.pfx-chapters .pfx-ch-ledger { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
   html.pfx-chapters .pfx-ch-step, html.pfx-chapters .pfx-ch-step:nth-child(n+4) { grid-column: span 1; }
   html.pfx-chapters .pfx-ch-step .pfx-ch-num + div > div:first-child { font-size: 20px; }
-  html.pfx-chapters .pfx-ch--story > .relative { min-height: 420px; }
+  html.pfx-chapters .pfx-ch--story { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(420px, auto) auto; row-gap: 40px; }
+  html.pfx-chapters .pfx-ch--story > .pfx-ch-rule { grid-column: 1 / 2; }
+  html.pfx-chapters .pfx-ch--story > .relative { grid-column: 1 / 2; grid-row: 3 / 4; max-width: 650px; }
 }
 @media (max-width: 600px) {
   html.pfx-chapters { --pfx-ch-space: 90px; --pfx-ch-group: 60px; }
@@ -172,7 +201,7 @@ html.pfx-chapters .pfx-ch-news input:focus { border-color: #cda84e !important; }
   html.pfx-chapters .pfx-ch-num { padding-top: 5px; }
   html.pfx-chapters .pfx-ch-step .pfx-ch-num + div > div:first-child { margin: 0; font-size: 22px; }
   html.pfx-chapters .pfx-ch-step p { font-size: 18px; margin-top: 15px; }
-  html.pfx-chapters .pfx-ch--story > .relative { min-height: 360px; padding: 60px 22px 90px; }
+  html.pfx-chapters .pfx-ch--story { grid-template-rows: auto minmax(360px, auto) auto; }
   html.pfx-chapters .pfx-ch--story > .pfx-ch-caption { margin: 0 20px 20px; font-size: 9px; }
 }
 

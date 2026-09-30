@@ -4,91 +4,33 @@
    html.pfx-atmosphere so ?pfxOff=atmosphere removes it. */
 
 /* ---------- ambient layer ----------
-   The site's chapters paint opaque forest backgrounds, so a layer strictly underneath them would never
-   be seen. Instead the layer floats just above page content (z-index 1: below the nav, the Atmosphere
-   control and every modal) and is composited with mix-blend-mode: screen at low alpha, so it only ever
-   adds light — like the prototype's weather over its scene — and never darkens or blocks text. */
+   Round 5: the weather sits BEHIND the site's content, never over it.
+   - Page mode (default): the layer is a fixed, body-level element at z-index 0, painted before the
+     React app; the site's fixed Wasteland backdrop is lowered to z-index -1 so the weather lies
+     between the backdrop and every section (opaque sections simply hide it, as they should).
+   - Hero mode (while the home hero fills the view): atmosphere.js moves the same layer INTO the hero
+     section (which is its own stacking context) at z-index 2: above the hero video (0) and its
+     overlays (1), below the cover art (5/11) and the headline/CTAs (10), so the weather reads as the
+     prototype's stage behind crisp art. It is viewport-sized and pinned to the viewport with a
+     translate, clipped by the hero.
+   Performance: ONE half-resolution canvas drawn at <=30fps (adaptive) from pre-rendered bitmaps;
+   no blend modes, filters, masks or CSS animations in the layer. */
+html.pfx-atmosphere #root .fixed.inset-0.ga-texture.pointer-events-none { z-index: -1; }
 html.pfx-atmosphere .pfx-atmo-layer {
-  position: fixed; inset: 0; z-index: 1; pointer-events: none; overflow: hidden; mix-blend-mode: screen;
-  contain: strict; opacity: 1; transition: opacity 1.2s var(--pfx-ease);
+  position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden;
+  contain: strict; opacity: 1; transition: opacity .42s var(--pfx-ease);
+}
+html.pfx-atmosphere .pfx-atmo-layer.is-hero {
+  position: absolute; inset: auto; top: 0; left: 0; width: 100%; height: 100vh; z-index: 2;
+  will-change: transform;
 }
 html.pfx-atmosphere .pfx-atmo-layer.is-swapping { opacity: 0; }
 html.pfx-atmosphere.pfx-atmo-hidden .pfx-atmo-layer,
 html.pfx-atmosphere.pfx-atmo-hidden .pfx-atmo { display: none; }
-html.pfx-atmosphere .pfx-atmo-layer > * { position: absolute; pointer-events: none; transition: opacity 1s var(--pfx-ease); }
-html.pfx-atmosphere .pfx-atmo-layer > .is-off { opacity: 0 !important; }
-
-/* Per-preset palette (set on the layer as data-weather) */
-html.pfx-atmosphere .pfx-atmo-layer[data-weather=frostfall] {
-  --atmo-cloud: 205, 219, 232; --atmo-cloud-a: .10;
-  --atmo-smoke: 160, 182, 198; --atmo-smoke-a: .07;
-  --atmo-ray: 196, 228, 255;   --atmo-ray-a: .075;
-  --atmo-tint: rgba(120, 160, 190, .05);
-}
-html.pfx-atmosphere .pfx-atmo-layer[data-weather=moonlit] {
-  --atmo-cloud: 150, 124, 222; --atmo-cloud-a: .11;
-  --atmo-smoke: 118, 92, 190;  --atmo-smoke-a: .09;
-  --atmo-ray: 222, 214, 255;   --atmo-ray-a: .085;
-  --atmo-tint: rgba(70, 40, 140, .07);
-}
-html.pfx-atmosphere .pfx-atmo-layer[data-weather=emberfall] {
-  --atmo-cloud: 120, 78, 52;   --atmo-cloud-a: .12;
-  --atmo-smoke: 96, 72, 60;    --atmo-smoke-a: .14;
-  --atmo-ray: 255, 176, 86;    --atmo-ray-a: .08;
-  --atmo-tint: rgba(150, 60, 10, .06);
-}
-
-html.pfx-atmosphere .pfx-atmo-tint { inset: 0; background: radial-gradient(ellipse at 50% 0%, var(--atmo-tint), transparent 70%); }
-
-/* Clouds: two broad, blurred banks that drift sideways at the top of the viewport */
-html.pfx-atmosphere .pfx-atmo-clouds { inset: -10% -30% auto -30%; height: 60%; }
-html.pfx-atmosphere .pfx-atmo-clouds i {
-  position: absolute; inset: 0; display: block;
-  background:
-    radial-gradient(38% 42% at 18% 30%, rgba(var(--atmo-cloud), var(--atmo-cloud-a)), transparent 70%),
-    radial-gradient(30% 36% at 46% 16%, rgba(var(--atmo-cloud), calc(var(--atmo-cloud-a) * .8)), transparent 70%),
-    radial-gradient(42% 40% at 78% 34%, rgba(var(--atmo-cloud), var(--atmo-cloud-a)), transparent 72%);
-  filter: blur(18px);
-  animation: pfx-atmo-drift 80s linear infinite alternate;
-}
-html.pfx-atmosphere .pfx-atmo-clouds i + i { top: 8%; opacity: .7; transform: scaleX(-1); animation-duration: 120s; animation-direction: alternate-reverse; }
-
-/* Smoke / mist: low banks rolling along the bottom edge */
-html.pfx-atmosphere .pfx-atmo-smoke { inset: auto -25% -12% -25%; height: 55%; }
-html.pfx-atmosphere .pfx-atmo-smoke i {
-  position: absolute; inset: 0; display: block;
-  background:
-    radial-gradient(34% 55% at 20% 80%, rgba(var(--atmo-smoke), var(--atmo-smoke-a)), transparent 70%),
-    radial-gradient(40% 50% at 60% 90%, rgba(var(--atmo-smoke), var(--atmo-smoke-a)), transparent 72%),
-    radial-gradient(30% 45% at 88% 70%, rgba(var(--atmo-smoke), calc(var(--atmo-smoke-a) * .8)), transparent 70%);
-  filter: blur(22px);
-  animation: pfx-atmo-roll 46s ease-in-out infinite alternate;
-}
-html.pfx-atmosphere .pfx-atmo-smoke i + i { opacity: .65; animation-duration: 64s; animation-direction: alternate-reverse; }
-
-/* Light rays: soft god-rays from the top corner, slowly breathing */
-html.pfx-atmosphere .pfx-atmo-rays {
-  inset: -20% -10% 20% 10%; transform-origin: 20% 0;
-  background:
-    repeating-conic-gradient(from 168deg at 18% -8%,
-      transparent 0deg, rgba(var(--atmo-ray), var(--atmo-ray-a)) 2.5deg, transparent 6deg,
-      transparent 9deg, rgba(var(--atmo-ray), calc(var(--atmo-ray-a) * .6)) 11deg, transparent 15deg);
-  -webkit-mask-image: radial-gradient(ellipse 70% 80% at 18% 0%, #000 10%, transparent 75%);
-          mask-image: radial-gradient(ellipse 70% 80% at 18% 0%, #000 10%, transparent 75%);
-  filter: blur(6px);
-  animation: pfx-atmo-rays 14s ease-in-out infinite alternate;
-}
-
-/* Snow + particles: one small canvas each */
-html.pfx-atmosphere .pfx-atmo-layer canvas { inset: 0; width: 100%; height: 100%; }
-
-@keyframes pfx-atmo-drift { from { transform: translate3d(-6%, 0, 0); } to { transform: translate3d(6%, 2%, 0); } }
-@keyframes pfx-atmo-roll { from { transform: translate3d(5%, 0, 0) scaleY(1); } to { transform: translate3d(-5%, -4%, 0) scaleY(1.08); } }
-@keyframes pfx-atmo-rays { from { opacity: .65; transform: rotate(-1.5deg); } to { opacity: 1; transform: rotate(1.5deg); } }
-
-@media (prefers-reduced-motion: reduce) {
-  html.pfx-atmosphere .pfx-atmo-layer * { animation: none !important; }
-}
+html.pfx-atmosphere .pfx-atmo-layer > canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+/* Everything in the layer (the preset's sky / gutter / ground tints, Moonlit's moon halo, clouds, smoke,
+   light rays, Emberfall's horizon pulse, snow and particles) is drawn by atmosphere.js into that one
+   half-resolution canvas from pre-rendered bitmaps, so the layer is a single composited surface. */
 
 /* ---------- the control (prototype aside.atmosphere), placed bottom-right ---------- */
 html.pfx-atmosphere .pfx-atmo {
@@ -99,16 +41,17 @@ html.pfx-atmosphere .pfx-atmo button { cursor: pointer; font-family: inherit; }
 html.pfx-atmosphere .pfx-atmo-toggle {
   display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 11px 16px;
   background: #07131de8; border: 1px solid #799ca355; box-shadow: 0 5px 24px #0003;
-  color: #c8dde0; font: 10px var(--pfx-display); letter-spacing: .12em; text-transform: uppercase;
+  color: #c8dde0; font: 10px var(--pfx-display); letter-spacing: .12em;
   border-radius: 3px; -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
   transition: border-color .25s;
 }
 html.pfx-atmosphere .pfx-atmo-toggle > span:first-child { color: var(--pfx-gold); font-size: 17px; }
 html.pfx-atmosphere .pfx-atmo-toggle:hover,
 html.pfx-atmosphere .pfx-atmo-toggle[aria-expanded=true] { border-color: #8bccbd; }
-html.pfx-atmosphere .pfx-atmo-toggle:focus-visible,
-html.pfx-atmosphere .pfx-atmo-preset:focus-visible,
-html.pfx-atmosphere .pfx-atmo-close:focus-visible { outline: 1px solid var(--pfx-gold); outline-offset: 2px; }
+html.pfx-atmosphere .pfx-atmo :is(button, input):focus:not(:focus-visible) { outline: none !important; }
+html.pfx-atmosphere .pfx-atmo .pfx-atmo-toggle:focus-visible { outline: none !important; border-color: #8bccbd; }
+html.pfx-atmosphere .pfx-atmo .pfx-atmo-preset:focus-visible { outline: none !important; border-color: #8bccbd; }
+html.pfx-atmosphere .pfx-atmo .pfx-atmo-close:focus-visible { outline: 1px solid #8bccbd !important; outline-offset: 2px !important; }
 
 html.pfx-atmosphere .pfx-atmo-panel {
   position: absolute; bottom: 56px; right: 0; width: 320px; max-width: calc(100vw - 32px);
@@ -120,7 +63,8 @@ html.pfx-atmosphere .pfx-atmo-panel {
   animation: pfx-atmo-panel-in .28s var(--pfx-ease);
 }
 html.pfx-atmosphere .pfx-atmo-panel[hidden] { display: none; }
-@keyframes pfx-atmo-panel-in { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: none; } }
+/* No opacity in the keyframe: a stalled timeline must never leave a clickable-but-invisible panel. */
+@keyframes pfx-atmo-panel-in { from { transform: translateY(8px) scale(.98); } to { transform: none; } }
 html.pfx-atmosphere .pfx-atmo-heading { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
 html.pfx-atmosphere .pfx-atmo-heading h2 { font: 16px var(--pfx-display); letter-spacing: 0; margin: 0; color: #e2c790; }
 html.pfx-atmosphere .pfx-atmo-close { border: 0; background: transparent; color: #b3cecf; font: 22px var(--pfx-body); padding: 4px 8px; line-height: 1; }
@@ -147,7 +91,10 @@ html.pfx-atmosphere .pfx-atmo-layers label { display: flex; align-items: center;
 html.pfx-atmosphere .pfx-atmo-layers input { accent-color: #8dccbd; width: 15px; height: 15px; margin: 0; }
 html.pfx-atmosphere .pfx-atmo-note { font: 13px var(--pfx-body); line-height: 1.4; color: #88a3b1; margin: 16px 0 0; }
 
+/* keep the fixed control from covering the footer's last lines at the very end of the page */
+html.pfx-atmosphere footer[data-pfx="footer"] { padding-bottom: 84px !important; }
 @media (max-width: 760px) {
+  html.pfx-atmosphere footer[data-pfx="footer"] { padding-bottom: 76px !important; }
   html.pfx-atmosphere .pfx-atmo { right: 12px; bottom: max(12px, env(safe-area-inset-bottom)); }
   html.pfx-atmosphere .pfx-atmo-toggle { min-height: 40px; padding: 9px 12px; font-size: 9px; gap: 8px; }
   html.pfx-atmosphere .pfx-atmo-panel { width: 296px; padding: 17px; bottom: 50px; }

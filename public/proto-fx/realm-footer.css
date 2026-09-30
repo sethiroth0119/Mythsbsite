@@ -12,6 +12,8 @@ html.pfx-realm-footer .rf-backdrop { position: absolute; inset: 0; z-index: -1; 
 html.pfx-realm-footer .rf-landscape {
   position: absolute; inset: -130px 0; width: 100%; height: calc(100% + 260px); max-width: none;
   object-fit: cover; object-position: center 35%;
+  /* stand-in for the prototype's lost dusk realm art: dim and cool it to the same night key */
+  filter: brightness(.58) saturate(.62) contrast(1.05);
 }
 html.pfx-realm-footer .rf-mist {
   position: absolute; inset: -130px -5%;
@@ -48,8 +50,18 @@ html.pfx-realm-footer .rf-copy { position: relative; z-index: 2; width: min(100%
 html.pfx-realm-footer .rf-copy h2 { padding: 0; margin: 0 auto; width: min(100%, 600px); font-size: inherit; line-height: 1; letter-spacing: normal; }
 html.pfx-realm-footer .rf-copy h2 img {
   display: block; width: 100%; height: auto; aspect-ratio: 1; object-fit: contain;
-  filter: drop-shadow(0 8px 16px #000b);
+  filter: drop-shadow(0 8px 16px #000b); color: transparent; font-size: 0;
 }
+/* the logo is the site's own art; if it ever fails to load, show the wordmark instead of a broken image */
+html.pfx-realm-footer .rf-copy h2 .rf-wordmark { display: none; }
+html.pfx-realm-footer .rf-copy h2.rf-logo-failed img { display: none; }
+html.pfx-realm-footer .rf-copy h2.rf-logo-failed .rf-wordmark {
+  display: block; padding: 180px 0 120px; font: 600 64px/1.05 var(--pfx-display); letter-spacing: .06em;
+  text-transform: uppercase; color: #eccf6f; text-shadow: 0 2px 0 #7a4f1c, 0 8px 24px #000;
+}
+/* the hero covers' fixed "hover to reveal" hint never shows over the closing */
+html.pfx-realm-footer.rf-finale-onscreen .pfxhc-hint { opacity: 0 !important; visibility: hidden; }
+
 html.pfx-realm-footer .rf-invitation {
   width: fit-content; max-width: 100%; margin: 28px auto 46px; padding-top: 25px;
   border-top: 1px solid #c38a33; font: 16px/2 var(--pfx-display); letter-spacing: .29em;
@@ -64,7 +76,7 @@ html.pfx-realm-footer .rf-enter {
   background: linear-gradient(125deg, #f5e9ad, #deac46 42%, #c38a33 78%, #eccf6f);
   border: 1px solid #f5e9ad; color: #1e1713; text-shadow: none;
   box-shadow: inset 0 0 0 5px #c38a33, inset 0 0 0 6px #f5e9ad99, 0 12px 45px #000a;
-  transition: filter .2s, transform .2s, box-shadow .2s, color .2s;
+  transition: filter .2s, transform .2s; /* prototype .angle-button: background/rings/colour swap instantly */
 }
 html.pfx-realm-footer .rf-enter > span { font-size: 26px; letter-spacing: 0; }
 html.pfx-realm-footer .rf-enter::before,
@@ -77,8 +89,8 @@ html.pfx-realm-footer .rf-enter::after { right: -6px; }
 html.pfx-realm-footer .rf-enter:hover,
 html.pfx-realm-footer .rf-enter:focus-visible {
   background: linear-gradient(125deg, #fff2bc, #eccf6f 50%, #deac46); color: #070708;
-  box-shadow: inset 0 0 0 5px #deac46, inset 0 0 0 6px #f5e9ad, 0 12px 45px #000a, 0 0 38px #eccf6f55;
-  transform: translateY(-2px); outline: none;
+  box-shadow: inset 0 0 0 5px #deac46, inset 0 0 0 6px #f5e9ad, 0 12px 45px #000a;
+  filter: none; transform: translateY(-2px); outline: none; /* the prototype's final .angle-button:hover sets filter:none */
 }
 html.pfx-realm-footer .rf-enter:active { transform: scale(.98); }
 
@@ -125,6 +137,27 @@ html.pfx-realm-footer .rf-join::before {
 }
 html.pfx-realm-footer .rf-join h3 { font-size: 16px; margin-bottom: 8px; }
 html.pfx-realm-footer .rf-join p { font: italic 16px/1.65 var(--pfx-body); margin: 0 0 16px; color: #eee7db; }
+html.pfx-realm-footer .rf-signup {
+  display: flex; align-items: stretch; min-height: 54px; margin-top: 25px; border: 1px solid #c2b7a0; background: #070708a8;
+}
+html.pfx-realm-footer .rf-signup[hidden] { display: none; }
+html.pfx-realm-footer .rf-signup input {
+  flex: 1; min-width: 0; padding: 0 16px; background: transparent; border: 0; color: #eee7db;
+  font: 15px var(--pfx-body); outline: none;
+}
+html.pfx-realm-footer .rf-signup input::placeholder { color: #a79f8f; }
+html.pfx-realm-footer .rf-signup:focus-within { border-color: #eccf6f; }
+html.pfx-realm-footer .rf-signup button {
+  flex-shrink: 0; padding: 0 16px; border: 0; cursor: pointer;
+  background: linear-gradient(125deg, #f5e9ad, #deac46 50%, #a56d26); color: #1e1713;
+  font: 600 11px var(--pfx-display); letter-spacing: .12em; text-transform: uppercase; transition: filter .2s;
+}
+html.pfx-realm-footer .rf-signup button:hover, html.pfx-realm-footer .rf-signup button:focus-visible { filter: brightness(1.12); outline: none; }
+html.pfx-realm-footer .rf-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+html.pfx-realm-footer .rf-join p.rf-signup-done { margin: 10px 0 0; font-size: 15px; color: #eccf6f; min-height: 0; }
+html.pfx-realm-footer .rf-join p.rf-signup-done:empty { display: none; }
+html.pfx-realm-footer .rf-directory a.rf-news-link { display: inline-block; margin-top: 14px; font-size: 14px; }
+html.pfx-realm-footer footer[data-pfx="footer"] a.rf-soon { opacity: .45; cursor: default; pointer-events: none; }
 html.pfx-realm-footer .rf-directory a.rf-news {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   min-height: 54px; margin-top: 25px; padding-left: 16px; border: 1px solid #c2b7a0; background: #070708a8;
@@ -145,6 +178,15 @@ html.pfx-realm-footer .rf-join .rf-oath {
 html.pfx-realm-footer footer[data-pfx="footer"] > div.max-w-6xl {
   max-width: 1320px; padding-top: 28px; gap: 32px; font: 12px/1.5 var(--pfx-body); color: #c2b7a0;
 }
+html.pfx-realm-footer footer[data-pfx="footer"] > div.rf-colophon {
+  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; justify-content: stretch;
+  padding-top: 17px;
+}
+html.pfx-realm-footer footer[data-pfx="footer"] > div.rf-colophon > div:first-child { justify-self: start; }
+html.pfx-realm-footer footer[data-pfx="footer"] > div.rf-colophon > div:last-child { justify-self: end; flex-wrap: wrap; justify-content: flex-end; }
+html.pfx-realm-footer .rf-signoff {
+  margin: 0; font: 9px/1.8 var(--pfx-display); letter-spacing: .5em; text-transform: uppercase; color: #eccf6f; text-align: center;
+}
 html.pfx-realm-footer footer[data-pfx="footer"] > div.max-w-6xl .text-neutral-500 { color: #c2b7a0; font: 13px/1.5 var(--pfx-body); letter-spacing: .02em; }
 html.pfx-realm-footer footer[data-pfx="footer"] > div.max-w-6xl .ga-serif { color: #eccf6f; font-family: var(--pfx-display); letter-spacing: .06em; }
 html.pfx-realm-footer footer[data-pfx="footer"] > div.max-w-6xl > div:last-child { gap: 24px; }
@@ -155,8 +197,9 @@ html.pfx-realm-footer footer[data-pfx="footer"] > div.max-w-6xl > div:last-child
 html.pfx-realm-footer footer[data-pfx="footer"] > div.max-w-6xl > div:last-child a:hover {
   color: #eccf6f; text-decoration: underline; text-underline-offset: 4px;
 }
+/* the site's season line sits quietly under the colophon */
 html.pfx-realm-footer footer[data-pfx="footer"] > div.text-center:last-child {
-  margin-top: 22px; font: 9px/1.8 var(--pfx-display); letter-spacing: .5em; text-transform: uppercase; color: #eccf6f;
+  margin-top: 22px; font: 8px/1.8 var(--pfx-display); letter-spacing: .4em; text-transform: uppercase; color: #8d826d;
 }
 
 @media (min-width: 1700px) {
@@ -164,6 +207,8 @@ html.pfx-realm-footer footer[data-pfx="footer"] > div.text-center:last-child {
   html.pfx-realm-footer .rf-copy h2 { width: 610px; }
 }
 @media (max-width: 1000px) {
+  html.pfx-realm-footer footer[data-pfx="footer"] > div.rf-colophon { grid-template-columns: 1fr 1fr; }
+  html.pfx-realm-footer footer[data-pfx="footer"] > div.rf-colophon > .rf-signoff { grid-column: 1 / -1; order: 3; }
   html.pfx-realm-footer .rf-directory { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 38px 24px; padding: 28px 0; }
   html.pfx-realm-footer .rf-join {
     grid-column: 1 / -1; padding: 22px 0 0; border-left: 0; border-top: 1px solid #a56d2670;
@@ -172,6 +217,8 @@ html.pfx-realm-footer footer[data-pfx="footer"] > div.text-center:last-child {
   html.pfx-realm-footer .rf-join::before { display: none; }
   html.pfx-realm-footer .rf-join h3, html.pfx-realm-footer .rf-join p { grid-column: 1; }
   html.pfx-realm-footer .rf-directory a.rf-news { grid-column: 2; grid-row: 1 / 3; align-self: center; }
+  html.pfx-realm-footer .rf-signup { grid-column: 2; grid-row: 1 / 3; align-self: center; margin-top: 0; }
+  html.pfx-realm-footer .rf-join p.rf-signup-done, html.pfx-realm-footer .rf-directory a.rf-news-link { grid-column: 2; }
   html.pfx-realm-footer .rf-join .rf-oath { grid-column: 2; margin: 0; }
   html.pfx-realm-footer .rf-marginalia { font-size: 9px; left: 4.5%; }
   html.pfx-realm-footer .rf-copy h2 { width: 470px; max-width: 100%; }
@@ -182,7 +229,17 @@ html.pfx-realm-footer footer[data-pfx="footer"] > div.text-center:last-child {
   html.pfx-realm-footer .rf-finale { padding: 145px 24px 70px; }
   html.pfx-realm-footer .rf-marginalia { top: 28px; left: 24px; font-size: 8px; line-height: 1.8; letter-spacing: .22em; padding-left: 14px; }
   html.pfx-realm-footer .rf-copy h2 { width: 100%; }
-  html.pfx-realm-footer .rf-invitation { font-size: 10px; letter-spacing: .18em; margin-top: 24px; margin-bottom: 35px; padding-top: 20px; line-height: 1.9; }
+  /* the logo is the site's own art; if it ever fails to load, show the wordmark instead of a broken image */
+html.pfx-realm-footer .rf-copy h2 .rf-wordmark { display: none; }
+html.pfx-realm-footer .rf-copy h2.rf-logo-failed img { display: none; }
+html.pfx-realm-footer .rf-copy h2.rf-logo-failed .rf-wordmark {
+  display: block; padding: 180px 0 120px; font: 600 64px/1.05 var(--pfx-display); letter-spacing: .06em;
+  text-transform: uppercase; color: #eccf6f; text-shadow: 0 2px 0 #7a4f1c, 0 8px 24px #000;
+}
+/* the hero covers' fixed "hover to reveal" hint never shows over the closing */
+html.pfx-realm-footer.rf-finale-onscreen .pfxhc-hint { opacity: 0 !important; visibility: hidden; }
+
+html.pfx-realm-footer .rf-invitation { font-size: 10px; letter-spacing: .18em; margin-top: 24px; margin-bottom: 35px; padding-top: 20px; line-height: 1.9; }
   html.pfx-realm-footer .rf-enter { min-height: 78px; padding: 22px 25px; font-size: 13px; letter-spacing: .1em; gap: 22px; }
   html.pfx-realm-footer .rf-enter > span { font-size: 22px; }
   html.pfx-realm-footer .rf-landscape { object-position: 43% 15%; height: calc(65% + 260px); }
@@ -194,9 +251,13 @@ html.pfx-realm-footer footer[data-pfx="footer"] > div.text-center:last-child {
   html.pfx-realm-footer .rf-directory li { margin-bottom: 17px; }
   html.pfx-realm-footer .rf-join { display: block; padding-top: 34px; }
   html.pfx-realm-footer .rf-join h3 { font-size: 16px; }
-  html.pfx-realm-footer .rf-directory a.rf-news { margin-top: 18px; }
+  html.pfx-realm-footer .rf-directory a.rf-news, html.pfx-realm-footer .rf-signup { margin-top: 18px; }
   html.pfx-realm-footer .rf-join .rf-oath { margin-top: 17px; font-size: 8px; }
   html.pfx-realm-footer footer[data-pfx="footer"] > div.max-w-6xl { gap: 18px; text-align: center; }
+  html.pfx-realm-footer footer[data-pfx="footer"] > div.rf-colophon { display: flex; flex-direction: column; gap: 25px; padding-top: 26px; }
+  html.pfx-realm-footer footer[data-pfx="footer"] > div.rf-colophon > div { justify-self: center; }
+  html.pfx-realm-footer .rf-signoff { order: 3; font-size: 8px; letter-spacing: .35em; }
+  html.pfx-realm-footer .rf-copy h2.rf-logo-failed .rf-wordmark { padding: 90px 0 60px; font-size: 38px; }
   html.pfx-realm-footer footer[data-pfx="footer"] > div.max-w-6xl > div:last-child { flex-wrap: wrap; justify-content: center; gap: 14px 22px; }
   html.pfx-realm-footer footer[data-pfx="footer"] > div.text-center:last-child { font-size: 8px; letter-spacing: .35em; }
 }

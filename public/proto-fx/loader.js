@@ -25,8 +25,13 @@
     'boot-loader', 'header-band', 'angle-buttons', 'hero-title', 'hero-covers', 'card-hover',
     'inspector', 'collection-showcase', 'chapters', 'scroll-reveal', 'world-lore',
     'survivor-portraits', 'faction-tabs', 'subclass-items', 'archive-gallery', 'atmosphere',
-    'realm-footer', 'links'
+    'realm-footer', 'links', 'pages'
   ];
+  // Standalone pages (lore/, ethos-buy.html) include this loader with data-pfx-pieces="pages" so they
+  // only get the shared tokens plus the page restyle, not the home page's React-bound pieces.
+  var me = document.currentScript;
+  var scoped = me && me.getAttribute('data-pfx-pieces');
+  if (scoped) PIECES = scoped.split(',').map(function (x) { return x.trim(); }).filter(Boolean);
   var q = {}; try { new URLSearchParams(location.search).forEach(function (v, k) { q[k] = v; }); } catch (e) {}
   var ls = function (k) { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } };
   var list = function (s) { return String(s || '').split(',').map(function (x) { return x.trim(); }).filter(Boolean); };
