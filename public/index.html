@@ -178,8 +178,25 @@ const SOCIAL_LINKS = [
   { id: 'instagram', label: 'Instagram', href: 'https://www.instagram.com/mythicspellbook/' },
   { id: 'facebook',  label: 'Facebook',  href: 'https://www.facebook.com/share/1BzbScnkHB/' },
   { id: 'tiktok',    label: 'TikTok',    href: 'https://www.tiktok.com/@mythicspellbook' },
+  { id: 'x',         label: 'X (Twitter)', href: 'https://x.com/mythicspellbook' },
 ];
 // Small line icons, drawn in the header's gold. Unknown ids fall back to a generic link glyph.
+// One compact row of small square icon buttons, used in the header, the phone menu and the footer.
+// size = button edge in px. Labels are for screen readers and the hover tooltip only.
+const SocialRow = ({ size = 30, className = '', style }) => (
+  <div className={`flex items-center gap-1.5 ${className}`} style={style}>
+    {SOCIAL_LINKS.filter((l) => l.href).map((l) => {
+      const name = l.id === 'discord' ? 'Add us on Discord' : `${l.label}`;
+      return (
+        <a key={l.id} href={l.href} target="_blank" rel="noopener noreferrer" data-social={l.id} title={name} aria-label={name}
+          className="ms-social inline-flex items-center justify-center transition hover:text-white"
+          style={{ width: size, height: size, borderRadius: 2, border: '1px solid rgba(201,168,106,0.45)', color: '#e8d5a8', background: 'rgba(201,168,106,0.06)' }}>
+          <SocialIcon id={l.id} />
+        </a>
+      );
+    })}
+  </div>
+);
 const SocialIcon = ({ id }) => {
   const p = { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.7, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true };
   if (id === 'discord') return (
@@ -190,6 +207,9 @@ const SocialIcon = ({ id }) => {
   );
   if (id === 'facebook') return (
     <svg {...p}><path d="M14.5 20v-7h2.4l.4-2.8h-2.8V8.6c0-.8.3-1.4 1.4-1.4h1.5V4.7c-.3 0-1.2-.1-2.2-.1-2.2 0-3.6 1.3-3.6 3.8v1.8H9.2V13h2.4v7"/></svg>
+  );
+  if (id === 'x') return (
+    <svg {...p}><path d="M5 4.5h3.6L19 19.5h-3.6Z"/><path d="M18.6 4.5 13.4 10.4M5.4 19.5l5.3-6"/></svg>
   );
   if (id === 'tiktok') return (
     <svg {...p}><path d="M13.5 4v10.5a3.5 3.5 0 1 1-3.5-3.5"/><path d="M13.5 4c.4 2.6 2.1 4.2 4.7 4.4"/></svg>
@@ -837,16 +857,8 @@ const Navbar = ({ onNavigate, deckCount, survivors, loyalFaction, isSignedIn, di
 
         {/* ===== Right cluster (auth + play + hamburger on mobile) ===== */}
         <div className="flex items-center gap-2 shrink-0 ml-auto">
-          {/* Social buttons — hidden on phones (they sit in the menu there), icon-only up to 1536px, icon + name above. */}
-          {SOCIAL_LINKS.filter((l) => l.href).map((l) => (
-            <a key={l.id} href={l.href} target="_blank" rel="noopener noreferrer" data-social={l.id}
-              className="hidden sm:inline-flex items-center gap-1.5 h-9 px-2.5 2xl:px-3 text-[12px] tracking-wide transition border whitespace-nowrap hover:text-white"
-              style={{ borderRadius: '2px', borderColor: 'rgba(201,168,106,0.45)', color: '#e8d5a8', background: 'rgba(201,168,106,0.06)' }}
-              title={l.id === 'discord' ? 'Add us on Discord' : l.label} aria-label={l.id === 'discord' ? 'Add us on Discord' : l.label}>
-              <SocialIcon id={l.id} />
-              <span className="hidden 2xl:inline">{l.label}</span>
-            </a>
-          ))}
+          {/* Social buttons — small icon squares; on phones they move into the menu (no room beside Play). */}
+          <SocialRow size={30} className="hidden sm:flex mr-1" />
           {/* 🛒 Shop (ex-Pledge) — lives beside the account button, signed-in only. */}
           {isSignedIn && (
             <button
@@ -914,14 +926,10 @@ const Navbar = ({ onNavigate, deckCount, survivors, loyalFaction, isSignedIn, di
             )}
             <button onClick={mAction(onShowCommunity)} className={`text-left py-2.5 px-3 rounded hover:bg-white/5 tracking-wide font-medium ${currentPage === 'community' ? 'text-white' : 'text-neutral-200'}`}>Community</button>
             <button onClick={mAction(onShowDeckBuilder)} className={`text-left py-2.5 px-3 rounded hover:bg-white/5 tracking-wide font-medium ${currentPage === 'deckbuilder' ? 'text-white' : 'text-neutral-200'}`}>Deck Builder</button>
-            {/* Socials — one row across the bottom of the menu. */}
-            <div className="col-span-2 flex flex-wrap gap-2 pt-2 mt-1 border-t border-white/10">
-              {SOCIAL_LINKS.filter((l) => l.href).map((l) => (
-                <a key={l.id} href={l.href} target="_blank" rel="noopener noreferrer" data-social={l.id}
-                  className="inline-flex items-center gap-2 py-2.5 px-3 rounded hover:bg-white/5 tracking-wide font-medium" style={{ color: '#e8d5a8' }}>
-                  <SocialIcon id={l.id} />{l.id === 'discord' ? 'Add us on Discord' : l.label}
-                </a>
-              ))}
+            {/* Socials — one neat row of small icons across the bottom of the menu. */}
+            <div className="col-span-2 flex items-center justify-between gap-3 pt-3 mt-1 px-3 border-t border-white/10">
+              <span className="text-[10px] uppercase tracking-[0.2em] text-neutral-500 whitespace-nowrap shrink-0">Follow us</span>
+              <SocialRow size={34} />
             </div>
           </div>
         </div>
@@ -5596,7 +5604,9 @@ const Footer = () => (
         <a href="#" className="hover:text-white transition">Terms</a>
       </div>
     </div>
-    <div className="text-center text-neutral-700 text-[10px] mt-7 tracking-[0.3em] uppercase">
+    {/* Socials — the same small icon row on phones and desktop. */}
+    <SocialRow size={30} className="ms-footer-socials justify-center mt-7" />
+    <div className="text-center text-neutral-700 text-[10px] mt-5 tracking-[0.3em] uppercase">
       Season 1 · The Ashen Season · Built for the Board
     </div>
   </footer>
