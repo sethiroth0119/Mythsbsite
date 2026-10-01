@@ -303,15 +303,14 @@ html.pfx-header-band.pfx-hb-compact nav[data-pfx="nav"] {
   html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:last-child > a[href]:not([data-social]):hover { transform: none; }
 }
 
-/* Social buttons in the right cluster (Discord first): a small engraved gold box, not the Play button's
-   angle frame. Phones hide them here (they live in the menu); tablets show the icon; wide screens add the name. */
-html.pfx-header-band nav[data-pfx="nav"] a[data-social] {
-  height: 38px; min-width: 38px; padding: 0 11px; justify-content: center; border-radius: 0 !important;
+/* Social buttons (SocialRow in index.html): small engraved gold squares, icon only, everywhere they appear —
+   header right cluster, phone menu, footer. Size comes from the component; this only adds the engraved finish. */
+html.pfx-header-band a.ms-social {
+  padding: 0 !important; border-radius: 0 !important;
   border: 1px solid #c9a86a73 !important; background: #0b0e0cb3 !important; color: #e8d5a8 !important;
   box-shadow: inset 0 0 0 2px #0b0e0c, inset 0 0 0 3px #c9a86a26;
-  font-family: var(--pfx-display, Georgia), Georgia, serif; font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
   transition: border-color .2s, color .2s, transform .2s, filter .2s;
 }
-html.pfx-header-band nav[data-pfx="nav"] a[data-social]:hover { border-color: #e3bd6f !important; color: #fff !important; filter: brightness(1.12); transform: translateY(-1px); }
-html.pfx-header-band nav[data-pfx="nav"] a[data-social]:focus-visible { outline: 1px solid #e3bd6f; outline-offset: 2px; }
-@media (max-width: 639px) { html.pfx-header-band nav[data-pfx="nav"] > div:first-child > div:last-child > a[data-social] { display: none !important; } }
+html.pfx-header-band a.ms-social svg { width: 15px; height: 15px; }
+html.pfx-header-band a.ms-social:hover { border-color: #e3bd6f !important; color: #fff !important; filter: brightness(1.12); transform: translateY(-1px); }
+html.pfx-header-band a.ms-social:focus-visible { outline: 1px solid #e3bd6f; outline-offset: 2px; }
